@@ -173,7 +173,7 @@ export function buildSystemPrompt({
   region,
 }: PromptOptions = {}): string {
   const context = [
-    `<today>${now.toISOString().slice(0, 10)}</today>`,
+    `<current_datetime_utc>${now.toISOString()}</current_datetime_utc>`,
     region ? `<user_region>${describeRegion(region)}</user_region>` : '',
   ]
     .filter(Boolean)
