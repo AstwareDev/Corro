@@ -3,9 +3,6 @@
 import { Globe } from "lucide-react";
 import { useState } from "react";
 
-
-
-
 export function Favicon({ host, size = 16 }: { host: string; size?: number }) {
   const [failed, setFailed] = useState(false);
 
@@ -14,7 +11,6 @@ export function Favicon({ host, size = 16 }: { host: string; size?: number }) {
   }
 
   return (
-    
     <img
       src={`https://icons.duckduckgo.com/ip3/${host}.ico`}
       alt=""

@@ -6,8 +6,8 @@ export const API_URL =
 const DEVICE_STORAGE_KEY = "corro_device_id";
 const REGION_CODE = /^[A-Z]{2}$/;
 
-// Bypasses ngrok's free-tier browser-warning interstitial, which otherwise
-// intercepts requests before they reach the API and responds without CORS headers.
+
+
 const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" } as const;
 
 let clientRegion: Promise<string | undefined> | undefined;

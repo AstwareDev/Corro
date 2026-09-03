@@ -100,6 +100,17 @@ const LOCAL_SOURCES: Array<{
       'cheapest, or wants the best price without naming a shop. Say which chain each price came from — ' +
       'they stock different ranges and a product missing from one may simply not be sold there.',
   },
+  {
+    region: 'US',
+    tools: ['amazon_search', 'amazon_product', 'walmart_search', 'walmart_product'],
+    line:
+      'United States (US): amazon_search / amazon_product read Amazon.com, walmart_search / ' +
+      'walmart_product read Walmart.com — both live, in US dollars, with ratings, review counts and ' +
+      'current markdowns. Search both when the user wants the better price or is not tied to one ' +
+      'retailer. These two sites actively rate-limit automated requests; a tool that returns an error ' +
+      "about a bot check has been blocked, not told the product doesn't exist — say so plainly and " +
+      'offer to try again rather than reporting it as unavailable.',
+  },
 ]
 
 function localSourcesSection(toolNames: string[], region?: PromptOptions['region']): string {

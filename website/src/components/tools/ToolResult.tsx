@@ -223,8 +223,6 @@ function FileRename({ from, to }: { from: string; to: string }) {
   );
 }
 
-
-
 function AnswerCard({ answer }: { answer: string }) {
   return (
     <div className="rounded-xl border border-border bg-surface-raised px-3 py-2.5">
@@ -376,8 +374,6 @@ function SiteMap({ site, urls }: { site?: string; urls: string[] }) {
   );
 }
 
-
-
 export function ToolResult({ call }: { call: ToolCallUI }) {
   const out = call.output as Record<string, unknown> | undefined;
 
@@ -391,10 +387,7 @@ export function ToolResult({ call }: { call: ToolCallUI }) {
     typeof out?.formatted === "string"
   ) {
     return (
-      <CalculatorResult
-        expression={out.expression}
-        formatted={out.formatted}
-      />
+      <CalculatorResult expression={out.expression} formatted={out.formatted} />
     );
   }
 
@@ -494,8 +487,6 @@ export function ToolResult({ call }: { call: ToolCallUI }) {
     );
   }
 
-  
-  
   const shop = presentTool(call.name).brand;
 
   if (shop && call.name.endsWith("_search") && Array.isArray(out?.products)) {
@@ -516,6 +507,7 @@ export function ToolResult({ call }: { call: ToolCallUI }) {
               ? out.atLeastPages
               : undefined
         }
+        currency={typeof out.currency === "string" ? out.currency : undefined}
       />
     );
   }
@@ -533,6 +525,7 @@ export function ToolResult({ call }: { call: ToolCallUI }) {
             error?: string;
           }>
         }
+        currency={typeof out.currency === "string" ? out.currency : undefined}
       />
     );
   }

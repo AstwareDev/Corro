@@ -1,8 +1,10 @@
+import { amazonProduct, amazonSearch } from './amazon/index.js'
 import { calculator } from './calculator.js'
 import { createFsTools, FS_TOOL_NAMES } from './fs/index.js'
-import { webCrawl, webExtract, webMap, webSearch } from './tavily/index.js'
 import { parmaCategories, parmaProduct, parmaSearch } from './parma/index.js'
 import { sasCategories, sasProduct, sasSearch } from './sas/index.js'
+import { webCrawl, webExtract, webMap, webSearch } from './tavily/index.js'
+import { walmartProduct, walmartSearch } from './walmart/index.js'
 import { yerevanCityCategories, yerevanCityProduct, yerevanCitySearch } from './yerevan-city/index.js'
 
 
@@ -21,6 +23,10 @@ const SHARED = {
   sas_search: sasSearch,
   sas_product: sasProduct,
   sas_categories: sasCategories,
+  amazon_search: amazonSearch,
+  amazon_product: amazonProduct,
+  walmart_search: walmartSearch,
+  walmart_product: walmartProduct,
 } as const
 
 export type SharedToolName = keyof typeof SHARED
@@ -63,6 +69,8 @@ export {
 } from './yerevan-city/index.js'
 export { parmaSearch, parmaProduct, parmaCategories, PARMA_TOOL_NAMES } from './parma/index.js'
 export { sasSearch, sasProduct, sasCategories, SAS_TOOL_NAMES } from './sas/index.js'
+export { amazonSearch, amazonProduct, AMAZON_TOOL_NAMES } from './amazon/index.js'
+export { walmartSearch, walmartProduct, WALMART_TOOL_NAMES } from './walmart/index.js'
 export { ShopError } from './shops/scrape.js'
 export { createFsTools, FS_TOOL_NAMES } from './fs/index.js'
 export { listFiles, workspaceRoot, WorkspaceError } from './fs/workspace.js'

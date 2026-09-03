@@ -59,8 +59,6 @@ function Expand({
   );
 }
 
-
-
 function ToolCallRow({ call, nested }: { call: ToolCallUI; nested?: boolean }) {
   const [open, setOpen] = useState(false);
   const { Icon, ChildIcon } = presentTool(call.name);
@@ -99,10 +97,6 @@ function ToolCallRow({ call, nested }: { call: ToolCallUI; nested?: boolean }) {
   );
 }
 
-
-
-
-
 function runHeader(calls: ToolCallUI[]): { glyph: ReactNode; label: string } {
   const names = new Set(calls.map((c) => c.name));
   const first = presentTool(calls[0].name);
@@ -116,8 +110,7 @@ function runHeader(calls: ToolCallUI[]): { glyph: ReactNode; label: string } {
 
   const brands = brandsOf(calls.map((c) => c.name));
   const family = first.family;
-  
-  
+
   const branded =
     brands.length > 0 && calls.every((c) => presentTool(c.name).brand);
   const Fallback = family?.Icon ?? first.Icon;
@@ -131,8 +124,6 @@ function runHeader(calls: ToolCallUI[]): { glyph: ReactNode; label: string } {
     label: family?.label ?? first.groupLabel,
   };
 }
-
-
 
 function ToolRun({ calls }: { calls: ToolCallUI[] }) {
   const [open, setOpen] = useState(true);
@@ -162,7 +153,6 @@ function ToolRun({ calls }: { calls: ToolCallUI[] }) {
     </div>
   );
 }
-
 
 function toRuns(calls: ToolCallUI[]): ToolCallUI[][] {
   const runs: ToolCallUI[][] = [];

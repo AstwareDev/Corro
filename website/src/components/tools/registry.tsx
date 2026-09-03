@@ -13,6 +13,7 @@ import {
   ShoppingBasket,
   ShoppingCart,
   SquarePen,
+  Store,
   Tag,
   Trash2,
   Wrench,
@@ -21,12 +22,9 @@ import type { ComponentType } from "react";
 
 export type ToolIcon = ComponentType<{ size?: number; className?: string }>;
 
-
-
 function brandIcon(src: string, name: string): ToolIcon {
   return function BrandIcon({ size = 13, className }) {
     return (
-      
       <img
         src={src}
         alt={name}
@@ -43,12 +41,9 @@ function brandIcon(src: string, name: string): ToolIcon {
   };
 }
 
-
-
-
 export interface ToolFamily {
   id: string;
-  
+
   label: string;
   Icon: ToolIcon;
 }
@@ -62,7 +57,11 @@ export const SUPERMARKETS: ToolFamily = {
 
 
 
-
+export const MARKETPLACES: ToolFamily = {
+  id: "marketplaces",
+  label: "Checked online retailers",
+  Icon: Store,
+};
 
 export interface ShopBrandInfo {
   id: string;
@@ -96,31 +95,37 @@ const SAS: ShopBrandInfo = {
   Icon: brandIcon("/sources/sas.png", "SAS"),
 };
 
+const AMAZON: ShopBrandInfo = {
+  id: "amazon",
+  name: "Amazon",
+  host: "amazon.com",
+  accent: "#ff9900",
+  Icon: brandIcon("/sources/amazon.png", "Amazon"),
+};
+
+const WALMART: ShopBrandInfo = {
+  id: "walmart",
+  name: "Walmart",
+  host: "walmart.com",
+  accent: "#0071ce",
+  Icon: brandIcon("/sources/walmart.png", "Walmart"),
+};
+
 export interface ToolPresentation {
   Icon: ToolIcon;
-  
 
   ChildIcon: ToolIcon;
-  
-  label: string;
-  
-  groupLabel: string;
-  
-  verb: string;
-  
-  family?: ToolFamily;
-  
 
+  label: string;
+
+  groupLabel: string;
+
+  verb: string;
+
+  family?: ToolFamily;
 
   brand?: ShopBrandInfo;
 }
-
-
-
-
-
-
-
 
 const STACK_TILTS = [-8, 6, -3];
 
@@ -134,9 +139,6 @@ export function BrandStack({
   const shown = brands.slice(0, 3);
   if (!shown.length) return null;
 
-  
-  
-  
   const single = shown.length === 1;
   const step = Math.round(size * 0.44);
 
@@ -154,12 +156,11 @@ export function BrandStack({
             className="absolute top-0 origin-center"
             style={{
               left: i * step,
-              
+
               zIndex: shown.length - i,
               ...(single ? {} : { transform: `rotate(${STACK_TILTS[i]}deg)` }),
             }}
           >
-            
             <Mark
               size={size}
               className={single ? undefined : "ring-[1.5px] ring-bg"}
@@ -171,7 +172,6 @@ export function BrandStack({
   );
 }
 
-
 export function brandsOf(toolNames: string[]): ShopBrandInfo[] {
   const seen = new Map<string, ShopBrandInfo>();
   for (const name of toolNames) {
@@ -181,14 +181,14 @@ export function brandsOf(toolNames: string[]): ShopBrandInfo[] {
   return [...seen.values()];
 }
 
-
-
 function shopTools(
   prefix: string,
   brand: ShopBrandInfo,
+  opts: { family?: ToolFamily; categories?: boolean } = {},
 ): Record<string, ToolPresentation> {
-  const common = { family: SUPERMARKETS, brand, Icon: brand.Icon };
-  return {
+  const family = opts.family ?? SUPERMARKETS;
+  const common = { family, brand, Icon: brand.Icon };
+  const tools: Record<string, ToolPresentation> = {
     [`${prefix}_search`]: {
       ...common,
       ChildIcon: ShoppingBasket,
@@ -203,20 +203,27 @@ function shopTools(
       groupLabel: `Looked up products at ${brand.name}`,
       verb: "Looked up a product",
     },
-    [`${prefix}_categories`]: {
+  };
+  
+  
+  if (opts.categories ?? true) {
+    tools[`${prefix}_categories`] = {
       ...common,
       ChildIcon: LayoutGrid,
       label: `Browse ${brand.name} categories`,
       groupLabel: `Browsed ${brand.name} categories`,
       verb: "Browsed categories",
-    },
-  };
+    };
+  }
+  return tools;
 }
 
 const REGISTRY: Record<string, ToolPresentation> = {
   ...shopTools("yerevan_city", YEREVAN_CITY),
   ...shopTools("parma", PARMA),
   ...shopTools("sas", SAS),
+  ...shopTools("amazon", AMAZON, { family: MARKETPLACES, categories: false }),
+  ...shopTools("walmart", WALMART, { family: MARKETPLACES, categories: false }),
 
   web_search: {
     Icon: Search,
@@ -315,8 +322,6 @@ const FALLBACK: ToolPresentation = {
 export function presentTool(name: string): ToolPresentation {
   return REGISTRY[name] ?? FALLBACK;
 }
-
-
 
 export function runKey(name: string): string {
   return presentTool(name).family?.id ?? name;

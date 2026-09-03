@@ -1,27 +1,41 @@
 "use client";
 
 import clsx from "clsx";
-import { ChevronRight, ImageOff, Scale, Tag } from "lucide-react";
+import { ChevronRight, ImageOff, Scale, Star, Tag } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useState } from "react";
 
-
-
-
-
-
-
-
-
-
-
 const DRAM = "֏";
+
+
+
+
+
+
+
+
+function money(value: number | undefined, currency = "AMD"): string {
+  if (value === undefined) return "—";
+  const rounded = Math.round(value * 100) / 100;
+  if (currency === "AMD") {
+    return `${rounded.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${DRAM}`;
+  }
+  try {
+    return rounded.toLocaleString("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    return `${rounded.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${currency}`;
+  }
+}
 
 export interface ShopBrand {
   name: string;
-  
+
   host: string;
-  
+
   accent: string;
 }
 
@@ -31,8 +45,10 @@ export interface ShopProduct {
   price?: number;
   wasPrice?: number;
   discountPercent?: number;
-  
   discountRuns?: { from?: string; to?: string; text?: string };
+  
+  rating?: number;
+  reviewCount?: number;
   category?: string;
   categoryPath?: string[];
   brand?: string;
@@ -43,13 +59,12 @@ export interface ShopProduct {
   howToUse?: string;
   taste?: string;
   nutrition?: string[];
-  
+
   details?: string[];
   soldByWeight?: boolean | { minimumGrams?: number; stepGrams?: number };
   weightKg?: number;
-  
+
   packSize?: string;
-  
 
   pricePerUnit?: { amount: number; unit: string } | string;
   barcodes?: string[];
@@ -64,17 +79,14 @@ export interface ShopProduct {
   alsoConsider?: ShopProduct[];
 }
 
-function dram(value?: number): string {
-  if (value === undefined) return "—";
-  const rounded = Math.round(value * 100) / 100;
-  return `${rounded.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${DRAM}`;
-}
-
-function perUnitLabel(product: ShopProduct): string | undefined {
+function perUnitLabel(
+  product: ShopProduct,
+  currency: string,
+): string | undefined {
   const perUnit = product.pricePerUnit;
   if (!perUnit) return undefined;
   if (typeof perUnit === "string") return perUnit;
-  return `${dram(perUnit.amount)} / ${perUnit.unit}`;
+  return `${money(perUnit.amount, currency)} / ${perUnit.unit}`;
 }
 
 function discountWindow(product: ShopProduct): string | undefined {
@@ -85,15 +97,11 @@ function discountWindow(product: ShopProduct): string | undefined {
   return undefined;
 }
 
-
-
 function accentStyle(shop?: ShopBrand): CSSProperties {
   return {
     "--shop-accent": shop?.accent ?? "var(--corro-text)",
   } as CSSProperties;
 }
-
-
 
 function Shot({
   src,
@@ -114,7 +122,6 @@ function Shot({
       )}
     >
       {src && !failed ? (
-        
         <img
           src={src}
           alt={alt}
@@ -137,15 +144,33 @@ function DiscountBadge({ percent }: { percent: number }) {
   );
 }
 
+
+
+
+function Rating({ value, count }: { value?: number; count?: number }) {
+  if (value === undefined) return null;
+  return (
+    <span className="flex items-center gap-0.5 text-[10px] text-ink-muted">
+      <Star size={9} className="fill-current" />
+      <span className="tabular-nums">{value.toFixed(1)}</span>
+      {count !== undefined && (
+        <span className="tabular-nums">({count.toLocaleString()})</span>
+      )}
+    </span>
+  );
+}
+
 function Price({
   price,
   wasPrice,
   discountPercent,
+  currency = "AMD",
   size = "sm",
 }: {
   price?: number;
   wasPrice?: number;
   discountPercent?: number;
+  currency?: string;
   size?: "sm" | "lg";
 }) {
   return (
@@ -159,11 +184,11 @@ function Price({
             : "text-ink",
         )}
       >
-        {dram(price)}
+        {money(price, currency)}
       </span>
       {wasPrice !== undefined && (
         <span className="text-[11px] tabular-nums text-ink-muted line-through">
-          {dram(wasPrice)}
+          {money(wasPrice, currency)}
         </span>
       )}
       {discountPercent !== undefined && (
@@ -173,10 +198,14 @@ function Price({
   );
 }
 
-
-
-function ProductCard({ product }: { product: ShopProduct }) {
-  const perUnit = perUnitLabel(product);
+function ProductCard({
+  product,
+  currency,
+}: {
+  product: ShopProduct;
+  currency: string;
+}) {
+  const perUnit = perUnitLabel(product, currency);
 
   return (
     <a
@@ -199,11 +228,13 @@ function ProductCard({ product }: { product: ShopProduct }) {
         <span className="line-clamp-2 text-[12px] leading-snug text-ink group-hover:underline">
           {product.name}
         </span>
+        <Rating value={product.rating} count={product.reviewCount} />
         <div className="mt-auto pt-1">
           <Price
             price={product.price}
             wasPrice={product.wasPrice}
             discountPercent={product.discountPercent}
+            currency={currency}
           />
           {perUnit && (
             <p className="mt-0.5 text-[10px] tabular-nums text-ink-muted">
@@ -229,6 +260,7 @@ export function ShopSearchResults({
   page,
   pageCount,
   shelf,
+  currency = "AMD",
 }: {
   products: ShopProduct[];
   shop?: ShopBrand;
@@ -238,6 +270,8 @@ export function ShopSearchResults({
   pageCount?: number;
   
   shelf?: string;
+  
+  currency?: string;
 }) {
   if (!products.length) {
     return (
@@ -258,7 +292,7 @@ export function ShopSearchResults({
     <div className="space-y-2" style={accentStyle(shop)}>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {products.map((p) => (
-          <ProductCard key={p.id} product={p} />
+          <ProductCard key={p.id} product={p} currency={currency} />
         ))}
       </div>
       <p className="text-[10px] text-ink-muted">
@@ -290,7 +324,6 @@ function Prose({ label, text }: { label: string; text: string }) {
       <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
         {label}
       </p>
-      
 
       <p className="whitespace-pre-line text-[12px] leading-relaxed text-ink">
         {text}
@@ -298,8 +331,6 @@ function Prose({ label, text }: { label: string; text: string }) {
     </div>
   );
 }
-
-
 
 function Gallery({ images, alt }: { images: string[]; alt: string }) {
   const [active, setActive] = useState(0);
@@ -343,7 +374,13 @@ function sizeNote(product: ShopProduct): string | undefined {
   return product.weightKg ? `${product.weightKg} kg` : undefined;
 }
 
-function ProductDetail({ product }: { product: ShopProduct }) {
+function ProductDetail({
+  product,
+  currency,
+}: {
+  product: ShopProduct;
+  currency: string;
+}) {
   const images = product.images?.length
     ? product.images
     : product.image
@@ -351,7 +388,7 @@ function ProductDetail({ product }: { product: ShopProduct }) {
       : [];
   const size = sizeNote(product);
   const window = discountWindow(product);
-  const perUnit = perUnitLabel(product);
+  const perUnit = perUnitLabel(product, currency);
 
   const hasBody =
     product.description ||
@@ -386,6 +423,7 @@ function ProductDetail({ product }: { product: ShopProduct }) {
             >
               {product.name}
             </a>
+            <Rating value={product.rating} count={product.reviewCount} />
           </div>
 
           <div>
@@ -393,6 +431,7 @@ function ProductDetail({ product }: { product: ShopProduct }) {
               price={product.price}
               wasPrice={product.wasPrice}
               discountPercent={product.discountPercent}
+              currency={currency}
               size="lg"
             />
             {perUnit && (
@@ -478,6 +517,7 @@ function ProductDetail({ product }: { product: ShopProduct }) {
                     price={alt.price}
                     wasPrice={alt.wasPrice}
                     discountPercent={alt.discountPercent}
+                    currency={currency}
                   />
                 </a>
               </li>
@@ -493,15 +533,18 @@ export function ShopProductDetails({
   products,
   shop,
   failed,
+  currency = "AMD",
 }: {
   products: ShopProduct[];
   shop?: ShopBrand;
   failed?: Array<{ id?: number; slug?: string; url?: string; error?: string }>;
+  
+  currency?: string;
 }) {
   return (
     <div className="space-y-2" style={accentStyle(shop)}>
       {products.map((p) => (
-        <ProductDetail key={p.id} product={p} />
+        <ProductDetail key={p.id} product={p} currency={currency} />
       ))}
       {failed?.map((f) => (
         <p
@@ -522,7 +565,7 @@ export interface ShopCategory {
   productCount?: number;
   ageRestricted?: boolean;
   image?: string;
-  
+
   children?: Array<{ id?: number | string; slug?: string; name: string }>;
 }
 
@@ -551,8 +594,6 @@ export function ShopCategories({
     );
   }
 
-  
-  
   const nested = categories.some((c) => c.children?.length);
 
   return (

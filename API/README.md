@@ -78,6 +78,8 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `yerevan_city_search`, `parma_search`, `sas_search` | search a supermarket catalogue: live AMD prices and discounts |
 | `yerevan_city_product`, `parma_product`, `sas_product` | one product in full: description, origin, photos |
 | `yerevan_city_categories`, `parma_categories`, `sas_categories` | walk a shop's category tree |
+| `amazon_search`, `walmart_search` | search a US marketplace: live USD prices, ratings, current deals |
+| `amazon_product`, `walmart_product` | one product in full: description, brand, stock, photos |
 
 The web tools are Tavily. Every response is trimmed before the model sees it:
 tracking parameters stripped from URLs, markup and image links removed, results
@@ -130,6 +132,33 @@ Language is `en`, `ru` or `hy` on every tool. Parma switches on a path segment
 
 Search always needs something to narrow by — a query, a category, or the discount shelf.
 The catalogues run to six figures and will not be listed whole.
+
+## Marketplaces
+
+**Amazon** and **Walmart** have a search and a product-detail tool each, no category tree
+— a generalist marketplace has no neat aisle taxonomy the way a supermarket does. Prices
+are USD, ratings and review counts come through where the shop has them, and
+`amazon_product` takes ASINs while `walmart_product` takes the URLs `walmart_search`
+already returned.
+
+Neither site publishes an API, and both actively rate-limit automated traffic harder than
+the Armenian supermarkets do: a plain, correctly-headed request gets a bot-check page
+regardless of what it claims to be. What actually clears it is a *session* — one request
+to the homepage first, so the site hands over the cookies a real visit would already have,
+then the real request sent with those cookies and a referer. Nothing here is spoofed or
+solved; it's a genuine two-step navigation, the same one a browser makes without thinking
+about it. `src/agent/tools/shops/session.ts` holds this, one persistent session per shop
+for the life of the process, re-warmed automatically if a response ever comes back
+blocked. Even so, a request occasionally fails past a second try — the tool reports that
+as an honest `{ ok: false, error }` rather than pretending the product doesn't exist, and
+`AMAZON_TOOL_NAMES` / `WALMART_TOOL_NAMES` cost nothing to retry a moment later.
+
+Walmart renders as a Next.js app and ships the whole page's state as one
+`__NEXT_DATA__` JSON blob, so `walmart/parse.ts` reads that directly rather than the
+markup. Amazon has no such blob, so `amazon/parse.ts` reads the page's own accessibility
+labels — "$141.99 with 25 percent savings" is one string Amazon writes for screen
+readers, and a far more stable target across the site's constant page-template
+experiments than any single visual price widget would be.
 
 ## Region
 
@@ -269,6 +298,7 @@ Each concern is one place to edit:
 | `src/agent/prompt.ts` | the system prompt (XML-tagged sections) |
 | `src/agent/tools/` | the toolbelt; register new tools in `index.ts` |
 | `src/agent/tools/shops/scrape.ts` | shared HTML reading for the shops with no API |
+| `src/agent/tools/shops/session.ts` | the cookie-jar warm-up Amazon and Walmart need |
 | `src/http/region.ts` | where the caller is, inferred from what they already send |
 | `src/http/geoip.ts` | city/region/timezone from the caller's IP, cached |
 | `src/agent/run.ts` | the model loop, `runAgent` and `streamAgent` |
