@@ -6,6 +6,10 @@ export const API_URL =
 const DEVICE_STORAGE_KEY = "corro_device_id";
 const REGION_CODE = /^[A-Z]{2}$/;
 
+// Bypasses ngrok's free-tier browser-warning interstitial, which otherwise
+// intercepts requests before they reach the API and responds without CORS headers.
+const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" } as const;
+
 let clientRegion: Promise<string | undefined> | undefined;
 
 
@@ -106,6 +110,7 @@ export async function* streamChat(
     headers: {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
+      ...NGROK_HEADERS,
       ...(device ? { "X-Corro-Device": device } : {}),
     },
     body: JSON.stringify({
@@ -209,7 +214,7 @@ export async function fetchWorkspace(
   const device = getStoredDevice();
   const response = await fetch(
     `${API_URL}/workspace?${sessionQuery(sessionId)}`,
-    { headers: device ? { "X-Corro-Device": device } : {} },
+    { headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) } },
   );
   if (!response.ok)
     throw new Error(`Failed to load workspace: ${response.status}`);
@@ -224,7 +229,7 @@ export async function fetchWorkspaceFile(
   const device = getStoredDevice();
   const response = await fetch(
     `${API_URL}/workspace/file?path=${encodeURIComponent(path)}&${sessionQuery(sessionId)}`,
-    { headers: device ? { "X-Corro-Device": device } : {} },
+    { headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) } },
   );
   if (!response.ok) throw new Error(`Could not read ${path}`);
   return (await response.json()) as {
@@ -243,7 +248,7 @@ export async function deleteWorkspaceFile(
     `${API_URL}/workspace/file?path=${encodeURIComponent(path)}&${sessionQuery(sessionId)}`,
     {
       method: "DELETE",
-      headers: device ? { "X-Corro-Device": device } : {},
+      headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) },
     },
   );
 }
@@ -255,7 +260,7 @@ export interface SpeechStatus {
 }
 
 export async function fetchSpeechStatus(): Promise<SpeechStatus> {
-  const response = await fetch(`${API_URL}/speech`);
+  const response = await fetch(`${API_URL}/speech`, { headers: NGROK_HEADERS });
   if (!response.ok) throw new Error("Speech unavailable");
   return (await response.json()) as SpeechStatus;
 }
@@ -270,7 +275,7 @@ export async function synthesiseSpeech(
 ): Promise<Blob> {
   const response = await fetch(`${API_URL}/speak`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...NGROK_HEADERS },
     body: JSON.stringify({ text }),
     signal,
   });
@@ -333,7 +338,7 @@ export interface SessionDetail extends SessionSummary {
 export async function fetchSessions(): Promise<SessionSummary[]> {
   const device = getStoredDevice();
   const response = await fetch(`${API_URL}/sessions`, {
-    headers: device ? { "X-Corro-Device": device } : {},
+    headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) },
   });
   if (!response.ok)
     throw new Error(`Failed to load sessions: ${response.status}`);
@@ -347,7 +352,7 @@ export async function fetchSession(id: string): Promise<SessionDetail> {
   const device = getStoredDevice();
   const response = await fetch(
     `${API_URL}/sessions/${encodeURIComponent(id)}`,
-    { headers: device ? { "X-Corro-Device": device } : {} },
+    { headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) } },
   );
   if (!response.ok)
     throw new Error(`Failed to load session: ${response.status}`);
@@ -362,6 +367,7 @@ export async function renameSession(id: string, title: string): Promise<void> {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
+        ...NGROK_HEADERS,
         ...(device ? { "X-Corro-Device": device } : {}),
       },
       body: JSON.stringify({ title }),
@@ -379,6 +385,7 @@ export async function pinSession(id: string, pinned: boolean): Promise<void> {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
+        ...NGROK_HEADERS,
         ...(device ? { "X-Corro-Device": device } : {}),
       },
       body: JSON.stringify({ pinned }),
@@ -392,7 +399,7 @@ export async function deleteSession(id: string): Promise<void> {
   const device = getStoredDevice();
   await fetch(`${API_URL}/sessions/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers: device ? { "X-Corro-Device": device } : {},
+    headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) },
   });
 }
 
@@ -411,6 +418,7 @@ export async function fetchSuggestions(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...NGROK_HEADERS,
         ...(device ? { "X-Corro-Device": device } : {}),
       },
       body: JSON.stringify({ userMessage, assistantMessage }),
@@ -426,7 +434,7 @@ export async function fetchSuggestions(
 export async function fetchModels(): Promise<ModelDescription[]> {
   const device = getStoredDevice();
   const response = await fetch(`${API_URL}/models`, {
-    headers: device ? { "X-Corro-Device": device } : {},
+    headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) },
   });
   if (!response.ok)
     throw new Error(`Failed to load models: ${response.status}`);
