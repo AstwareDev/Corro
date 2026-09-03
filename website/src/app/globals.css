@@ -1,0 +1,310 @@
+@import "tailwindcss";
+
+
+
+:root {
+  --corro-bg: #ffffff;
+  --corro-surface: #ffffff;
+  --corro-surface-raised: #f7f7f5;
+  --corro-border: #ececea;
+  --corro-text: #121a1d;
+  --corro-text-muted: #80868b;
+
+  --corro-corroborated: #0b6e4f;
+  --corro-partial: #9a6212;
+  --corro-contradicted: #b3261e;
+  --corro-unsourced: #6b7280;
+  --corro-citation: #1d4ed8;
+
+  
+
+
+  --corro-ctx-system: #7c3aed;
+  --corro-ctx-tools: #0b6e4f;
+  --corro-ctx-history: #1d4ed8;
+  --corro-ctx-traffic: #0891b2;
+  --corro-ctx-input: #b45309;
+  --corro-ctx-overhead: #94a3b8;
+
+  
+
+
+
+  --shop-accent: var(--corro-text);
+
+  --corro-corroborated-bg: #e6f4ee;
+  --corro-partial-bg: #fbf1e0;
+  --corro-contradicted-bg: #fbeae8;
+  --corro-unsourced-bg: #f1f2f4;
+  --corro-citation-bg: #e8eefc;
+
+  --corro-font-display: var(--font-poppins), var(--corro-font-ui);
+  --corro-font-ui:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --corro-font-read: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --corro-font-mono:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+}
+
+@theme inline {
+  --color-bg: var(--corro-bg);
+  --color-surface: var(--corro-surface);
+  --color-surface-raised: var(--corro-surface-raised);
+  --color-border: var(--corro-border);
+  --color-ink: var(--corro-text);
+  --color-ink-muted: var(--corro-text-muted);
+
+  --color-corroborated: var(--corro-corroborated);
+  --color-partial: var(--corro-partial);
+  --color-contradicted: var(--corro-contradicted);
+  --color-unsourced: var(--corro-unsourced);
+  --color-citation: var(--corro-citation);
+
+  --font-display: var(--corro-font-display);
+  --font-sans: var(--corro-font-ui);
+  --font-mono: var(--corro-font-mono);
+}
+
+body {
+  background: var(--corro-bg);
+  color: var(--corro-text);
+}
+
+* {
+  border-color: var(--corro-border);
+}
+
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--corro-border) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--corro-border);
+  border-radius: 999px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+
+@keyframes corro-ray-draw {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -1;
+  }
+}
+
+.corro-mark-loading path {
+  stroke-dasharray: 1;
+  animation: corro-ray-draw 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.corro-mark-loading path:nth-child(1) {
+  animation-delay: 0ms;
+}
+.corro-mark-loading path:nth-child(2),
+.corro-mark-loading path:nth-child(3) {
+  animation-delay: 90ms;
+}
+.corro-mark-loading path:nth-child(4),
+.corro-mark-loading path:nth-child(5) {
+  animation-delay: 180ms;
+}
+.corro-mark-loading path:nth-child(6),
+.corro-mark-loading path:nth-child(7) {
+  animation-delay: 270ms;
+}
+
+
+
+
+
+@property --corro-spin {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes corro-spin-ring {
+  to {
+    --corro-spin: 360deg;
+  }
+}
+
+.corro-thinking-ring {
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 29.5px;
+  padding: 1.5px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--corro-spin),
+    transparent 0deg,
+    rgba(34, 211, 238, 0) 8deg,
+    rgba(34, 211, 238, 0.9) 30deg,
+    rgba(96, 165, 250, 1) 52deg,
+    rgba(59, 130, 246, 0) 78deg,
+    transparent 180deg,
+    rgba(34, 211, 238, 0) 188deg,
+    rgba(103, 232, 249, 0.9) 210deg,
+    rgba(96, 165, 250, 1) 232deg,
+    rgba(59, 130, 246, 0) 258deg,
+    transparent 360deg
+  );
+  
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: corro-spin-ring 2.6s linear infinite;
+}
+
+
+.corro-thinking-glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: 32px;
+  padding: 5px;
+  pointer-events: none;
+  opacity: 0.55;
+  filter: blur(7px);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  background: conic-gradient(
+    from var(--corro-spin),
+    transparent 0deg,
+    rgba(34, 211, 238, 0.75) 34deg,
+    transparent 80deg,
+    transparent 180deg,
+    rgba(96, 165, 250, 0.75) 214deg,
+    transparent 260deg,
+    transparent 360deg
+  );
+  animation: corro-spin-ring 2.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .corro-thinking-ring,
+  .corro-thinking-glow {
+    animation-duration: 8s;
+  }
+}
+
+@keyframes caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+.caret {
+  animation: caret-blink 1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+
+
+.corro-prompt > * + * {
+  margin-top: 0.5rem;
+}
+.corro-prompt ul,
+.corro-prompt ol {
+  padding-left: 1.25rem;
+}
+.corro-prompt ul {
+  list-style: disc;
+}
+.corro-prompt ol {
+  list-style: decimal;
+}
+.corro-prompt li > * + * {
+  margin-top: 0.25rem;
+}
+.corro-prompt li p {
+  margin: 0;
+}
+.corro-prompt code {
+  background: var(--corro-surface-raised);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+  font-family: var(--corro-font-mono);
+  font-size: 0.9em;
+}
+.corro-prompt pre {
+  background: var(--corro-surface-raised);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  font-family: var(--corro-font-mono);
+  font-size: 0.85em;
+  overflow-x: auto;
+}
+.corro-prompt pre code {
+  background: none;
+  padding: 0;
+}
+.corro-prompt strong {
+  font-weight: 600;
+}
+
+
+.corro-prompt p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--corro-text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+
+@keyframes text-in {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+.stream-text {
+  animation: text-in 0.35s ease-out;
+}
+
+
+@keyframes word-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.word-token {
+  display: inline-block;
+  animation: word-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

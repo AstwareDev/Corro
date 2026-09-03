@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Corro — control console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      
+
+
+
+      :root {
+        --corro-bg: #fafaf7;
+        --corro-surface: #ffffff;
+        --corro-border: #e5e5df;
+        --corro-text: #121a1d;
+        --corro-text-muted: #5c6469;
+        --corro-corroborated: #0b6e4f;
+        --corro-partial: #9a6212;
+        --corro-contradicted: #b3261e;
+        --corro-unsourced: #6b7280;
+        --corro-citation: #1d4ed8;
+        --corro-corroborated-bg: #e6f4ee;
+        --corro-partial-bg: #fbf1e0;
+        --corro-contradicted-bg: #fbeae8;
+        --corro-unsourced-bg: #f1f2f4;
+        --corro-citation-bg: #e8eefc;
+        --font-display: "Poppins", "Inter", ui-sans-serif, system-ui, sans-serif;
+        --font-ui: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--corro-bg);
+        color: var(--corro-text);
+        font-family: var(--font-ui);
+        font-size: 14px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 64px; }
+
+      
+      header {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 16px; padding: 22px 0 18px;
+      }
+      .brand { display: flex; align-items: center; gap: 13px; }
+      .mark { width: 30px; height: 30px; color: var(--corro-text); flex: none; }
+      .brand h1 {
+        font-family: var(--font-display); font-size: 19px; font-weight: 600;
+        margin: 0; letter-spacing: 0.06em;
+      }
+      .brand p { margin: 0; font-size: 12px; color: var(--corro-text-muted); }
+      .header-actions { display: flex; align-items: center; gap: 8px; }
+
+      
+
+
+
+      .mark path { stroke-dasharray: 1; stroke-dashoffset: 0; }
+      .mark.busy path { animation: converge 1.25s ease-in-out infinite; }
+      @keyframes converge {
+        0% { stroke-dashoffset: 1; opacity: 0.25; }
+        55% { stroke-dashoffset: 0; opacity: 1; }
+        100% { stroke-dashoffset: 0; opacity: 1; }
+      }
+      .mark.busy path:nth-child(1) { animation-delay: 0s; }
+      .mark.busy path:nth-child(2) { animation-delay: 0.07s; }
+      .mark.busy path:nth-child(3) { animation-delay: 0.07s; }
+      .mark.busy path:nth-child(4) { animation-delay: 0.14s; }
+      .mark.busy path:nth-child(5) { animation-delay: 0.14s; }
+      .mark.busy path:nth-child(6) { animation-delay: 0.21s; }
+      .mark.busy path:nth-child(7) { animation-delay: 0.21s; }
+      @media (prefers-reduced-motion: reduce) {
+        .mark.busy path { animation: none; opacity: 0.55; }
+      }
+
+      
+      nav { display: flex; gap: 2px; border-bottom: 1px solid var(--corro-border); margin-bottom: 22px; flex-wrap: wrap; }
+      nav button {
+        appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
+        padding: 9px 14px; font: inherit; font-weight: 500; color: var(--corro-text-muted);
+        cursor: pointer; margin-bottom: -1px;
+      }
+      nav button:hover { color: var(--corro-text); }
+      nav button[aria-selected="true"] { color: var(--corro-text); border-bottom-color: var(--corro-text); }
+
+      section[hidden] { display: none; }
+
+      
+      .card {
+        background: var(--corro-surface); border: 1px solid var(--corro-border);
+        border-radius: 10px; padding: 16px 18px; margin-bottom: 16px;
+      }
+      .card > h2 {
+        font-family: var(--font-display); font-size: 13px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;
+        color: var(--corro-text-muted);
+      }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+      .field { display: flex; flex-direction: column; gap: 5px; }
+      .field label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--corro-text-muted); }
+      .grow { flex: 1; min-width: 200px; }
+
+      input, select, textarea, button.btn {
+        font: inherit; color: var(--corro-text); background: var(--corro-bg);
+        border: 1px solid var(--corro-border); border-radius: 7px; padding: 8px 10px;
+      }
+      input:focus, select:focus, textarea:focus { outline: 2px solid var(--corro-citation); outline-offset: -1px; }
+      textarea { width: 100%; resize: vertical; font-family: var(--font-ui); min-height: 78px; }
+      textarea.mono, input.mono { font-family: var(--font-mono); }
+
+      button.btn { cursor: pointer; font-weight: 500; }
+      button.btn:hover { border-color: var(--corro-text-muted); }
+      button.btn.primary { background: var(--corro-text); color: var(--corro-bg); border-color: var(--corro-text); }
+      button.btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.btn.small { padding: 5px 9px; font-size: 12px; }
+
+      
+      .badge {
+        display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 500;
+        padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+        background: var(--corro-unsourced-bg); color: var(--corro-unsourced);
+      }
+      .badge.ok { background: var(--corro-corroborated-bg); color: var(--corro-corroborated); }
+      .badge.warn { background: var(--corro-partial-bg); color: var(--corro-partial); }
+      .badge.bad { background: var(--corro-contradicted-bg); color: var(--corro-contradicted); }
+      .badge.info { background: var(--corro-citation-bg); color: var(--corro-citation); }
+      .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+
+      .stats { display: flex; gap: 18px; flex-wrap: wrap; }
+      .stat { display: flex; flex-direction: column; }
+      .stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--corro-text-muted); }
+      .stat .v { font-family: var(--font-mono); font-size: 17px; font-weight: 500; }
+
+      pre {
+        font-family: var(--font-mono); font-size: 12px; background: var(--corro-bg);
+        border: 1px solid var(--corro-border); border-radius: 7px; padding: 11px 13px;
+        overflow: auto; margin: 0; white-space: pre-wrap; word-break: break-word;
+      }
+      .answer {
+        font-family: var(--font-ui); font-size: 15px; line-height: 1.65;
+        white-space: pre-wrap; word-break: break-word;
+      }
+      .muted { color: var(--corro-text-muted); }
+      .mono { font-family: var(--font-mono); }
+      .hint { font-size: 12px; color: var(--corro-text-muted); margin: 6px 0 0; }
+
+      
+      .step { border-left: 2px solid var(--corro-border); padding: 2px 0 2px 13px; margin: 12px 0; }
+      .step h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--corro-text-muted); }
+      .toolcall { margin: 7px 0; }
+      .toolcall .name { font-family: var(--font-mono); font-weight: 500; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+      dl.props { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin: 0; font-size: 13px; }
+      dl.props dt { color: var(--corro-text-muted); }
+      dl.props dd { margin: 0; font-family: var(--font-mono); font-size: 12.5px; }
+      .bar { height: 5px; background: var(--corro-unsourced-bg); border-radius: 3px; overflow: hidden; margin-top: 7px; }
+      .bar > i { display: block; height: 100%; background: var(--corro-text); }
+      .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="brand">
+          
+
+          <svg class="mark" id="mark" viewBox="0 0 1000 1000" fill="none" stroke="currentColor"
+               stroke-width="42" role="img" aria-label="Corro">
+            <path pathLength="1" d="M500 60L500 940" />
+            <path pathLength="1" d="M948.4 60L500 940" />
+            <path pathLength="1" d="M51.6 60L500 940" />
+            <path pathLength="1" d="M596.6 537.5L500 940" />
+            <path pathLength="1" d="M403.4 537.5L500 940" />
+            <path pathLength="1" d="M692.9 714.1L500 940" />
+            <path pathLength="1" d="M307.1 714.1L500 940" />
+          </svg>
+          <div>
+            <h1>CORRO</h1>
+            <p>control console</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span class="badge" id="health"><i class="dot"></i>checking…</span>
+        </div>
+      </header>
+
+      <nav role="tablist">
+        <button role="tab" aria-selected="true" data-tab="agent">Agent</button>
+        <button role="tab" aria-selected="false" data-tab="tokens">Tokens</button>
+        <button role="tab" aria-selected="false" data-tab="tools">Tools</button>
+        <button role="tab" aria-selected="false" data-tab="models">Models</button>
+        <button role="tab" aria-selected="false" data-tab="prompt">Prompt</button>
+      </nav>
+
+      
+      <section id="tab-agent">
+        <div class="card">
+          <h2>Run the agent</h2>
+          <div class="row" style="margin-bottom: 10px">
+            <div class="field">
+              <label for="a-model">Model</label>
+              <select id="a-model"></select>
+            </div>
+            <div class="field">
+              <label for="a-steps">Max steps</label>
+              <input id="a-steps" type="number" class="mono" min="1" max="16" value="6" style="width: 84px" />
+            </div>
+            <div class="field">
+              <label for="a-temp">Temperature</label>
+              <input id="a-temp" type="number" class="mono" min="0" max="2" step="0.1" placeholder="default" style="width: 104px" />
+            </div>
+            <div class="field">
+              <label for="a-tools">Tools</label>
+              <select id="a-tools">
+                <option value="">all</option>
+                <option value="__none__">none</option>
+              </select>
+            </div>
+          </div>
+          <textarea id="a-msg" placeholder="Ask something…">A 4K display is 3840 by 2160. How many megapixels is that, and how many times more pixels than 1920x1080? Use the calculator for the arithmetic.</textarea>
+          <div class="row" style="margin-top: 10px">
+            <button class="btn primary" id="a-run">Run</button>
+            <button class="btn" id="a-smoke">Smoke test (/test)</button>
+            <label class="muted" style="display: flex; align-items: center; gap: 6px">
+              <input type="checkbox" id="a-stream" checked /> stream
+            </label>
+            <label class="muted" style="display: flex; align-items: center; gap: 6px">
+              <input type="checkbox" id="a-remember" checked /> remember
+            </label>
+            <button class="btn small" id="a-new">New session</button>
+            <span id="a-status" class="muted"></span>
+          </div>
+          <p class="hint">
+            Tool definitions are sent with every request, so they cost tokens too. The delta below
+            compares the local pre-flight count against the server's first step.
+          </p>
+          <div class="chips" id="a-session-chips" style="margin-top: 4px"></div>
+        </div>
+
+        <div class="card" id="a-out" hidden>
+          <h2>Answer</h2>
+          <div class="answer" id="a-answer"></div>
+          <div class="stats" id="a-stats" style="margin-top: 16px"></div>
+          <div class="chips" id="a-chips" style="margin-top: 12px"></div>
+          <div id="a-context" style="margin-top: 14px"></div>
+          <div id="a-steps-out"></div>
+        </div>
+      </section>
+
+      
+      <section id="tab-tokens" hidden>
+        <div class="card">
+          <h2>Token counter</h2>
+          <div class="row" style="margin-bottom: 10px">
+            <div class="field">
+              <label for="t-model">Model</label>
+              <select id="t-model"></select>
+            </div>
+            <div class="field">
+              <label for="t-mode">Mode</label>
+              <select id="t-mode">
+                <option value="messages">chat message</option>
+                <option value="text">raw text</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="t-sys">System prompt</label>
+              <select id="t-sys">
+                <option value="no">excluded</option>
+                <option value="yes">included</option>
+              </select>
+            </div>
+          </div>
+          <textarea id="t-text" class="mono" placeholder="Type to count…">Every claim, traced.</textarea>
+          <div class="stats" id="t-stats" style="margin-top: 14px"></div>
+          <div class="bar" id="t-bar" hidden><i style="width: 0%"></i></div>
+          <p class="hint" id="t-hint"></p>
+        </div>
+      </section>
+
+      
+      <section id="tab-tools" hidden>
+        <div class="card">
+          <h2>Calculator</h2>
+          <div class="row">
+            <div class="field grow">
+              <label for="c-expr">Expression</label>
+              <input id="c-expr" class="mono" value="(3840 * 2160) / 1e6" />
+            </div>
+            <button class="btn primary" id="c-run">Evaluate</button>
+          </div>
+          <div class="chips" style="margin-top: 10px" id="c-examples"></div>
+          <div id="c-out" style="margin-top: 14px"></div>
+          <p class="hint">Runs the tool directly — no model, no tokens spent.</p>
+        </div>
+        <div class="card">
+          <h2>Registered tools</h2>
+          <div id="tools-list" class="muted">loading…</div>
+        </div>
+      </section>
+
+      
+      <section id="tab-models" hidden>
+        <div class="card">
+          <h2>Models</h2>
+          <div class="row" style="margin-bottom: 12px">
+            <button class="btn small" id="m-refresh">Refresh</button>
+            <span class="muted" id="m-status"></span>
+          </div>
+          <div class="grid" id="models-list">loading…</div>
+        </div>
+      </section>
+
+      
+      <section id="tab-prompt" hidden>
+        <div class="card">
+          <h2>System prompt</h2>
+          <div class="row" style="margin-bottom: 10px">
+            <span class="badge info" id="p-size">…</span>
+            <span class="badge" id="p-tokens">…</span>
+          </div>
+          <pre id="p-text">loading…</pre>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id)
+      const mark = $('mark')
+      let busyCount = 0
+
+      
+      function busy(on) {
+        busyCount += on ? 1 : -1
+        if (busyCount < 0) busyCount = 0
+        mark.classList.toggle('busy', busyCount > 0)
+      }
+
+      async function api(path, opts) {
+        busy(true)
+        try {
+          const res = await fetch(path, opts)
+          const text = await res.text()
+          let json
+          try { json = JSON.parse(text) } catch { throw new Error(text.slice(0, 300) || res.statusText) }
+          if (!res.ok) throw new Error(json.error || res.statusText)
+          return json
+        } finally {
+          busy(false)
+        }
+      }
+      const post = (path, body) =>
+        api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+      function badge(text, kind) {
+        const s = document.createElement('span')
+        s.className = 'badge' + (kind ? ' ' + kind : '')
+        const d = document.createElement('i')
+        d.className = 'dot'
+        s.append(d, document.createTextNode(text))
+        return s
+      }
+      function stat(k, v) {
+        const el = document.createElement('div')
+        el.className = 'stat'
+        const a = document.createElement('span'); a.className = 'k'; a.textContent = k
+        const b = document.createElement('span'); b.className = 'v'; b.textContent = v
+        el.append(a, b)
+        return el
+      }
+      const num = (n) => (typeof n === 'number' ? n.toLocaleString() : '—')
+
+      
+      document.querySelectorAll('nav button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-selected', String(b === btn)))
+          document.querySelectorAll('main, section[id^="tab-"]').forEach((s) => {
+            s.hidden = s.id !== 'tab-' + btn.dataset.tab
+          })
+        })
+      })
+
+      api('/health')
+        .then((h) => {
+          const el = $('health')
+          el.className = 'badge ok'
+          el.replaceChildren(Object.assign(document.createElement('i'), { className: 'dot' }),
+            document.createTextNode('online · up ' + h.uptimeSeconds + 's'))
+        })
+        .catch(() => {
+          const el = $('health')
+          el.className = 'badge bad'
+          el.replaceChildren(Object.assign(document.createElement('i'), { className: 'dot' }),
+            document.createTextNode('offline'))
+        })
+
+      
+      let MODELS = []
+      async function loadModels() {
+        $('m-status').textContent = 'probing endpoints…'
+        try {
+          const { data } = await api('/models')
+          MODELS = data
+          for (const sel of [$('a-model'), $('t-model')]) {
+            const keep = sel.value
+            sel.replaceChildren(...data.map((m) => {
+              const o = document.createElement('option')
+              o.value = m.key
+              o.textContent =
+                m.label +
+                (m.isDefault ? ' — default' : '') +
+                (m.online ? '' : ' (offline)')
+              return o
+            }))
+            if (keep) sel.value = keep
+          }
+          renderModels(data)
+          $('m-status').textContent = ''
+        } catch (err) {
+          $('m-status').textContent = 'failed: ' + err.message
+        }
+      }
+
+      function renderModels(data) {
+        const list = $('models-list')
+        list.replaceChildren(...data.map((m) => {
+          const card = document.createElement('div')
+          card.className = 'card'
+          card.style.margin = '0'
+
+          const head = document.createElement('div')
+          head.className = 'row'
+          head.style.justifyContent = 'space-between'
+          const title = document.createElement('div')
+          const h = document.createElement('strong'); h.textContent = m.label
+          const id = document.createElement('div'); id.className = 'mono muted'; id.style.fontSize = '12px'; id.textContent = m.id
+          title.append(h, id)
+          head.append(title, badge(m.online ? 'online' : 'unreachable', m.online ? 'ok' : 'bad'))
+          card.append(head)
+
+          const tk = m.tokenizer || {}
+          const tkKind = !tk.available ? 'bad' : tk.exact ? 'ok' : 'warn'
+          const tkText = !tk.available ? 'tokenizer missing' : (tk.exact ? 'exact' : 'approximate') + ' · ' + (tk.method || '?')
+          const badges = document.createElement('div')
+          badges.className = 'chips'
+          badges.style.margin = '10px 0'
+          badges.append(badge(tkText, tkKind))
+          badges.append(badge(m.speed === 'fast' ? 'fast' : 'variable speed', m.speed === 'fast' ? 'ok' : 'warn'))
+          badges.append(badge(m.free ? 'free' : 'costs credits', m.free ? 'ok' : ''))
+          if (m.isDefault) badges.append(badge('default', 'info'))
+          for (const f of m.features || []) badges.append(badge(f, 'info'))
+          card.append(badges)
+
+          const dl = document.createElement('dl')
+          dl.className = 'props'
+          const put = (k, v) => {
+            const dt = document.createElement('dt'); dt.textContent = k
+            const dd = document.createElement('dd'); dd.textContent = v
+            dl.append(dt, dd)
+          }
+          put('context', num(m.contextLength))
+          put('max output', num(m.maxOutputTokens))
+          if (m.modalities) put('modalities', (m.modalities.input || []).join(', ') + ' → ' + (m.modalities.output || []).join(', '))
+          const eff = m.reasoningEfforts || []
+          if (eff.length) put('reasoning', eff.join(', '))
+          if (m.notes) put('notes', m.notes)
+          if (m.samplingParameters?.length) put('sampling', m.samplingParameters.join(', '))
+          if (m.error) put('error', m.error)
+          card.append(dl)
+          return card
+        }))
+      }
+      $('m-refresh').addEventListener('click', loadModels)
+      loadModels()
+
+      
+      function renderRun(run) {
+        $('a-out').hidden = false
+        $('a-answer').textContent = run.text || '(no text returned)'
+
+        const pf = run.usage?.preflight
+        const delta = run.usage?.firstStepDelta
+        const stats = $('a-stats')
+        stats.replaceChildren(
+          stat('input', num(run.usage?.server?.inputTokens)),
+          stat('output', num(run.usage?.server?.outputTokens)),
+          stat('pre-flight', num(pf?.tokens)),
+          stat('steps', String(run.steps?.length ?? 0))
+        )
+
+        const chips = document.createElement('div')
+        chips.className = 'chips'
+        chips.style.marginTop = '12px'
+        if (pf) {
+          chips.append(badge(pf.exact ? 'count exact' : 'count approximate', pf.exact ? 'ok' : 'warn'))
+          chips.append(badge(pf.method, 'info'))
+          chips.append(badge(pf.toolsIncluded ? 'tools counted' : 'tools not counted', pf.toolsIncluded ? 'ok' : ''))
+        }
+        if (typeof delta === 'number') {
+          chips.append(badge('first-step delta ' + (delta > 0 ? '+' : '') + delta,
+            delta === 0 ? 'ok' : Math.abs(delta) <= 5 ? 'warn' : ''))
+        }
+        chips.append(badge('finish: ' + run.finishReason, run.finishReason === 'stop' ? 'ok' : 'warn'))
+        $('a-chips').replaceChildren(...chips.childNodes)
+        renderContext(run.context)
+
+        const out = $('a-steps-out')
+        out.replaceChildren()
+        ;(run.steps || []).forEach((s, i) => {
+          const d = document.createElement('div')
+          d.className = 'step'
+          const h = document.createElement('h4'); h.textContent = 'Step ' + (i + 1)
+          d.append(h)
+          s.toolCalls?.forEach((c, j) => {
+            const tc = document.createElement('div')
+            tc.className = 'toolcall'
+            const n = document.createElement('div'); n.className = 'name'; n.textContent = '→ ' + c.toolName
+            const pre = document.createElement('pre')
+            const result = s.toolResults?.[j]
+            pre.textContent =
+              JSON.stringify(c.input) + '\n← ' + JSON.stringify(result ? result.output : '(no result)')
+            tc.append(n, pre)
+            d.append(tc)
+          })
+          if (s.text) {
+            const p = document.createElement('div')
+            p.className = 'answer'
+            p.style.fontSize = '13.5px'
+            p.textContent = s.text
+            d.append(p)
+          }
+          out.append(d)
+        })
+      }
+
+      const USAGE_KINDS = ['system', 'tools', 'history', 'input', 'overhead']
+      const KIND_COLOR = {
+        system: 'var(--corro-citation)',
+        tools: 'var(--corro-partial)',
+        history: 'var(--corro-unsourced)',
+        input: 'var(--corro-corroborated)',
+        overhead: 'var(--corro-border)',
+      }
+
+      function renderContext(ctx) {
+        const host = $('a-context')
+        host.replaceChildren()
+        if (!ctx) return
+
+        const label = document.createElement('div')
+        label.className = 'muted'
+        label.style.fontSize = '12px'
+        label.style.marginBottom = '6px'
+        label.textContent =
+          'context ' + num(ctx.used) + ' / ' + num(ctx.contextLength) +
+          ' (' + ctx.percentUsed + '%) · ' + (ctx.exact ? 'exact' : 'approximate') + ' · ' + ctx.method
+
+        const bar = document.createElement('div')
+        bar.style.display = 'flex'
+        bar.style.height = '10px'
+        bar.style.borderRadius = '999px'
+        bar.style.overflow = 'hidden'
+        bar.style.background = 'var(--corro-border)'
+        for (const kind of USAGE_KINDS) {
+          const share = ctx.share?.[kind] || 0
+          if (!share) continue
+          const seg = document.createElement('div')
+          seg.style.width = share + '%'
+          seg.style.background = KIND_COLOR[kind]
+          seg.title = kind + ': ' + num(ctx.breakdown[kind]) + ' tokens (' + share + '% of prompt)'
+          bar.append(seg)
+        }
+
+        const legend = document.createElement('div')
+        legend.className = 'chips'
+        legend.style.marginTop = '8px'
+        for (const kind of USAGE_KINDS) {
+          if (!ctx.breakdown?.[kind]) continue
+          const chip = document.createElement('span')
+          chip.className = 'badge'
+          const dot = document.createElement('i')
+          dot.className = 'dot'
+          dot.style.background = KIND_COLOR[kind]
+          chip.append(dot, document.createTextNode(kind + ' ' + num(ctx.breakdown[kind])))
+          legend.append(chip)
+        }
+
+        host.append(label, bar, legend)
+      }
+
+      let sessionId = null
+
+      function renderSession() {
+        const host = $('a-session-chips')
+        host.replaceChildren()
+        host.append(badge(sessionId ? 'session ' + sessionId : 'no session yet', sessionId ? 'info' : ''))
+      }
+      renderSession()
+
+      $('a-new').addEventListener('click', () => {
+        sessionId = null
+        renderSession()
+        $('a-status').textContent = 'started a new session'
+      })
+
+      function requestBody() {
+        const toolsSel = $('a-tools').value
+        const body = {
+          model: $('a-model').value,
+          message: $('a-msg').value,
+          session: sessionId,
+          remember: $('a-remember').checked,
+          maxSteps: Number($('a-steps').value) || 6,
+        }
+        if (toolsSel === '__none__') body.tools = []
+        const temp = $('a-temp').value
+        if (temp !== '') body.temperature = Number(temp)
+        return body
+      }
+
+      async function streamRun(body) {
+        $('a-out').hidden = false
+        $('a-answer').textContent = ''
+        $('a-stats').replaceChildren()
+        $('a-chips').replaceChildren()
+        $('a-context').replaceChildren()
+        $('a-steps-out').replaceChildren()
+
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+          body: JSON.stringify({ ...body, stream: true }),
+        })
+        if (!res.ok) throw new Error((await res.text()).slice(0, 300) || res.statusText)
+
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let live = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          let split
+          while ((split = buffer.indexOf('\n\n')) !== -1) {
+            const raw = buffer.slice(0, split)
+            buffer = buffer.slice(split + 2)
+            let event = 'message'
+            const data = []
+            for (const line of raw.split('\n')) {
+              if (line.startsWith(':')) continue
+              if (line.startsWith('event:')) event = line.slice(6).trim()
+              else if (line.startsWith('data:')) data.push(line.slice(5).trim())
+            }
+            if (!data.length) continue
+            let payload
+            try { payload = JSON.parse(data.join('\n')) } catch { continue }
+
+            if (event === 'session') {
+              sessionId = payload.id
+              renderSession()
+            } else if (event === 'start') {
+              renderContext(payload.context)
+            } else if (event === 'text') {
+              live += payload.text
+              $('a-answer').textContent = live
+            } else if (event === 'tool-call') {
+              $('a-status').textContent = '→ ' + payload.name + '(' + JSON.stringify(payload.input) + ')'
+            } else if (event === 'done') {
+              renderRun(payload)
+            } else if (event === 'error') {
+              throw new Error(payload.error)
+            }
+          }
+        }
+      }
+
+      async function runAgent() {
+        const btn = $('a-run')
+        btn.disabled = true
+        $('a-status').textContent = 'running…'
+        const started = Date.now()
+        busy(true)
+        try {
+          const body = requestBody()
+          if ($('a-stream').checked) {
+            await streamRun(body)
+          } else {
+            const run = await post('/chat', body)
+            if (run.session) { sessionId = run.session.id; renderSession() }
+            renderRun(run)
+          }
+          $('a-status').textContent = ((Date.now() - started) / 1000).toFixed(1) + 's'
+        } catch (err) {
+          $('a-status').textContent = ''
+          $('a-out').hidden = false
+          $('a-answer').textContent = 'Error: ' + err.message
+          $('a-stats').replaceChildren()
+          $('a-steps-out').replaceChildren()
+        } finally {
+          busy(false)
+          btn.disabled = false
+        }
+      }
+      $('a-run').addEventListener('click', runAgent)
+      $('a-msg').addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') runAgent()
+      })
+
+      $('a-smoke').addEventListener('click', async () => {
+        $('a-status').textContent = 'running smoke test…'
+        try {
+          const r = await api('/test?model=' + encodeURIComponent($('a-model').value))
+          renderRun({
+            text: r.answer,
+            finishReason: r.checks.finishReason,
+            steps: r.detail,
+            usage: r.usage,
+          })
+          $('a-status').textContent = r.checks.toolWasCalled
+            ? 'tools called: ' + r.checks.toolsCalled.join(', ') + ' · ' + r.elapsedMs + 'ms'
+            : 'no tool was called'
+        } catch (err) {
+          $('a-status').textContent = 'failed: ' + err.message
+        }
+      })
+
+      
+      let tTimer
+      async function countTokens() {
+        const text = $('t-text').value
+        const model = $('t-model').value
+        if (!model) return
+        const stats = $('t-stats')
+        if (!text) { stats.replaceChildren(); $('t-bar').hidden = true; $('t-hint').textContent = ''; return }
+        try {
+          const body =
+            $('t-mode').value === 'text'
+              ? { model, text }
+              : { model, messages: [{ role: 'user', content: text }], withSystemPrompt: $('t-sys').value === 'yes' }
+          const r = await post('/tokens', body)
+          stats.replaceChildren(stat('tokens', num(r.tokens)))
+          if (typeof r.contentTokens === 'number') {
+            stats.append(stat('content', num(r.contentTokens)), stat('overhead', num(r.overheadTokens)))
+          }
+          const chips = document.createElement('div')
+          chips.className = 'chips'
+          chips.style.alignSelf = 'center'
+          chips.append(badge(r.exact ? 'exact' : 'approximate', r.exact ? 'ok' : 'warn'), badge(r.method, 'info'))
+          stats.append(chips)
+
+          if (typeof r.contextRemaining === 'number') {
+            const total = r.tokens + r.contextRemaining
+            const bar = $('t-bar')
+            bar.hidden = false
+            bar.firstElementChild.style.width = Math.max(0.4, (r.tokens / total) * 100) + '%'
+            $('t-hint').textContent =
+              num(r.contextRemaining) + ' of ' + num(total) + ' tokens of context remaining'
+          } else {
+            $('t-bar').hidden = true
+            $('t-hint').textContent = 'Raw BPE count — no chat template applied.'
+          }
+        } catch (err) {
+          stats.replaceChildren()
+          $('t-hint').textContent = 'failed: ' + err.message
+        }
+      }
+      const scheduleCount = () => { clearTimeout(tTimer); tTimer = setTimeout(countTokens, 350) }
+      $('t-text').addEventListener('input', scheduleCount)
+      ;['t-model', 't-mode', 't-sys'].forEach((id) => $(id).addEventListener('change', countTokens))
+      $('t-mode').addEventListener('change', () => { $('t-sys').disabled = $('t-mode').value === 'text' })
+
+      
+      const EXAMPLES = ['(3840 * 2160) / 1e6', 'log(4096, 2)', '2 ^ 3 ^ 2', 'max(1, 9, 5) + pi', '1 / 0', 'process']
+      $('c-examples').replaceChildren(...EXAMPLES.map((ex) => {
+        const b = document.createElement('button')
+        b.className = 'btn small mono'
+        b.textContent = ex
+        b.addEventListener('click', () => { $('c-expr').value = ex; runCalc() })
+        return b
+      }))
+
+      async function runCalc() {
+        const out = $('c-out')
+        try {
+          const r = await post('/tools/calculator', { expression: $('c-expr').value })
+          const o = r.output
+          out.replaceChildren()
+          const chips = document.createElement('div')
+          chips.className = 'chips'
+          chips.append(badge(o.ok ? 'ok' : 'rejected', o.ok ? 'ok' : 'bad'), badge(r.elapsedMs + 'ms', 'info'))
+          const pre = document.createElement('pre')
+          pre.textContent = o.ok ? o.formatted + '\n\n' + JSON.stringify(o, null, 2) : o.error
+          out.append(chips, pre)
+        } catch (err) {
+          out.replaceChildren(Object.assign(document.createElement('pre'), { textContent: 'Error: ' + err.message }))
+        }
+      }
+      $('c-run').addEventListener('click', runCalc)
+      $('c-expr').addEventListener('keydown', (e) => { if (e.key === 'Enter') runCalc() })
+
+      api('/tools').then(({ data }) => {
+        $('tools-list').replaceChildren(...data.map((t) => {
+          const d = document.createElement('div')
+          d.style.marginBottom = '10px'
+          const n = document.createElement('div'); n.className = 'mono'; n.style.fontWeight = '500'; n.textContent = t.name
+          const p = document.createElement('div'); p.className = 'muted'; p.style.fontSize = '12.5px'; p.textContent = t.description
+          d.append(n, p)
+          return d
+        }))
+      })
+
+      
+      api('/prompt').then(async (p) => {
+        $('p-text').textContent = p.prompt
+        $('p-size').textContent = p.characters.toLocaleString() + ' characters'
+        try {
+          const model = $('t-model').value || MODELS[0]?.key
+          if (model) {
+            const t = await post('/tokens', { model, text: p.prompt })
+            $('p-tokens').textContent = t.tokens.toLocaleString() + ' tokens'
+            $('p-tokens').className = 'badge ok'
+          }
+        } catch {
+          $('p-tokens').remove()
+        }
+      })
+
+      countTokens()
+    </script>
+  </body>
+</html>

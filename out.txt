@@ -1,0 +1,3 @@
+38 0xa1   for (let b = '¡'.charCodeAt(0); b <= '¬'.charCodeAt(0); b++) bs.push(b)
+39 0xae   for (let b = '®'.charCodeAt(0); b <= 'ÿ'.charCodeAt(0); b++) bs.push(b)
+135 0x2014         `The model repo may have changed — re-check baseVocab in specs.ts.`

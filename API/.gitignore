@@ -1,0 +1,14 @@
+node_modules/
+dist/
+
+# Downloaded tokenizer ranks (~6 MB) + measured calibration.
+# Rebuild with: pnpm tokenizers:prepare && pnpm tokenizers:calibrate
+.cache/
+
+# Real keys live here. Never commit.
+.env
+.env.*
+!.env.example
+
+# Device-scoped session store (JSON files).
+data/

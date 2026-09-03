@@ -1,0 +1,92 @@
+
+
+
+
+
+
+
+
+
+
+
+:root {
+  
+  --corro-bg: #fafaf7;          
+
+
+  --corro-surface: #ffffff;
+  --corro-border: #e5e5df;
+  --corro-text: #121a1d;        
+  --corro-text-muted: #5c6469;
+
+  
+  --corro-corroborated: #0b6e4f;      
+  --corro-partial: #9a6212;          
+  --corro-contradicted: #b3261e;     
+  --corro-unsourced: #6b7280;        
+  --corro-citation: #1d4ed8;         
+
+  --corro-corroborated-bg: #e6f4ee;
+  --corro-partial-bg: #fbf1e0;
+  --corro-contradicted-bg: #fbeae8;
+  --corro-unsourced-bg: #f1f2f4;
+  --corro-citation-bg: #e8eefc;
+
+  
+  --corro-font-display: "Poppins", var(--corro-font-ui);
+  --corro-font-ui: "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --corro-font-read: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --corro-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+
+  
+  --corro-mark-clearspace: 0.25;  
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --corro-bg: #0e1315;
+    --corro-surface: #161c1f;
+    --corro-border: #262d31;
+    --corro-text: #fafaf7;
+    --corro-text-muted: #9ca3af;
+
+    --corro-corroborated: #34d399;
+    --corro-partial: #f0b429;
+    --corro-contradicted: #f87171;
+    --corro-unsourced: #9ca3af;
+    --corro-citation: #60a5fa;
+
+    --corro-corroborated-bg: #10261f;
+    --corro-partial-bg: #2a2113;
+    --corro-contradicted-bg: #2c1614;
+    --corro-unsourced-bg: #1b1f23;
+    --corro-citation-bg: #131e33;
+  }
+}
+
+[data-theme="dark"] {
+  --corro-bg: #0e1315;
+  --corro-surface: #161c1f;
+  --corro-border: #262d31;
+  --corro-text: #fafaf7;
+  --corro-text-muted: #9ca3af;
+
+  --corro-corroborated: #34d399;
+  --corro-partial: #f0b429;
+  --corro-contradicted: #f87171;
+  --corro-unsourced: #9ca3af;
+  --corro-citation: #60a5fa;
+
+  --corro-corroborated-bg: #10261f;
+  --corro-partial-bg: #2a2113;
+  --corro-contradicted-bg: #2c1614;
+  --corro-unsourced-bg: #1b1f23;
+  --corro-citation-bg: #131e33;
+}
+
+
+.corro-logo {
+  color: var(--corro-text);
+}
