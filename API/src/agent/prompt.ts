@@ -102,14 +102,25 @@ const LOCAL_SOURCES: Array<{
   },
   {
     region: 'US',
-    tools: ['amazon_search', 'amazon_product', 'walmart_search', 'walmart_product'],
+    tools: [
+      'amazon_search',
+      'amazon_product',
+      'walmart_search',
+      'walmart_product',
+      'apple_search',
+      'apple_product',
+    ],
     line:
       'United States (US): amazon_search / amazon_product read Amazon.com, walmart_search / ' +
       'walmart_product read Walmart.com — both live, in US dollars, with ratings, review counts and ' +
       'current markdowns. Search both when the user wants the better price or is not tied to one ' +
       'retailer. These two sites actively rate-limit automated requests; a tool that returns an error ' +
       "about a bot check has been blocked, not told the product doesn't exist — say so plainly and " +
-      'offer to try again rather than reporting it as unavailable.',
+      'offer to try again rather than reporting it as unavailable. ' +
+      'apple_search / apple_product read Apple.com directly for iPhone and iPad — Apple sets one price, ' +
+      'so there is nothing to compare against Amazon or Walmart for those; use it whenever the question ' +
+      'is specifically about an iPhone or iPad configuration or price. It does not cover Mac, Apple ' +
+      "Watch or AirPods — for those, say so and fall back to web_search rather than guessing a price.",
   },
 ]
 

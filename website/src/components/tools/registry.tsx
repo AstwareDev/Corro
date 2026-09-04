@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   Calculator,
   File,
   FilePen,
@@ -54,9 +55,6 @@ export const SUPERMARKETS: ToolFamily = {
   Icon: ShoppingCart,
 };
 
-
-
-
 export const MARKETPLACES: ToolFamily = {
   id: "marketplaces",
   label: "Checked online retailers",
@@ -109,6 +107,14 @@ const WALMART: ShopBrandInfo = {
   host: "walmart.com",
   accent: "#0071ce",
   Icon: brandIcon("/sources/walmart.png", "Walmart"),
+};
+
+const APPLE: ShopBrandInfo = {
+  id: "apple",
+  name: "Apple",
+  host: "apple.com",
+  accent: "#111111",
+  Icon: brandIcon("/sources/apple.png", "Apple"),
 };
 
 export interface ToolPresentation {
@@ -204,8 +210,7 @@ function shopTools(
       verb: "Looked up a product",
     },
   };
-  
-  
+
   if (opts.categories ?? true) {
     tools[`${prefix}_categories`] = {
       ...common,
@@ -224,6 +229,7 @@ const REGISTRY: Record<string, ToolPresentation> = {
   ...shopTools("sas", SAS),
   ...shopTools("amazon", AMAZON, { family: MARKETPLACES, categories: false }),
   ...shopTools("walmart", WALMART, { family: MARKETPLACES, categories: false }),
+  ...shopTools("apple", APPLE, { family: MARKETPLACES, categories: false }),
 
   web_search: {
     Icon: Search,
@@ -259,6 +265,13 @@ const REGISTRY: Record<string, ToolPresentation> = {
     label: "Calculate",
     groupLabel: "Calculated",
     verb: "Calculated",
+  },
+  currency_convert: {
+    Icon: ArrowLeftRight,
+    ChildIcon: ArrowLeftRight,
+    label: "Convert currency",
+    groupLabel: "Converted currency",
+    verb: "Converted currency",
   },
   fs_list: {
     Icon: FolderTree,

@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ToolCallUI } from "@/lib/types";
+import { CurrencyConversion, type CurrencyResult } from "./CurrencyConversion";
 import { Favicon } from "./Favicon";
 import { presentTool } from "./registry";
 import {
@@ -542,6 +543,10 @@ export function ToolResult({ call }: { call: ToolCallUI }) {
         level={typeof out.level === "string" ? out.level : undefined}
       />
     );
+  }
+
+  if (call.name === "currency_convert" && Array.isArray(out?.results)) {
+    return <CurrencyConversion data={out as unknown as CurrencyResult} />;
   }
 
   if (call.name === "web_map" && Array.isArray(out?.urls)) {

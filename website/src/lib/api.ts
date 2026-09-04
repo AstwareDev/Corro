@@ -6,13 +6,9 @@ export const API_URL =
 const DEVICE_STORAGE_KEY = "corro_device_id";
 const REGION_CODE = /^[A-Z]{2}$/;
 
-
-
 const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" } as const;
 
 let clientRegion: Promise<string | undefined> | undefined;
-
-
 
 async function getClientRegion(): Promise<string | undefined> {
   if (typeof window === "undefined") return undefined;
@@ -54,6 +50,49 @@ export type SseEvent =
   | { type: "done"; [key: string]: unknown }
   | { type: "error"; error: string };
 
+/** The server sends a `: ping` comment on this cadence to keep the
+ * connection alive; anything much longer than that with no bytes at all
+ * means the connection died without either side sending a close, which a
+ * killed server process or a dropped tunnel both do. `reader.read()` on a
+ * connection like that just hangs forever — nothing errors, nothing
+ * resolves — so without this a dead stream freezes the UI until the page is
+ * reloaded, with no error and no way to recover from the stop button, since
+ * the button's own click handler is waiting on the same read. */
+const SERVER_PING_MS = 15_000;
+const STALL_MS = SERVER_PING_MS * 3;
+
+class StreamStalledError extends Error {
+  constructor() {
+    super(
+      `Corro stopped responding (no data for ${STALL_MS / 1000}s) — the connection likely dropped`,
+    );
+    this.name = "StreamStalledError";
+  }
+}
+
+function readWithStallTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      // Unblocks the pending read (and the underlying fetch) rather than
+      // just abandoning it, so the dead connection is actually torn down.
+      reader.cancel().catch(() => {});
+      reject(new StreamStalledError());
+    }, STALL_MS);
+    reader.read().then(
+      (result) => {
+        clearTimeout(timer);
+        resolve(result);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 async function* sseEvents(
   response: Response,
 ): AsyncGenerator<{ event: string; data: Record<string, unknown> }> {
@@ -63,7 +102,7 @@ async function* sseEvents(
   let buffer = "";
 
   while (true) {
-    const { done, value } = await reader.read();
+    const { done, value } = await readWithStallTimeout(reader);
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
 
@@ -214,7 +253,12 @@ export async function fetchWorkspace(
   const device = getStoredDevice();
   const response = await fetch(
     `${API_URL}/workspace?${sessionQuery(sessionId)}`,
-    { headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) } },
+    {
+      headers: {
+        ...NGROK_HEADERS,
+        ...(device ? { "X-Corro-Device": device } : {}),
+      },
+    },
   );
   if (!response.ok)
     throw new Error(`Failed to load workspace: ${response.status}`);
@@ -229,7 +273,12 @@ export async function fetchWorkspaceFile(
   const device = getStoredDevice();
   const response = await fetch(
     `${API_URL}/workspace/file?path=${encodeURIComponent(path)}&${sessionQuery(sessionId)}`,
-    { headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) } },
+    {
+      headers: {
+        ...NGROK_HEADERS,
+        ...(device ? { "X-Corro-Device": device } : {}),
+      },
+    },
   );
   if (!response.ok) throw new Error(`Could not read ${path}`);
   return (await response.json()) as {
@@ -248,7 +297,10 @@ export async function deleteWorkspaceFile(
     `${API_URL}/workspace/file?path=${encodeURIComponent(path)}&${sessionQuery(sessionId)}`,
     {
       method: "DELETE",
-      headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) },
+      headers: {
+        ...NGROK_HEADERS,
+        ...(device ? { "X-Corro-Device": device } : {}),
+      },
     },
   );
 }
@@ -264,10 +316,6 @@ export async function fetchSpeechStatus(): Promise<SpeechStatus> {
   if (!response.ok) throw new Error("Speech unavailable");
   return (await response.json()) as SpeechStatus;
 }
-
-
-
-
 
 export async function synthesiseSpeech(
   text: string,
@@ -285,9 +333,7 @@ export async function synthesiseSpeech(
     try {
       const body = (await response.json()) as { error?: string };
       if (body.error) message = body.error;
-    } catch {
-      
-    }
+    } catch {}
     throw new Error(message);
   }
 
@@ -338,7 +384,10 @@ export interface SessionDetail extends SessionSummary {
 export async function fetchSessions(): Promise<SessionSummary[]> {
   const device = getStoredDevice();
   const response = await fetch(`${API_URL}/sessions`, {
-    headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) },
+    headers: {
+      ...NGROK_HEADERS,
+      ...(device ? { "X-Corro-Device": device } : {}),
+    },
   });
   if (!response.ok)
     throw new Error(`Failed to load sessions: ${response.status}`);
@@ -352,7 +401,12 @@ export async function fetchSession(id: string): Promise<SessionDetail> {
   const device = getStoredDevice();
   const response = await fetch(
     `${API_URL}/sessions/${encodeURIComponent(id)}`,
-    { headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) } },
+    {
+      headers: {
+        ...NGROK_HEADERS,
+        ...(device ? { "X-Corro-Device": device } : {}),
+      },
+    },
   );
   if (!response.ok)
     throw new Error(`Failed to load session: ${response.status}`);
@@ -391,22 +445,19 @@ export async function pinSession(id: string, pinned: boolean): Promise<void> {
       body: JSON.stringify({ pinned }),
     },
   );
-  if (!response.ok)
-    throw new Error(`Failed to update pin: ${response.status}`);
+  if (!response.ok) throw new Error(`Failed to update pin: ${response.status}`);
 }
 
 export async function deleteSession(id: string): Promise<void> {
   const device = getStoredDevice();
   await fetch(`${API_URL}/sessions/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) },
+    headers: {
+      ...NGROK_HEADERS,
+      ...(device ? { "X-Corro-Device": device } : {}),
+    },
   });
 }
-
-
-
-
-
 
 export async function fetchSuggestions(
   userMessage: string,
@@ -434,7 +485,10 @@ export async function fetchSuggestions(
 export async function fetchModels(): Promise<ModelDescription[]> {
   const device = getStoredDevice();
   const response = await fetch(`${API_URL}/models`, {
-    headers: { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) },
+    headers: {
+      ...NGROK_HEADERS,
+      ...(device ? { "X-Corro-Device": device } : {}),
+    },
   });
   if (!response.ok)
     throw new Error(`Failed to load models: ${response.status}`);

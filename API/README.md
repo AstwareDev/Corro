@@ -71,6 +71,7 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | Name | What it does |
 | --- | --- |
 | `calculator` | exact arithmetic, no model in the loop |
+| `currency_convert` | live currency conversion, ~200 currencies including AMD and RUB |
 | `web_search` | ranked results with a snippet each (Tavily) |
 | `web_extract` | full text of specific URLs, batched |
 | `web_crawl` | follow links from a page and read what they contain |
@@ -80,6 +81,8 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `yerevan_city_categories`, `parma_categories`, `sas_categories` | walk a shop's category tree |
 | `amazon_search`, `walmart_search` | search a US marketplace: live USD prices, ratings, current deals |
 | `amazon_product`, `walmart_product` | one product in full: description, brand, stock, photos |
+| `apple_search` | every current colour/storage price for an iPhone or iPad line |
+| `apple_product` | the same, unfiltered, plus a description and photo |
 
 The web tools are Tavily. Every response is trimmed before the model sees it:
 tracking parameters stripped from URLs, markup and image links removed, results
@@ -97,6 +100,26 @@ Run one without a model to see its shape:
 ```bash
 curl -s localhost:8787/tools/web_search -H 'content-type: application/json' -d '{"query":"EU AI Act 2025 changes","maxResults":3}'
 ```
+
+## Currency
+
+`currency_convert` reads [fawazahmed0/currency-api](https://github.com/fawazahmed0/currency-api),
+an open-source mirror of daily exchange rates — no key, no request limit, ~200 currencies
+including AMD and RUB, plus the major cryptocurrencies. "Unlimited" here means what a free
+source can honestly promise: refreshed once a day upstream, not tick-by-tick — there is no
+free, keyless, real-time forex API, so daily is the ceiling, not a corner cut. Two mirrors
+of the same JSON are tried in order (`src/agent/tools/currency/client.ts`), and each base
+currency's rate table is cached in memory for 30 minutes so a multi-step conversion in one
+run doesn't refetch on every call.
+
+```bash
+curl -s localhost:8787/tools/currency_convert -H 'content-type: application/json' \
+  -d '{"description":"Converting dollars to dram","amount":100,"from":"usd","to":["amd","rub"]}'
+```
+
+Give one `to` for a single conversion or several to compare against multiple currencies at
+once. Both `from` and every `to` are checked against the service's own currency list first,
+so a typo'd code comes back as a clear error rather than a confusing "no rate" failure.
 
 ## Supermarkets
 
@@ -159,6 +182,19 @@ markup. Amazon has no such blob, so `amazon/parse.ts` reads the page's own acces
 labels — "$141.99 with 25 percent savings" is one string Amazon writes for screen
 readers, and a far more stable target across the site's constant page-template
 experiments than any single visual price widget would be.
+
+**Apple** is narrower on purpose: `apple_search` and `apple_product` cover iPhone and
+iPad only. Apple's storefront is not one catalogue but several incompatible configurator
+engines — iPhone and iPad share a simple colour/storage picker whose data is uniform and
+easy to read; Mac is a build-to-order system with its own price-key indirection, and Watch
+a two-stage case-then-band picker with a third. Rather than half-parse three different
+schemas, only the two that are uniform are read. Apple also has no site-wide product
+search the way a marketplace does — `apple_search` matches a query against a small,
+hand-kept directory of the current buy pages (`PRODUCT_LINES` in `apple/parse.ts`, a
+handful of entries that change on Apple's own release cycle) rather than querying Apple's
+own search, which mixes shop, support and marketing results. Unlike Amazon and Walmart,
+Apple's buy pages serve a plain first request with no session needed — Apple sets one
+price for everyone, so there's nothing here worth rate-limiting.
 
 ## Region
 
@@ -299,6 +335,8 @@ Each concern is one place to edit:
 | `src/agent/tools/` | the toolbelt; register new tools in `index.ts` |
 | `src/agent/tools/shops/scrape.ts` | shared HTML reading for the shops with no API |
 | `src/agent/tools/shops/session.ts` | the cookie-jar warm-up Amazon and Walmart need |
+| `src/agent/tools/apple/parse.ts` | the iPhone/iPad product-line directory and page parsing |
+| `src/agent/tools/currency/client.ts` | the exchange-rate mirror, its fallback and cache |
 | `src/http/region.ts` | where the caller is, inferred from what they already send |
 | `src/http/geoip.ts` | city/region/timezone from the caller's IP, cached |
 | `src/agent/run.ts` | the model loop, `runAgent` and `streamAgent` |

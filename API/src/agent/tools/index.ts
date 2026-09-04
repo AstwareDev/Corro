@@ -1,5 +1,7 @@
 import { amazonProduct, amazonSearch } from './amazon/index.js'
+import { appleProduct, appleSearch } from './apple/index.js'
 import { calculator } from './calculator.js'
+import { currencyConvert } from './currency/index.js'
 import { createFsTools, FS_TOOL_NAMES } from './fs/index.js'
 import { parmaCategories, parmaProduct, parmaSearch } from './parma/index.js'
 import { sasCategories, sasProduct, sasSearch } from './sas/index.js'
@@ -10,6 +12,7 @@ import { yerevanCityCategories, yerevanCityProduct, yerevanCitySearch } from './
 
 const SHARED = {
   calculator,
+  currency_convert: currencyConvert,
   web_search: webSearch,
   web_extract: webExtract,
   web_crawl: webCrawl,
@@ -27,6 +30,8 @@ const SHARED = {
   amazon_product: amazonProduct,
   walmart_search: walmartSearch,
   walmart_product: walmartProduct,
+  apple_search: appleSearch,
+  apple_product: appleProduct,
 } as const
 
 export type SharedToolName = keyof typeof SHARED
@@ -59,6 +64,7 @@ export function selectTools(
 }
 
 export { calculator, evaluate, CalcError } from './calculator.js'
+export { currencyConvert, CURRENCY_TOOL_NAMES } from './currency/index.js'
 export { webSearch, webExtract, webCrawl, webMap, hasTavilyKey, TavilyError } from './tavily/index.js'
 export {
   yerevanCitySearch,
@@ -71,6 +77,7 @@ export { parmaSearch, parmaProduct, parmaCategories, PARMA_TOOL_NAMES } from './
 export { sasSearch, sasProduct, sasCategories, SAS_TOOL_NAMES } from './sas/index.js'
 export { amazonSearch, amazonProduct, AMAZON_TOOL_NAMES } from './amazon/index.js'
 export { walmartSearch, walmartProduct, WALMART_TOOL_NAMES } from './walmart/index.js'
+export { appleSearch, appleProduct, APPLE_TOOL_NAMES } from './apple/index.js'
 export { ShopError } from './shops/scrape.js'
 export { createFsTools, FS_TOOL_NAMES } from './fs/index.js'
 export { listFiles, workspaceRoot, WorkspaceError } from './fs/workspace.js'

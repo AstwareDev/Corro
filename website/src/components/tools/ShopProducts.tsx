@@ -7,13 +7,6 @@ import { useState } from "react";
 
 const DRAM = "֏";
 
-
-
-
-
-
-
-
 function money(value: number | undefined, currency = "AMD"): string {
   if (value === undefined) return "—";
   const rounded = Math.round(value * 100) / 100;
@@ -46,7 +39,7 @@ export interface ShopProduct {
   wasPrice?: number;
   discountPercent?: number;
   discountRuns?: { from?: string; to?: string; text?: string };
-  
+
   rating?: number;
   reviewCount?: number;
   category?: string;
@@ -143,9 +136,6 @@ function DiscountBadge({ percent }: { percent: number }) {
     </span>
   );
 }
-
-
-
 
 function Rating({ value, count }: { value?: number; count?: number }) {
   if (value === undefined) return null;
@@ -268,9 +258,9 @@ export function ShopSearchResults({
   totalMatches?: number;
   page?: number;
   pageCount?: number;
-  
+
   shelf?: string;
-  
+
   currency?: string;
 }) {
   if (!products.length) {
@@ -538,7 +528,7 @@ export function ShopProductDetails({
   products: ShopProduct[];
   shop?: ShopBrand;
   failed?: Array<{ id?: number; slug?: string; url?: string; error?: string }>;
-  
+
   currency?: string;
 }) {
   return (
