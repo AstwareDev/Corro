@@ -1,17 +1,26 @@
-export type TokenizerKey = 'kimi-k3' | 'deepseek-v4-pro' | 'diffusiongemma-26b'
+export type TokenizerKey =
+  | 'kimi-k3'
+  | 'deepseek-v4-pro'
+  | 'diffusiongemma-26b'
+  | 'o200k'
+  | 'claude-fable'
 
 export type SpecialsLayout =
-  
-  
-  
+
+
+
   | { kind: 'reserved'; count: number; configFile: string; offset?: number }
-  
-  
-  
+
+
+
   | { kind: 'exhaustive'; configFile: string }
   | { kind: 'inline' }
 
-export interface TokenizerSpec {
+
+
+
+export interface HfTokenizerSpec {
+  kind: 'hf'
   key: TokenizerKey
   hfRepo: string
   ranksPath: string
@@ -19,7 +28,7 @@ export interface TokenizerSpec {
   specials: SpecialsLayout
   chatTemplatePath?: string
   patStr: string
-  
+
 
 
 
@@ -29,6 +38,42 @@ export interface TokenizerSpec {
 
   vocabFormat?: 'hf-bpe'
 }
+
+export type BuiltinEncoding = 'o200k_base' | 'cl100k_base'
+
+
+
+
+
+
+export interface BuiltinTokenizerSpec {
+  kind: 'builtin'
+  key: TokenizerKey
+  encoding: BuiltinEncoding
+  note: string
+}
+
+
+
+
+
+
+
+
+
+
+
+
+export interface EstimatedTokenizerSpec {
+  kind: 'estimated'
+  key: TokenizerKey
+  base: TokenizerKey
+  ratio: number
+  perChar: number
+  note: string
+}
+
+export type TokenizerSpec = HfTokenizerSpec | BuiltinTokenizerSpec | EstimatedTokenizerSpec
 
 const KIMI_PAT = [
   String.raw`[\p{Han}]+`,
@@ -58,6 +103,7 @@ const DEEPSEEK_PAT = [
 
 export const SPECS: Record<TokenizerKey, TokenizerSpec> = {
   'kimi-k3': {
+    kind: 'hf',
     key: 'kimi-k3',
     hfRepo: 'moonshotai/Kimi-K3',
     ranksPath: 'tiktoken.model',
@@ -66,34 +112,67 @@ export const SPECS: Record<TokenizerKey, TokenizerSpec> = {
     patStr: KIMI_PAT,
   },
   'deepseek-v4-pro': {
+    kind: 'hf',
     key: 'deepseek-v4-pro',
     hfRepo: 'deepseek-ai/DeepSeek-V4-Pro-0813',
     ranksPath: 'tokenizer.json',
-    
-    
-    
-    
+
+
+
+
     baseVocab: 127997,
     specials: { kind: 'exhaustive', configFile: 'tokenizer_config.json' },
     patStr: DEEPSEEK_PAT,
     vocabFormat: 'hf-bpe',
   },
   'diffusiongemma-26b': {
+    kind: 'hf',
     key: 'diffusiongemma-26b',
     hfRepo: 'google/diffusiongemma-26B-A4B-it',
     ranksPath: 'tokenizer.json',
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
+
     baseVocab: 262_144,
     specials: { kind: 'exhaustive', configFile: 'tokenizer_config.json' },
     patStr: DEEPSEEK_PAT,
     vocabFormat: 'hf-bpe',
+  },
+
+
+
+
+  o200k: {
+    kind: 'builtin',
+    key: 'o200k',
+    encoding: 'o200k_base',
+    note:
+      "OpenAI's o200k_base, shipped inside the tiktoken package — nothing to download. " +
+      'Reproduces gpt-6-astra prompt_tokens exactly.',
+  },
+
+
+
+
+
+
+
+  'claude-fable': {
+    kind: 'estimated',
+    key: 'claude-fable',
+    base: 'o200k',
+    ratio: 1.1087,
+    perChar: 0.1202,
+    note:
+      "Anthropic does not publish Fable's vocabulary, so counts are estimated from o200k_base " +
+      'plus a character term, fitted against the endpoint\'s own prompt_tokens by ' +
+      '`pnpm tokenizers:calibrate`. Expect roughly ±15% on prose, worse on long runs of ' +
+      'repeated characters.',
   },
 }
 
@@ -102,9 +181,11 @@ export const TOKENIZER_KEYS = Object.keys(SPECS) as TokenizerKey[]
 export type ModelKey =
   | 'kimi-k3'
   | 'kimi-k3-fast'
+  | 'fable-5.1'
+  | 'gpt-6-astra'
+  | 'qwen3-max'
   | 'deepseek-v4-pro'
   | 'diffusiongemma-26b'
-  | 'qwen3-max'
 
 export type ModelSpeed = 'variable' | 'fast'
 
@@ -127,6 +208,10 @@ export interface ModelSpec {
 
   internal?: boolean
 }
+
+
+
+
 
 export const MODELS: Record<ModelKey, ModelSpec> = {
   'kimi-k3': {
@@ -154,6 +239,65 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
     baseUrlEnv: 'KIMI_BASE_URL',
     apiKeyEnv: 'MODAL_API_KEY',
     notes: 'The same model on a self-hosted Modal endpoint. Fast and steady, but it costs credits.',
+  },
+  'fable-5.1': {
+    key: 'fable-5.1',
+    label: 'Fable 5.1',
+    servedModelId: 'claude-fable-5.1',
+    tokenizer: 'claude-fable',
+    contextLength: 1_000_000,
+    speed: 'fast',
+    free: true,
+    baseUrlEnv: 'EXPLABS_BASE_URL',
+    defaultBaseUrl: 'https://api.experientiallabs.ai/v1',
+    apiKeyEnv: 'EXPLABS_API_KEY',
+    notes:
+      "Anthropic's Fable 5.1 through Experiential Labs' OpenAI-compatible gateway. Fast and steady, " +
+      'text and image in, tool calls supported, 1M token context. Free up to a daily token allowance ' +
+      'on the shared key, after which the endpoint answers 429 until 00:00 UTC. Token counts are ' +
+      'estimated, not exact — see the claude-fable tokenizer.',
+    reasoningEfforts: ['none', 'low', 'high', 'max'],
+    defaultReasoningEffort: 'high',
+    modalities: { input: ['text', 'image'], output: ['text'] },
+  },
+  'gpt-6-astra': {
+    key: 'gpt-6-astra',
+    label: 'GPT 6 Astra',
+    servedModelId: 'gpt-6-astra',
+    tokenizer: 'o200k',
+    contextLength: 1_000_000,
+    speed: 'fast',
+    free: true,
+    baseUrlEnv: 'EXPLABS_BASE_URL',
+    defaultBaseUrl: 'https://api.experientiallabs.ai/v1',
+    apiKeyEnv: 'EXPLABS_API_KEY',
+    notes:
+      "OpenAI's GPT-6 Astra on the same Experiential Labs gateway as fable-5.1. Fast, text and image " +
+      'in, tool calls supported. Free up to a daily allowance of 1,000,000 input / 800,000 output ' +
+      'tokens on the shared key, then 429 until 00:00 UTC. Counts are exact: it tokenizes with ' +
+      'o200k_base.',
+    reasoningEfforts: ['low', 'medium', 'high'],
+    defaultReasoningEffort: 'medium',
+    modalities: { input: ['text', 'image'], output: ['text'] },
+  },
+  'qwen3-max': {
+    key: 'qwen3-max',
+    label: 'Qwen 3.8 Max (free)',
+    servedModelId: 'qwen/qwen3.8-max:free',
+    tokenizer: 'kimi-k3',
+    contextLength: 1_000_000,
+    speed: 'variable',
+    free: true,
+    baseUrlEnv: 'XKIRO_BASE_URL',
+    defaultBaseUrl: 'https://api.xkiro.com/v1',
+    apiKeyEnv: 'XKIRO_API_KEY',
+    notes:
+      'Qwen 3.8 Max via xKiro, free tier. 1M token context, 65K max output, text/image/video ' +
+      'input. Selectable reasoning effort: low, medium, xhigh (default). Token counts use the ' +
+      "Kimi tokenizer as an approximation — Qwen's own tokenizer isn't calibrated yet.",
+    reasoningEfforts: ['low', 'medium', 'xhigh'],
+    defaultReasoningEffort: 'xhigh',
+    modalities: { input: ['text', 'image', 'video'], output: ['text'] },
   },
   'deepseek-v4-pro': {
     key: 'deepseek-v4-pro',
@@ -187,25 +331,6 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
       'not offered in the chat model picker, it just drafts the follow-up suggestion chips after a reply.',
     internal: true,
   },
-  'qwen3-max': {
-    key: 'qwen3-max',
-    label: 'Qwen 3.8 Max (free)',
-    servedModelId: 'qwen/qwen3.8-max:free',
-    tokenizer: 'kimi-k3',
-    contextLength: 1_000_000,
-    speed: 'variable',
-    free: true,
-    baseUrlEnv: 'XKIRO_BASE_URL',
-    defaultBaseUrl: 'https://api.xkiro.com/v1',
-    apiKeyEnv: 'XKIRO_API_KEY',
-    notes:
-      'Qwen 3.8 Max via xKiro, free tier. 1M token context, 65K max output, text/image/video ' +
-      'input. Selectable reasoning effort: low, medium, xhigh (default). Token counts use the ' +
-      "Kimi tokenizer as an approximation — Qwen's own tokenizer isn't calibrated yet.",
-    reasoningEfforts: ['low', 'medium', 'xhigh'],
-    defaultReasoningEffort: 'xhigh',
-    modalities: { input: ['text', 'image', 'video'], output: ['text'] },
-  },
 }
 
 export const MODEL_KEYS = Object.keys(MODELS) as ModelKey[]
@@ -221,6 +346,13 @@ export const MODEL_ALIASES: Record<string, ModelKey> = {
   qwen: 'qwen3-max',
   'qwen3.8-max': 'qwen3-max',
   'qwen-max': 'qwen3-max',
+  fable: 'fable-5.1',
+  'fable-5-1': 'fable-5.1',
+  'claude-fable': 'fable-5.1',
+  'claude-fable-5.1': 'fable-5.1',
+  gpt6: 'gpt-6-astra',
+  'gpt-6': 'gpt-6-astra',
+  astra: 'gpt-6-astra',
 }
 
 export function resolveModel(model: string): ModelSpec {

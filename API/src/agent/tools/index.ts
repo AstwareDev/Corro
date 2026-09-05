@@ -3,6 +3,8 @@ import { appleProduct, appleSearch } from './apple/index.js'
 import { calculator } from './calculator.js'
 import { currencyConvert } from './currency/index.js'
 import { createFsTools, FS_TOOL_NAMES } from './fs/index.js'
+import { createBrowserTools, BROWSER_TOOL_NAMES } from './browser/index.js'
+import { createPresentationTools, PRESENTATION_TOOL_NAMES } from './presentation/index.js'
 import { istoreCategories, istoreProduct, istoreSearch } from './istore/index.js'
 import { parmaCategories, parmaProduct, parmaSearch } from './parma/index.js'
 import { sasCategories, sasProduct, sasSearch } from './sas/index.js'
@@ -40,7 +42,7 @@ const SHARED = {
 
 export type SharedToolName = keyof typeof SHARED
 
-export const TOOL_NAMES: string[] = [...Object.keys(SHARED), ...FS_TOOL_NAMES]
+export const TOOL_NAMES: string[] = [...Object.keys(SHARED), ...FS_TOOL_NAMES, ...BROWSER_TOOL_NAMES, ...PRESENTATION_TOOL_NAMES]
 
 export interface ToolContext {
   
@@ -55,6 +57,8 @@ export function buildTools(ctx: ToolContext = {}): Record<string, unknown> {
   return {
     ...SHARED,
     ...(ctx.workspace ? createFsTools(ctx.workspace) : {}),
+    ...(ctx.workspace ? createBrowserTools(ctx.workspace) : {}),
+    ...(ctx.workspace ? createPresentationTools(ctx.workspace) : {}),
   }
 }
 
@@ -85,4 +89,6 @@ export { appleSearch, appleProduct, APPLE_TOOL_NAMES } from './apple/index.js'
 export { istoreSearch, istoreProduct, istoreCategories, ISTORE_TOOL_NAMES } from './istore/index.js'
 export { ShopError } from './shops/scrape.js'
 export { createFsTools, FS_TOOL_NAMES } from './fs/index.js'
-export { listFiles, workspaceRoot, WorkspaceError } from './fs/workspace.js'
+export { listFiles, workspaceRoot, viewUrl, WorkspaceError } from './fs/workspace.js'
+export { createBrowserTools, BROWSER_TOOL_NAMES, BrowserError } from './browser/index.js'
+export { createPresentationTools, PRESENTATION_TOOL_NAMES } from './presentation/index.js'

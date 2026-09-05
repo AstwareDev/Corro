@@ -42,6 +42,7 @@ curl -N -X POST "localhost:8787/say?session=ses_..." -d "and who else was nomina
 | `GET` | `/models`, `/models/:key` | live model cards + tokenizer status |
 | `GET` | `/tools`, `POST /tools/:name` | the toolbelt, and running one tool with no model |
 | `GET` | `/prompt` | the system prompt as the agent receives it |
+| `GET` | `/workspace/view` | a workspace file served as itself — a rendered page, an image, a download — instead of JSON |
 | `POST` | `/tokens` | token counting, optionally with prompt and tools included |
 | `GET` | `/test` | end-to-end smoke test |
 | `GET` | `/` | the control console |
@@ -86,6 +87,13 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `istore_search` | search iStore.am, Armenia's Apple Authorised Reseller: live AMD prices, sale markdowns, stock |
 | `istore_product` | one product in full: configuration, price, stock status, photos |
 | `istore_categories` | walk iStore's category tree — iPad, Mac, iPhone, Watch, TV, AirPods, Audio, Accessories |
+| `fs_list`, `fs_read`, `fs_search` | list, read, and regex-search files in the session's workspace |
+| `fs_write`, `fs_edit`, `fs_rename`, `fs_delete` | create, patch, move, and remove workspace files, with revision checks against stale overwrites |
+| `browser_open`, `browser_read` | open a real page in a local browser and read its rendered, visible text |
+| `browser_click`, `browser_fill` | click an element or fill and submit a form on the open page |
+| `browser_screenshot` | save a PNG of the open page into the workspace |
+| `browser_close` | close the session's browser |
+| `create_presentation` | build a real .pptx deck — title slide, bullets or text per slide, optional images — into the workspace |
 
 The web tools are Tavily. Every response is trimmed before the model sees it:
 tracking parameters stripped from URLs, markup and image links removed, results
@@ -103,6 +111,31 @@ Run one without a model to see its shape:
 ```bash
 curl -s localhost:8787/tools/web_search -H 'content-type: application/json' -d '{"query":"EU AI Act 2025 changes","maxResults":3}'
 ```
+
+## Workspace, browser, and presentations
+
+Every session gets a private workspace directory. `fs_write` (and friends) can create any file in
+it, including a self-contained `.html` report or dashboard the model builds for the user — the
+system prompt asks for a polished, white-theme page with a real chart, not a wall of text. Read
+one back as JSON with `GET /workspace/file?path=...`, or open it as an actual page — rendered
+HTML, a downloadable `.pptx`, an inline image — with `GET /workspace/view?path=...`. Tool results
+that produce a shareable file (`fs_write`, `fs_edit`, `create_presentation`, `browser_screenshot`)
+include a ready-made `viewUrl` for exactly that endpoint, built from `CORRO_PUBLIC_URL` (default
+`http://localhost:<PORT>`) — set it if the API is reachable at a tunnel or a different host.
+
+`browser_*` drives a real, already-installed browser via Playwright's CDP protocol — nothing is
+downloaded at install time. It launches Chrome by default; set `CORRO_BROWSER_CHANNEL=msedge` (or
+`chromium`, `chrome-beta`) to use a different installed channel, or `CORRO_BROWSER_PATH` to point
+at a specific executable. One browser is kept open per workspace across tool calls so
+`browser_open` → `browser_click` → `browser_read` act on the same page, and it is closed
+automatically after 10 minutes of no use, or on demand with `browser_close`. Only `http:` and
+`https:` pages can be opened — `file:`, `chrome:`, `javascript:`, and `data:` URLs are rejected.
+
+`create_presentation` builds an actual `.pptx` with `pptxgenjs` — a title slide plus one slide per
+entry, each with a heading and either bullets, a paragraph, or an image already in the workspace
+(handy after a `browser_screenshot`). It writes through the same revision-checked save path as
+`fs_write`, so re-running it against a stale `expectedRevision` is rejected rather than silently
+clobbering a newer version.
 
 ## Currency
 
@@ -229,22 +262,34 @@ was detected and how.
 ## Models
 
 `kimi-k3` and `kimi-k3-fast` are the same model; they differ only in where they run.
-`deepseek-v4-pro` and `qwen3-max` are separate models on their own endpoints.
+`fable-5.1` and `gpt-6-astra` share one endpoint and one key. `deepseek-v4-pro` and
+`qwen3-max` are separate models on their own endpoints. Clients see them in this
+order:
 
 | Key | Endpoint | Speed | Cost | Modalities |
 | --- | --- | --- | --- | --- |
 | `kimi-k3` *(default)* | `unified-nvidia-api.vercel.app` | variable — sometimes fast, sometimes ~3-10 tok/s | free, keyless, unlimited | text, image, video in → text out |
 | `kimi-k3-fast` | your Modal deployment | fast and steady | spends Modal credits | text, image, video in → text out |
-| `deepseek-v4-pro` | `unified-nvidia-api.vercel.app` | variable, very slow cold starts | free, keyless, unlimited | text only |
+| `fable-5.1` | `api.experientiallabs.ai` (Experiential Labs) | fast | free daily allowance, needs `EXPLABS_API_KEY` | text, image in → text out |
+| `gpt-6-astra` | `api.experientiallabs.ai` (Experiential Labs) | fast | free daily allowance, needs `EXPLABS_API_KEY` | text, image in → text out |
 | `qwen3-max` | `api.xkiro.com` (xKiro) | variable | free tier, needs `XKIRO_API_KEY` | text, image, video in → text out |
+| `deepseek-v4-pro` | `unified-nvidia-api.vercel.app` | variable, very slow cold starts | free, keyless, unlimited | text only |
 
 `deepseek-v4-pro` has a 1M token context window and shares Kimi's reasoning-effort
 range — `none`, `low`, `high`, `max`, default `high` — set with `"reasoningEffort"`
 on `/chat`. `qwen3-max` also has a 1M token context window (65K max output) and
 its own three-step scale — `low`, `medium`, `xhigh`, default `xhigh` — shown in
-clients as Fast / Standard / Max. `/models` always reports the live set for
-whichever model answered, so a client should read `reasoningEfforts` rather than
-assume one scale fits every model.
+clients as Fast / Standard / Max. `fable-5.1` takes Kimi's four-step scale and
+`gpt-6-astra` takes `low`, `medium`, `high` (default `medium`); both have a 1M
+token context window. `/models` always reports the live set for whichever model
+answered, so a client should read `reasoningEfforts` rather than assume one scale
+fits every model.
+
+The two Experiential Labs models are free only up to a per-model daily token
+allowance on the shared key — GPT-6 Astra's is 1,000,000 input / 800,000 output
+tokens — after which the endpoint answers 429 until 00:00 UTC. `fable-5.1` also
+rejects a conversation that ends with an assistant message: it does not support
+assistant prefill.
 
 Pick one per request with `"model": "kimi-k3-fast"`, or just ask for fast mode:
 
@@ -267,6 +312,35 @@ Because the two endpoints wrap the same model in slightly different chat
 scaffolding, they are calibrated separately: the free one costs 75 tokens of
 fixed overhead per request, Modal's 74. Both reproduce their server's
 `prompt_tokens` exactly on every held-out case (`pnpm tokenizers:check`).
+
+### Tokenizers
+
+Each model counts tokens with one of three kinds of tokenizer, and `/models`
+reports which, per model, under `tokenizer`:
+
+| Kind | Used by | How it works |
+| --- | --- | --- |
+| `hf` | `kimi-k3*`, `deepseek-v4-pro`, `diffusiongemma-26b` | real BPE ranks downloaded from Hugging Face by `pnpm tokenizers:prepare` |
+| `builtin` | `gpt-6-astra` | `o200k_base`, already inside the `tiktoken` package — nothing to download |
+| `estimated` | `fable-5.1` | Anthropic publishes no vocabulary, so counts are estimated |
+
+`gpt-6-astra` tokenizes with plain `o200k_base`, so its counts are exact.
+`fable-5.1` cannot be: the estimate is a two-term fit,
+`tokens ≈ ratio * o200k_base + perChar * characters`, whose coefficients
+`pnpm tokenizers:calibrate` measures against the endpoint's own reported
+`prompt_tokens` and writes to `.cache/tokenizers/scales.json`. It lands within
+about 13% on average and 30% on held-out prose, and tends to read slightly low;
+`pnpm tokenizers:check` tolerates 35% drift for estimated tokenizers instead of
+demanding an exact match. Anything counted this way is reported with
+`"exact": false` and `"estimated": true`.
+
+Both scripts take model keys to work on just those, which is the way to redo one
+model without re-probing every endpoint:
+
+```bash
+pnpm tokenizers:calibrate fable-5.1 gpt-6-astra
+pnpm tokenizers:check fable-5.1
+```
 
 ## Sessions live in the API
 
@@ -363,7 +437,7 @@ Each concern is one place to edit:
 | `src/routes/` | the HTTP surface, one file per group |
 | `src/models/registry.ts` | endpoints and live model cards |
 | `src/tokenizer/specs.ts` | which models exist, and which tokenizer each uses |
-| `src/tokenizer/` | exact BPE token counting |
+| `src/tokenizer/` | BPE token counting, exact where the vocabulary is published |
 | `src/client/corro.ts` | the client |
 | `src/config.ts` | port, default model, body limit |
 
@@ -371,7 +445,9 @@ Each concern is one place to edit:
 
 See `.env.example`. `CORRO_DATA_DIR` overrides where sessions are written, `CORRO_DEFAULT_MODEL`
 and `CORRO_FAST_MODEL` which model each route picks, `PORT` the port. Only fast
-mode needs credentials (`KIMI_BASE_URL` + `MODAL_API_KEY`).
+mode needs credentials (`KIMI_BASE_URL` + `MODAL_API_KEY`). `CORRO_PUBLIC_URL` sets the base URL
+used in `viewUrl` links; `CORRO_BROWSER_CHANNEL` and `CORRO_BROWSER_PATH` control which installed
+browser the `browser_*` tools drive (see Workspace, browser, and presentations).
 
 ## No authentication
 

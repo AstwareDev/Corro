@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { TOKENIZER_KEYS, SPECS, type TokenizerKey, type TokenizerSpec } from './specs.js'
+import { TOKENIZER_KEYS, SPECS, type HfTokenizerSpec, type TokenizerKey } from './specs.js'
 
 export const CACHE_DIR = fileURLToPath(new URL('../../.cache/tokenizers/', import.meta.url))
 
@@ -89,7 +89,7 @@ function hfBpeArtifacts(tokenizerJson: string): HfBpeArtifacts {
   return { ranks, addedTokensDecoder }
 }
 
-export async function prepareModel(spec: TokenizerSpec, { force = false } = {}) {
+export async function prepareModel(spec: HfTokenizerSpec, { force = false } = {}) {
   const isHfBpe = spec.vocabFormat === 'hf-bpe'
   const ranksDest = cachePath(spec.key, RANKS_FILE)
   const ranksSource = isHfBpe ? path.join(path.dirname(ranksDest), 'source.json') : ranksDest
@@ -125,7 +125,7 @@ export async function prepareModel(spec: TokenizerSpec, { force = false } = {}) 
   return written
 }
 
-export async function verifyRanks(spec: TokenizerSpec) {
+export async function verifyRanks(spec: HfTokenizerSpec) {
   const raw = await fs.readFile(cachePath(spec.key, RANKS_FILE), 'utf8')
   const lines = raw.split('\n').filter((l) => l.trim())
   const expected = spec.specials.kind === 'inline' ? null : spec.baseVocab
@@ -145,6 +145,19 @@ async function main() {
   const force = process.argv.includes('--force')
   for (const key of TOKENIZER_KEYS) {
     const spec = SPECS[key]
+
+    if (spec.kind === 'builtin') {
+      process.stdout.write(`${key} (tiktoken ${spec.encoding})\n  bundled, nothing to download\n`)
+      continue
+    }
+
+    if (spec.kind === 'estimated') {
+      process.stdout.write(
+        `${key} (estimated from ${spec.base})\n  no vocabulary — run \`pnpm tokenizers:calibrate\` to fit it\n`
+      )
+      continue
+    }
+
     process.stdout.write(`${key} (${spec.hfRepo})\n`)
     const written = await prepareModel(spec, { force })
     for (const w of written) process.stdout.write(`  downloaded ${w}\n`)

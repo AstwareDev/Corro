@@ -1851,44 +1851,20 @@ body {
 .trace-disclosure {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   width: fit-content;
-  padding: 7px 9px 7px 0;
+  padding: 6px 8px 6px 0;
   border-bottom: 1px solid transparent;
-  color: var(--corro-text-muted);
-  font-size: 12px;
   transition:
-    color 180ms,
+    opacity 180ms,
     border-color 180ms;
 }
 .trace-disclosure:hover,
 .trace-disclosure.is-open {
-  color: var(--corro-accent-text);
   border-bottom-color: var(--corro-accent-border);
 }
-.trace-orbit {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-}
-.trace-orbit img {
-  grid-area: 1 / 1;
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-}
-.trace-orbit-dark {
-  display: none;
-}
-:root[data-theme="dark"] .trace-orbit-light {
-  display: none;
-}
-:root[data-theme="dark"] .trace-orbit-dark {
-  display: block;
-}
-:root[data-reduce-motion="true"] .trace-orbit img {
-  animation: none;
+.trace-disclosure:hover {
+  opacity: 0.75;
 }
 @media (max-width: 700px) {
   .preview-live {

@@ -48,14 +48,24 @@ const VECTOR_LOGOS: Record<string, string> = {
   alibaba: "/qwen-logo.svg",
 };
 
+const FAMILY_LOGOS: Record<string, string> = {
+  "deepseek-v4-pro": "/deepseek-logo.svg",
+  "qwen3-max": "/qwen-logo.svg",
+  "fable-5.1": "/claude-logo.svg",
+  "gpt-6-astra": "/openai-logo.svg",
+};
+
 function ProviderLogo({
+  family,
   ownedBy,
   className,
 }: {
+  family?: string;
   ownedBy?: string;
   className?: string;
 }) {
-  const vector = ownedBy && VECTOR_LOGOS[ownedBy];
+  const vector =
+    (family && FAMILY_LOGOS[family]) || (ownedBy && VECTOR_LOGOS[ownedBy]);
   if (vector) {
     return (
       <img
@@ -375,6 +385,7 @@ export function ModelMenu({
                       key={family.id}
                       icon={
                         <ProviderLogo
+                          family={family.id}
                           ownedBy={family.standard.ownedBy}
                           className="size-6"
                         />

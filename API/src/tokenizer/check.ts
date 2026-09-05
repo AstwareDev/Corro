@@ -66,14 +66,32 @@ async function serverPromptTokens(key: ModelKey, messages: ChatMessage[]): Promi
   return json.usage.prompt_tokens
 }
 
+const ESTIMATE_TOLERANCE = 0.35
+
+function selectedModels(): ModelKey[] {
+  const named = process.argv.slice(2).filter((a) => !a.startsWith('-'))
+  if (!named.length) return MODEL_KEYS
+  const unknown = named.filter((n) => !(MODEL_KEYS as string[]).includes(n))
+  if (unknown.length) {
+    throw new Error(`Unknown model(s) ${unknown.join(', ')}. Known: ${MODEL_KEYS.join(', ')}`)
+  }
+  return named as ModelKey[]
+}
+
 async function main() {
+  const models = selectedModels()
   let failures = 0
   let checked = 0
 
-  for (const key of MODEL_KEYS) {
+  for (const key of models) {
     const tk = getTokenizer(key)
+    const method = tk.estimated
+      ? `fitted estimate (±${(ESTIMATE_TOLERANCE * 100).toFixed(0)}% tolerated)`
+      : tk.hasTemplate
+        ? 'published chat template'
+        : 'fitted per-role'
     console.log(`\n=== ${key} (${MODELS[key].servedModelId}) ===`)
-    console.log(`    method: ${tk.hasTemplate ? 'published chat template' : 'fitted per-role'}\n`)
+    console.log(`    method: ${method}\n`)
 
     for (const c of CASES) {
       let server: number
@@ -85,18 +103,21 @@ async function main() {
       }
       const local = tk.countChat(c.messages)
       const delta = local.tokens - server
-      const ok = delta === 0
+      const ok = tk.estimated
+        ? Math.abs(delta) / Math.max(1, server) <= ESTIMATE_TOLERANCE
+        : delta === 0
       checked++
       if (!ok) failures++
+      const drift = tk.estimated ? ` (${((delta / Math.max(1, server)) * 100).toFixed(0)}%)` : ''
       console.log(
         `  ${ok ? 'ok  ' : 'MISS'} ${c.label.padEnd(15)} server=${String(server).padStart(5)}  ` +
-          `local=${String(local.tokens).padStart(5)}  ${delta === 0 ? '' : `delta=${delta > 0 ? '+' : ''}${delta}`}`
+          `local=${String(local.tokens).padStart(5)}  ${delta === 0 ? '' : `delta=${delta > 0 ? '+' : ''}${delta}${drift}`}`
       )
     }
   }
 
   console.log('\n=== encode/decode round-trip ===')
-  for (const key of MODEL_KEYS) {
+  for (const key of models) {
     const tk = getTokenizer(key)
     const bad = CASES.filter((c) => {
       const text = typeof c.messages[0].content === 'string' ? (c.messages[0].content as string) : ''
@@ -107,7 +128,8 @@ async function main() {
   }
 
   console.log(
-    `\n${failures === 0 ? 'PASS' : 'FAIL'} — ${checked - failures}/${checked} held-out cases matched the server exactly`
+    `\n${failures === 0 ? 'PASS' : 'FAIL'} — ${checked - failures}/${checked} held-out cases matched the server ` +
+      'exactly, or within tolerance for estimated tokenizers'
   )
   process.exit(failures === 0 ? 0 : 1)
 }

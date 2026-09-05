@@ -1,11 +1,17 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { Template } from '@huggingface/jinja'
 import { Tiktoken } from 'tiktoken/lite'
 import { CONFIG_FILE, RANKS_FILE, TEMPLATE_FILE, cachePath, CACHE_DIR } from './prepare.js'
 import {
+  SPECS,
   resolveModel,
   resolveSpec,
+  type BuiltinEncoding,
+  type BuiltinTokenizerSpec,
+  type EstimatedTokenizerSpec,
+  type HfTokenizerSpec,
   type ModelKey,
   type ModelSpec,
   type TokenizerKey,
@@ -61,6 +67,31 @@ export function readCalibrationFile(): Record<string, Calibration> {
   }
 }
 
+
+
+
+
+
+
+export interface ScaleCalibration {
+  ratio: number
+  perChar: number
+  maxRelError: number
+  meanRelError: number
+  samples: number
+  measuredAt: string
+}
+
+export const SCALES_FILE = path.join(CACHE_DIR, 'scales.json')
+
+export function readScalesFile(): Partial<Record<TokenizerKey, ScaleCalibration>> {
+  try {
+    return JSON.parse(fs.readFileSync(SCALES_FILE, 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
 function readCalibration(model: ModelSpec): { calibration: Calibration | null; inherited: boolean } {
   const all = readCalibrationFile()
   if (all[model.key]) return { calibration: all[model.key], inherited: false }
@@ -88,47 +119,31 @@ export interface CountChatOptions {
   raw?: boolean
 }
 
-class TokenizerCore {
+interface TokenizerCore {
   readonly spec: TokenizerSpec
+  readonly template: Template | null
+  readonly exactText: boolean
+  countText(text: string): number
+  encode(text: string): Uint32Array
+  decode(tokens: Uint32Array): string
+  countRendered(rendered: string): number
+}
+
+
+
+
+class BpeCore implements TokenizerCore {
+  readonly spec: HfTokenizerSpec | BuiltinTokenizerSpec
   readonly enc: Tiktoken
   readonly template: Template | null
+  readonly exactText = true
 
-  constructor(spec: TokenizerSpec) {
+  constructor(spec: HfTokenizerSpec | BuiltinTokenizerSpec) {
     this.spec = spec
-
-    const raw = fs.readFileSync(cachePath(spec.key, RANKS_FILE), 'utf8')
-    const lines = raw.split('\n').filter((l) => l.trim())
-
-    let mergeable: string
-    const specials: Record<string, number> = {}
-
-    if (spec.specials.kind === 'inline') {
-      mergeable = lines.slice(0, spec.baseVocab).join('\n') + '\n'
-      for (const line of lines.slice(spec.baseVocab)) {
-        const [b64, rank] = line.split(' ')
-        specials[Buffer.from(b64, 'base64').toString('utf8')] = Number(rank)
-      }
-    } else {
-      mergeable = raw
-      const cfg = JSON.parse(fs.readFileSync(cachePath(spec.key, CONFIG_FILE), 'utf8'))
-      const named: Record<number, string> = {}
-      for (const [id, tok] of Object.entries(cfg.added_tokens_decoder ?? {})) {
-        named[Number(id)] = (tok as { content: string }).content
-      }
-      if (spec.specials.kind === 'reserved') {
-        const offset = spec.specials.offset ?? spec.baseVocab
-        for (let i = offset; i < offset + spec.specials.count; i++) {
-          specials[named[i] ?? `<|reserved_token_${i}|>`] = i
-        }
-      } else {
-        for (const [id, name] of Object.entries(named)) specials[name] = Number(id)
-      }
-    }
-
-    this.enc = new Tiktoken(mergeable, specials, spec.patStr)
+    this.enc = spec.kind === 'builtin' ? builtinEncoder(spec.encoding) : hfEncoder(spec)
 
     let template: Template | null = null
-    if (spec.chatTemplatePath) {
+    if (spec.kind === 'hf' && spec.chatTemplatePath) {
       try {
         template = new Template(fs.readFileSync(cachePath(spec.key, TEMPLATE_FILE), 'utf8'))
       } catch {
@@ -137,6 +152,114 @@ class TokenizerCore {
     }
     this.template = template
   }
+
+  countText(text: string) {
+    return this.enc.encode_ordinary(text).length
+  }
+
+  encode(text: string) {
+    return this.enc.encode_ordinary(text)
+  }
+
+  decode(tokens: Uint32Array) {
+    return new TextDecoder().decode(this.enc.decode(tokens))
+  }
+
+  countRendered(rendered: string) {
+    return this.enc.encode(rendered, 'all').length
+  }
+}
+
+function hfEncoder(spec: HfTokenizerSpec): Tiktoken {
+  const raw = fs.readFileSync(cachePath(spec.key, RANKS_FILE), 'utf8')
+  const lines = raw.split('\n').filter((l) => l.trim())
+
+  let mergeable: string
+  const specials: Record<string, number> = {}
+
+  if (spec.specials.kind === 'inline') {
+    mergeable = lines.slice(0, spec.baseVocab).join('\n') + '\n'
+    for (const line of lines.slice(spec.baseVocab)) {
+      const [b64, rank] = line.split(' ')
+      specials[Buffer.from(b64, 'base64').toString('utf8')] = Number(rank)
+    }
+  } else {
+    mergeable = raw
+    const cfg = JSON.parse(fs.readFileSync(cachePath(spec.key, CONFIG_FILE), 'utf8'))
+    const named: Record<number, string> = {}
+    for (const [id, tok] of Object.entries(cfg.added_tokens_decoder ?? {})) {
+      named[Number(id)] = (tok as { content: string }).content
+    }
+    if (spec.specials.kind === 'reserved') {
+      const offset = spec.specials.offset ?? spec.baseVocab
+      for (let i = offset; i < offset + spec.specials.count; i++) {
+        specials[named[i] ?? `<|reserved_token_${i}|>`] = i
+      }
+    } else {
+      for (const [id, name] of Object.entries(named)) specials[name] = Number(id)
+    }
+  }
+
+  return new Tiktoken(mergeable, specials, spec.patStr)
+}
+
+const requireFrom = createRequire(import.meta.url)
+
+
+
+
+function builtinEncoder(encoding: BuiltinEncoding): Tiktoken {
+  const file = requireFrom.resolve(`tiktoken/encoders/${encoding}.json`)
+  const registry = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+    bpe_ranks: string
+    special_tokens: Record<string, number>
+    pat_str: string
+  }
+  return new Tiktoken(registry.bpe_ranks, registry.special_tokens, registry.pat_str)
+}
+
+
+
+
+
+
+class EstimatedCore implements TokenizerCore {
+  readonly spec: EstimatedTokenizerSpec
+  readonly template = null
+  readonly exactText = false
+  readonly ratio: number
+  readonly perChar: number
+  readonly scale: ScaleCalibration | null
+  #base: TokenizerCore
+
+  constructor(spec: EstimatedTokenizerSpec) {
+    this.spec = spec
+    this.#base = coreFor(SPECS[spec.base])
+    const fitted = readScalesFile()[spec.key] ?? null
+    this.scale = fitted
+    this.ratio = fitted?.ratio ?? spec.ratio
+    this.perChar = fitted?.perChar ?? spec.perChar
+  }
+
+  countText(text: string) {
+    if (!text) return 0
+    return Math.max(
+      1,
+      Math.round(this.ratio * this.#base.countText(text) + this.perChar * text.length)
+    )
+  }
+
+  encode(text: string) {
+    return this.#base.encode(text)
+  }
+
+  decode(tokens: Uint32Array) {
+    return this.#base.decode(tokens)
+  }
+
+  countRendered(rendered: string) {
+    return this.countText(rendered)
+  }
 }
 
 const cores = new Map<TokenizerKey, TokenizerCore>()
@@ -144,11 +267,24 @@ const cores = new Map<TokenizerKey, TokenizerCore>()
 function coreFor(spec: TokenizerSpec): TokenizerCore {
   let core = cores.get(spec.key)
   if (!core) {
-    core = new TokenizerCore(spec)
+    core = spec.kind === 'estimated' ? new EstimatedCore(spec) : new BpeCore(spec)
     cores.set(spec.key, core)
   }
   return core
 }
+
+
+
+
+export function resetTokenizers() {
+  cores.clear()
+  loaded.clear()
+}
+
+
+
+
+export const countWith = (key: TokenizerKey, text: string) => coreFor(SPECS[key]).countText(text)
 
 export class ModelTokenizer {
   readonly model: ModelSpec
@@ -172,24 +308,38 @@ export class ModelTokenizer {
     return this.#core.template !== null
   }
 
+
+
+
+  get estimated() {
+    return !this.#core.exactText
+  }
+
+
+
+
+  get scale(): Readonly<ScaleCalibration> | null {
+    return this.#core instanceof EstimatedCore ? this.#core.scale : null
+  }
+
   get calibration(): Readonly<Calibration> | null {
     return this.#calibration
   }
 
   countText(text: string): number {
-    return this.#core.enc.encode_ordinary(text).length
+    return this.#core.countText(text)
   }
 
   encode(text: string): Uint32Array {
-    return this.#core.enc.encode_ordinary(text)
+    return this.#core.encode(text)
   }
 
   decode(tokens: Uint32Array): string {
-    return new TextDecoder().decode(this.#core.enc.decode(tokens))
+    return this.#core.decode(tokens)
   }
 
   countRendered(rendered: string): number {
-    return this.#core.enc.encode(rendered, 'all').length
+    return this.#core.countRendered(rendered)
   }
 
   renderChat(messages: ChatMessage[], opts: CountChatOptions = {}): string | null {
@@ -208,6 +358,7 @@ export class ModelTokenizer {
     const contentTokens = parts.reduce((n, ps) => n + ps.reduce((k, p) => k + this.countText(p), 0), 0)
     const extraParts = parts.reduce((n, ps) => n + Math.max(0, ps.length - 1), 0)
     const cal = this.#calibration
+    const canBeExact = !this.estimated
 
     const rendered = this.renderChat(messages, opts)
     if (rendered !== null) {
@@ -216,7 +367,7 @@ export class ModelTokenizer {
       const tokens = useOffset ? rawTokens - (cal as { offset: number }).offset : rawTokens
       return {
         tokens,
-        exact: useOffset && cal.maxResidual === 0,
+        exact: canBeExact && useOffset && cal.maxResidual === 0,
         method: 'chat-template',
         contentTokens,
         overheadTokens: tokens - contentTokens,
@@ -235,7 +386,7 @@ export class ModelTokenizer {
 
     return {
       tokens: contentTokens + overheadTokens,
-      exact: cal.maxResidual === 0,
+      exact: canBeExact && cal.maxResidual === 0,
       method: 'per-role',
       contentTokens,
       overheadTokens,

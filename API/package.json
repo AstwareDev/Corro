@@ -10,7 +10,7 @@
     "tokenizers:calibrate": "tsx src/tokenizer/calibrate.ts",
     "tokenizers:check": "tsx src/tokenizer/check.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/agent/tools/calculator.test.ts src/agent/tools/fs/workspace.test.ts src/agent/run.test.ts src/routes/workspace.test.ts"
+    "test": "tsx --test src/agent/tools/calculator.test.ts src/agent/tools/fs/workspace.test.ts src/agent/run.test.ts src/routes/workspace.test.ts src/agent/tools/presentation/index.test.ts src/agent/tools/browser/index.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -18,7 +18,7 @@
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "^11.20.0",
+      "version": "^12.3.4",
       "onFail": "download"
     }
   },
@@ -30,6 +30,8 @@
     "ai": "^7.0.66",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "playwright-core": "^1.63.0",
+    "pptxgenjs": "^4.0.1",
     "tiktoken": "^1.0.22",
     "zod": "^4.4.3"
   },

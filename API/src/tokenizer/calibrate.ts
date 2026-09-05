@@ -2,8 +2,17 @@ import 'dotenv/config'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { CACHE_DIR } from './prepare.js'
-import { getTokenizer, messageParts, type ChatMessage, type ModelKey } from './index.js'
-import { MODEL_KEYS, MODELS } from './specs.js'
+import {
+  SCALES_FILE,
+  countWith,
+  getTokenizer,
+  messageParts,
+  resetTokenizers,
+  type ChatMessage,
+  type ModelKey,
+  type ScaleCalibration,
+} from './index.js'
+import { MODEL_KEYS, MODELS, SPECS, type TokenizerKey } from './specs.js'
 
 import { endpointConfig } from '../models/registry.js'
 
@@ -169,7 +178,109 @@ function fitPerRole(samples: Sample[]) {
   return { fixed, perRole, perExtraPart, maxResidual: Math.max(...residuals.map(Math.abs)), residuals }
 }
 
+const SCALE_CORPUS: Array<[label: string, text: string]> = [
+  ['tiny', 'Say OK'],
+  ['sentence', 'The quick brown fox jumps over the lazy dog.'],
+  ['prose', LOREM],
+  ['prose x4', LOREM.repeat(4)],
+  ['prose x16', LOREM.repeat(16)],
+  [
+    'latin',
+    'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor ' +
+      'incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud.',
+  ],
+  [
+    'code',
+    'export async function corroborate(claim: string, sources: Source[]) {\n' +
+      '  const hits = await Promise.all(sources.map((s) => s.search(claim)))\n' +
+      "  return hits.filter(Boolean).map((h) => ({ ...h, url: 'https://x.io/' + h.id }))\n}",
+  ],
+  ['json', JSON.stringify({ ok: true, items: [1, 2, 3], note: 'a short tool result', nested: { a: 'b' } })],
+  ['urls', 'See https://example.com/a/b/c?x=1&y=2 and /usr/local/bin//weird///path'],
+  ['numbers', '1234567890 3.14159 1,000,000 0xFF 2026-08-17'],
+  ['cjk', '这个说法有多少独立来源支持？请用中文回答。Mixed with English.'],
+  ['emoji', 'Ship it 🚀👩‍💻🇯🇵 — ok? café naïve'],
+  ['markdown', '# Title\n\n- one\n- two\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n**bold** and `code`.'],
+  ['chatty', 'Could you summarise what changed in the last release and why it matters? '.repeat(6)],
+]
+
+
+
+
+
+
+
+
+async function fitScale(key: ModelKey, tokenizer: TokenizerKey): Promise<ScaleCalibration | null> {
+  const spec = SPECS[tokenizer]
+  if (spec.kind !== 'estimated') return null
+
+  console.log(`\n=== ${tokenizer} scale (probed through ${key}) ===`)
+
+  const rows: Array<{ label: string; server: number; base: number; chars: number }> = []
+  for (const [label, text] of SCALE_CORPUS) {
+    let server: number
+    try {
+      server = await serverPromptTokens(key, [{ role: 'user', content: text }])
+    } catch (err) {
+      console.log(`  ${label.padEnd(10)} skipped — ${(err as Error).message}`)
+      continue
+    }
+    rows.push({ label, server, base: countWith(spec.base, text), chars: text.length })
+  }
+
+  if (rows.length < 4) {
+    console.log('  too few probes succeeded — leaving the shipped estimate in place')
+    return null
+  }
+
+  const A = rows.map((r) => [r.base, r.chars, 1])
+  const w = solve(
+    A,
+    rows.map((r) => r.server)
+  )
+  const ratio = Math.max(0, w[0])
+  const perChar = Math.max(0, w[1])
+
+  const errors = rows.map((r, i) => {
+    const predicted = ratio * r.base + perChar * r.chars + w[2]
+    console.log(
+      `  ${r.label.padEnd(10)} server=${String(r.server).padStart(5)}  base=${String(r.base).padStart(5)}  ` +
+        `chars=${String(r.chars).padStart(5)}  est=${String(Math.round(predicted)).padStart(5)}  ` +
+        `err=${((predicted / r.server - 1) * 100).toFixed(1)}%`
+    )
+    return Math.abs(predicted / rows[i].server - 1)
+  })
+
+  const maxRelError = Math.max(...errors)
+  const meanRelError = errors.reduce((a, b) => a + b, 0) / errors.length
+  console.log(
+    `  fit: tokens ≈ ${ratio.toFixed(4)} * ${spec.base} + ${perChar.toFixed(4)} * chars  ` +
+      `(mean ${(meanRelError * 100).toFixed(1)}%, worst ${(maxRelError * 100).toFixed(1)}%)`
+  )
+
+  return {
+    ratio: Number(ratio.toFixed(4)),
+    perChar: Number(perChar.toFixed(4)),
+    maxRelError: Number(maxRelError.toFixed(4)),
+    meanRelError: Number(meanRelError.toFixed(4)),
+    samples: rows.length,
+    measuredAt: new Date().toISOString(),
+  }
+}
+
+function selectedModels(): ModelKey[] {
+  const named = process.argv.slice(2).filter((a) => !a.startsWith('-'))
+  if (!named.length) return MODEL_KEYS
+  const unknown = named.filter((n) => !(MODEL_KEYS as string[]).includes(n))
+  if (unknown.length) {
+    throw new Error(`Unknown model(s) ${unknown.join(', ')}. Known: ${MODEL_KEYS.join(', ')}`)
+  }
+  return named as ModelKey[]
+}
+
 async function main() {
+  const models = selectedModels()
   const calibrationPath = path.join(CACHE_DIR, 'calibration.json')
   let out: Record<string, unknown> = {}
   try {
@@ -177,9 +288,43 @@ async function main() {
   } catch {
   }
 
-  for (const key of MODEL_KEYS) {
-    const tk = getTokenizer(key)
+  let scales: Record<string, ScaleCalibration> = {}
+  try {
+    scales = JSON.parse(await fs.readFile(SCALES_FILE, 'utf8'))
+  } catch {
+  }
+
+
+
+
+  const fitted = new Set<TokenizerKey>()
+  for (const key of models) {
+    const tokenizer = MODELS[key].tokenizer
+    if (SPECS[tokenizer].kind !== 'estimated' || fitted.has(tokenizer)) continue
+    const scale = await fitScale(key, tokenizer)
+    if (scale) {
+      scales[tokenizer] = scale
+      fitted.add(tokenizer)
+    }
+  }
+
+  if (fitted.size) {
+    await fs.mkdir(CACHE_DIR, { recursive: true })
+    await fs.writeFile(SCALES_FILE, JSON.stringify(scales, null, 2) + '\n')
+    console.log(`\nwrote ${path.relative(process.cwd(), SCALES_FILE)}`)
+    resetTokenizers()
+  }
+
+  for (const key of models) {
     console.log(`\n=== ${key} (${MODELS[key].servedModelId} @ ${MODELS[key].baseUrlEnv}) ===`)
+
+    let tk: ReturnType<typeof getTokenizer>
+    try {
+      tk = getTokenizer(key)
+    } catch (err) {
+      console.log(`  unavailable — ${(err as Error).message.split('\n')[0]}`)
+      continue
+    }
 
     const samples: Sample[] = []
     for (const probe of probes()) {
@@ -248,6 +393,7 @@ async function main() {
     }
   }
 
+  await fs.mkdir(CACHE_DIR, { recursive: true })
   await fs.writeFile(calibrationPath, JSON.stringify(out, null, 2) + '\n')
   console.log(`\nwrote ${path.relative(process.cwd(), calibrationPath)}`)
 }

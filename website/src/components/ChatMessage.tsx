@@ -3,13 +3,13 @@
 import { motion } from "framer-motion";
 import { AlertTriangle, Check, Copy, Pencil, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTypewriter } from "@/hooks/useTypewriter";
 import { useMotionPreference } from "@/lib/appearance";
 import type { ChatMessageUI, MessageBlock } from "@/lib/types";
-import { CorroMark, CorroMarkLoading } from "./CorroMark";
 import { Markdown } from "./Markdown";
 import { MessageFooter } from "./MessageFooter";
-import { type TraceBlock, TraceGroup } from "./TraceGroup";
-import { WorkTimer } from "./WorkTimer";
+import { MessageHeader } from "./MessageHeader";
+import { summarizeTrace, type TraceBlock, TraceGroup } from "./TraceGroup";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -41,16 +41,40 @@ export function ChatMessage({
   onEdit?: (id: string, text: string) => void;
 }) {
   const motionOff = useMotionPreference();
-  const isUser = message.role === "user";
 
-  if (isUser) {
+  if (message.role === "user") {
     return (
       <UserMessage message={message} onEdit={onEdit} motionOff={motionOff} />
     );
   }
 
+  return <AssistantMessage message={message} motionOff={motionOff} />;
+}
+
+function AssistantMessage({
+  message,
+  motionOff,
+}: {
+  message: ChatMessageUI;
+  motionOff: boolean;
+}) {
+  const [traceOpen, setTraceOpen] = useState(false);
+  // Only turns that were actually streamed get typed out; replayed history
+  // renders in full immediately.
+  const [typeOut] = useState(() => Boolean(message.streaming));
+
   const segments = toSegments(message.blocks);
+  const traceBlocks = segments.flatMap((s) =>
+    s.kind === "trace" ? s.blocks : [],
+  );
   const lastText = [...segments].reverse().find((s) => s.kind === "text");
+
+  const { shown, complete } = useTypewriter(
+    lastText?.text ?? "",
+    typeOut,
+    lastText?.id ?? "",
+  );
+  const settled = !message.streaming && complete;
 
   return (
     <motion.div
@@ -63,37 +87,13 @@ export function ChatMessage({
       }
       className="flex max-w-[75ch] flex-col gap-2"
     >
-      <div className="flex items-center gap-1.5 text-ink">
-        <motion.span
-          initial={motionOff ? false : { opacity: 0, scale: 0.2, rotate: -35 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          transition={
-            motionOff
-              ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
-              : { duration: 0.4, ease: EASE }
-          }
-          className="flex"
-        >
-          {message.streaming ? (
-            <CorroMarkLoading className="size-5" />
-          ) : (
-            <CorroMark className="size-5" />
-          )}
-        </motion.span>
-        <motion.span
-          initial={motionOff ? false : { opacity: 0, x: -6 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={
-            motionOff
-              ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
-              : { duration: 0.35, delay: 0.1, ease: EASE }
-          }
-          className="font-display text-sm font-semibold uppercase leading-none tracking-[-0.02em]"
-        >
-          Corro
-        </motion.span>
-        <WorkTimer message={message} />
-      </div>
+      <MessageHeader
+        message={message}
+        parts={summarizeTrace(traceBlocks)}
+        hasTrace={traceBlocks.length > 0}
+        open={traceOpen}
+        onToggle={() => setTraceOpen((o) => !o)}
+      />
 
       <div className="flex flex-1 flex-col gap-2">
         {segments.map((segment) =>
@@ -102,6 +102,7 @@ export function ChatMessage({
               key={segment.id}
               blocks={segment.blocks}
               streaming={Boolean(message.streaming)}
+              open={traceOpen}
             />
           ) : (
             <div
@@ -109,12 +110,10 @@ export function ChatMessage({
               className="stream-text text-prose leading-relaxed text-ink"
             >
               <Markdown
-                text={segment.text}
-                animateWords={Boolean(
-                  message.streaming && segment === lastText,
-                )}
+                text={segment === lastText ? shown : segment.text}
+                animateWords={segment === lastText && !settled}
               />
-              {message.streaming && segment === lastText && (
+              {segment === lastText && !settled && (
                 <span className="caret ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] bg-current align-middle" />
               )}
             </div>
@@ -128,7 +127,7 @@ export function ChatMessage({
           </div>
         )}
 
-        {!message.streaming && <MessageFooter message={message} />}
+        {settled && <MessageFooter message={message} />}
       </div>
     </motion.div>
   );

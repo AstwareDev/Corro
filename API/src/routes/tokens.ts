@@ -47,7 +47,13 @@ tokenRoutes.post(
     }
 
     if (text !== undefined) {
-      res.json({ model, tokens: countText(model, text), exact: true, method: 'bpe' })
+      const estimated = getTokenizer(model).estimated
+      res.json({
+        model,
+        tokens: countText(model, text),
+        exact: !estimated,
+        method: estimated ? 'estimated' : 'bpe',
+      })
       return
     }
 

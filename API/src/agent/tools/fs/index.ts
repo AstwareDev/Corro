@@ -9,11 +9,18 @@ import {
   listFiles,
   resolveInside,
   toRelative,
+  viewUrl,
   WorkspaceError,
 } from './workspace.js'
 
 const MAX_READ_BYTES = 400_000
 const MAX_MATCHES = 200
+
+const SHAREABLE_EXTENSIONS = new Set(['.html', '.htm', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.pdf', '.pptx'])
+function extOf(relativePath: string): string {
+  const i = relativePath.lastIndexOf('.')
+  return i === -1 ? '' : relativePath.slice(i).toLowerCase()
+}
 
 function fail(err: unknown) {
   return {
@@ -114,10 +121,12 @@ export function createFsTools(root: string) {
       try {
         const full = resolveInside(root, rel)
         const receipt = saveText(full, content, expectedRevision)
+        const relPath = toRelative(root, full)
         return {
           ok: true as const,
-          path: toRelative(root, full),
+          path: relPath,
           ...receipt,
+          ...(SHAREABLE_EXTENSIONS.has(extOf(relPath)) ? { viewUrl: viewUrl(root, relPath) } : {}),
         }
       } catch (err) {
         return fail(err)
@@ -155,11 +164,13 @@ export function createFsTools(root: string) {
 
         const after = replaceAll ? before.split(oldText).join(newText) : before.replace(oldText, () => newText)
         const receipt = saveText(full, after, expectedRevision ?? revisionOf(before))
+        const relPath = toRelative(root, full)
         return {
           ok: true as const,
-          path: toRelative(root, full),
+          path: relPath,
           replaced: replaceAll ? occurrences : 1,
           ...receipt,
+          ...(SHAREABLE_EXTENSIONS.has(extOf(relPath)) ? { viewUrl: viewUrl(root, relPath) } : {}),
         }
       } catch (err) {
         return fail(err)

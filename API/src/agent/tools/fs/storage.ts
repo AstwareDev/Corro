@@ -8,10 +8,20 @@ export const revisionOf = (content: string | Buffer) => createHash('sha256').upd
 
 export class RevisionConflict extends WorkspaceError {}
 
-/** A receipt describes bytes read from disk, never the proposed write alone. */
-export function saveText(full: string, content: string, expectedRevision?: string | null) {
-  const bytes = Buffer.byteLength(content, 'utf8')
-  if (bytes > MAX_WRITE_BYTES) throw new WorkspaceError(`Content exceeds the ${MAX_WRITE_BYTES} byte limit.`)
+interface Receipt {
+  verified: true
+  changed: boolean
+  created: boolean
+  bytes: number
+  revision: string
+  previousRevision: string | null
+  modifiedAt: string
+}
+
+/** Shared atomic write + verify-by-readback path for both saveText and saveBinary.
+ * A receipt describes bytes read from disk, never the proposed write alone. */
+function persist(full: string, content: Buffer, expectedRevision?: string | null): Receipt {
+  if (content.length > MAX_WRITE_BYTES) throw new WorkspaceError(`Content exceeds the ${MAX_WRITE_BYTES} byte limit.`)
   const before = fs.existsSync(full) ? fs.readFileSync(full) : null
   const previousRevision = before === null ? null : revisionOf(before)
   if (expectedRevision !== undefined && expectedRevision !== previousRevision) {
@@ -23,7 +33,7 @@ export function saveText(full: string, content: string, expectedRevision?: strin
     fs.mkdirSync(path.dirname(full), { recursive: true })
     const temporary = path.join(path.dirname(full), `.corro-${randomUUID()}.tmp`)
     try {
-      fs.writeFileSync(temporary, content, { encoding: 'utf8', flag: 'wx' })
+      fs.writeFileSync(temporary, content, { flag: 'wx' })
       fs.renameSync(temporary, full)
     } finally {
       if (fs.existsSync(temporary)) fs.unlinkSync(temporary)
@@ -35,6 +45,16 @@ export function saveText(full: string, content: string, expectedRevision?: strin
     verified: true as const, changed, created: before === null,
     bytes: saved.length, revision, previousRevision,
     modifiedAt: fs.statSync(full).mtime.toISOString(),
-    preview: saved.toString('utf8').slice(0, 1200),
   }
+}
+
+export function saveText(full: string, content: string, expectedRevision?: string | null) {
+  const receipt = persist(full, Buffer.from(content, 'utf8'), expectedRevision)
+  return { ...receipt, preview: content.slice(0, 1200) }
+}
+
+/** For non-text output a tool builds in memory (a screenshot, a generated .pptx) rather than
+ * text the model composed itself. No text preview is returned; callers describe the result instead. */
+export function saveBinary(full: string, content: Buffer, expectedRevision?: string | null) {
+  return persist(full, content, expectedRevision)
 }

@@ -95,8 +95,10 @@ export interface ModelDescription {
   tokenizer: {
     available: boolean
     exact?: boolean
+    estimated?: boolean
     method?: string
     maxResidual?: number
+    maxRelError?: number
     measuredAt?: string
     inherited?: boolean
     error?: string
@@ -135,6 +137,18 @@ function tokenizerStatus(key: ModelKey): ModelDescription['tokenizer'] {
   try {
     const tk = getTokenizer(key)
     const cal = tk.calibration
+    if (tk.estimated) {
+      const scale = tk.scale
+      return {
+        available: true,
+        exact: false,
+        estimated: true,
+        method: 'estimated',
+        maxRelError: scale?.maxRelError,
+        measuredAt: scale?.measuredAt,
+        ...(scale ? {} : { error: 'Estimate not fitted yet — run `pnpm tokenizers:calibrate`' }),
+      }
+    }
     if (!cal) {
       return {
         available: true,

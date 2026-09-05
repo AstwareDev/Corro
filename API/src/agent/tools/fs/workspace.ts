@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { DATA_DIR } from '../../../sessions/store.js'
+import { PUBLIC_URL } from '../../../config.js'
 
 export const WORKSPACES_DIR = path.join(DATA_DIR, 'workspaces')
 
@@ -112,4 +113,18 @@ export function listFiles(root: string, limit = 500): WorkspaceFile[] {
 
   walk(root)
   return out.sort((a, b) => a.path.localeCompare(b.path))
+}
+
+
+/** Builds the URL that serves this workspace-relative path as itself (rendered HTML, a
+ * downloadable .pptx, an inline image) rather than the JSON envelope /workspace/file returns.
+ * Derives device/session back out of the root path so callers only need the values they already
+ * have — the workspace root and a relative path — not the request that produced them. */
+export function viewUrl(root: string, relativePath: string): string {
+  const parts = path.relative(WORKSPACES_DIR, root).split(path.sep)
+  const [deviceId, session] = parts
+  const params = new URLSearchParams({ path: relativePath })
+  if (deviceId) params.set('device', deviceId)
+  if (session && session !== '_scratch') params.set('session', session)
+  return `${PUBLIC_URL}/workspace/view?${params.toString()}`
 }
