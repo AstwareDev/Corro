@@ -51,14 +51,6 @@ export type SseEvent =
   | { type: "done"; [key: string]: unknown }
   | { type: "error"; error: string };
 
-/** The server sends a `: ping` comment on this cadence to keep the
- * connection alive; anything much longer than that with no bytes at all
- * means the connection died without either side sending a close, which a
- * killed server process or a dropped tunnel both do. `reader.read()` on a
- * connection like that just hangs forever — nothing errors, nothing
- * resolves — so without this a dead stream freezes the UI until the page is
- * reloaded, with no error and no way to recover from the stop button, since
- * the button's own click handler is waiting on the same read. */
 const SERVER_PING_MS = 15_000;
 const STALL_MS = SERVER_PING_MS * 3;
 
@@ -76,8 +68,6 @@ function readWithStallTimeout(
 ): Promise<ReadableStreamReadResult<Uint8Array>> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      // Unblocks the pending read (and the underlying fetch) rather than
-      // just abandoning it, so the dead connection is actually torn down.
       reader.cancel().catch(() => {});
       reject(new StreamStalledError());
     }, STALL_MS);

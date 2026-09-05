@@ -14,7 +14,6 @@ export type TraceBlock = Extract<
   { kind: "reasoning" } | { kind: "tools" }
 >;
 
-/** Human summary of everything Corro did, e.g. `Thought for 26s · 1 step`. */
 export function summarizeTrace(blocks: TraceBlock[]): string[] {
   let thinkMs = 0;
   let tools = 0;

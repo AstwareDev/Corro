@@ -18,8 +18,6 @@ interface Receipt {
   modifiedAt: string
 }
 
-/** Shared atomic write + verify-by-readback path for both saveText and saveBinary.
- * A receipt describes bytes read from disk, never the proposed write alone. */
 function persist(full: string, content: Buffer, expectedRevision?: string | null): Receipt {
   if (content.length > MAX_WRITE_BYTES) throw new WorkspaceError(`Content exceeds the ${MAX_WRITE_BYTES} byte limit.`)
   const before = fs.existsSync(full) ? fs.readFileSync(full) : null
@@ -53,8 +51,6 @@ export function saveText(full: string, content: string, expectedRevision?: strin
   return { ...receipt, preview: content.slice(0, 1200) }
 }
 
-/** For non-text output a tool builds in memory (a screenshot, a generated .pptx) rather than
- * text the model composed itself. No text preview is returned; callers describe the result instead. */
 export function saveBinary(full: string, content: Buffer, expectedRevision?: string | null) {
   return persist(full, content, expectedRevision)
 }

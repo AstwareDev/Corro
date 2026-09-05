@@ -11,18 +11,13 @@ export interface PromptOptions {
   now?: Date
   toolNames?: string[]
   extra?: string
-  
+
   region?: { code: string; name?: string; city?: string; subdivision?: string; timezone?: string }
 }
 
 function tag(name: string, body: string): string {
   return `<${name}>\n${body.trim()}\n</${name}>`
 }
-
-
-
-
-
 
 function describeRegion(region: NonNullable<PromptOptions['region']>): string {
   const place = [region.city, region.subdivision, region.name ?? region.code].filter(Boolean).join(', ')
@@ -78,12 +73,6 @@ const RESEARCH = `
 
 <citations>Cite the source(s) supporting each material claim with a direct URL, publisher/author, and date when available. Do not cite a homepage when a specific page exists. Quote exactly only when wording matters, and distinguish quotation from paraphrase.</citations>
 `
-
-
-
-
-
-
 
 const LOCAL_SOURCES: Array<{
   region: string
@@ -218,10 +207,6 @@ For researched answers, place claim-level evidence labels and direct citations b
 </output>
 `
 
-/** Repeated last on purpose. The rules above are long, and the failure this
- * guards against — answering a "what's new / what does it cost" question from
- * memory, then dressing it up as a lookup — is the one that most damages trust.
- * Restating it in the final position keeps it salient. */
 const FIRST_ACTION = `
 Classify the request before answering:
 - A request to change an existing artifact (including follow-ups like "less pages", "make it more human", or "change it") requires changing the actual workspace file. Find/read it, perform fs_edit or fs_write, then inspect the receipt. Describing a proposed rewrite is not saving it.

@@ -61,8 +61,7 @@ function toRequest(
     systemExtra: body.systemExtra,
     temperature: body.temperature,
     reasoningEffort: body.reasoningEffort,
-    
-    
+
     region: body.region ? { code: body.region.toUpperCase() } : detected,
   }
 }
@@ -101,7 +100,7 @@ chatRoutes.post(
     request.abortSignal = controller.signal
     try {
       for await (const event of chatStream(request)) {
-        if (!sse.open) continue // Drain the aborted run so confirmed effects are persisted.
+        if (!sse.open) continue
         if (event.type === 'done') {
           sse.send('usage', { usage: event.result.usage, context: event.result.context })
           sse.send('done', event.result)

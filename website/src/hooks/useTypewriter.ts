@@ -3,18 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useMotionPreference } from "@/lib/appearance";
 
-/** Characters per second when the reveal has caught up with the stream. */
 const BASE_RATE = 55;
-/** Extra characters per second for every character still queued up. */
 const CATCHUP_RATE = 7;
 
-/**
- * Reveals `text` progressively instead of snapping to whatever the stream has
- * buffered. The reveal keeps running after the stream ends, so a response that
- * arrives in one burst still reads as typed out.
- *
- * `resetKey` restarts the reveal — pass the id of the block being rendered.
- */
 export function useTypewriter(
   text: string,
   animate: boolean,

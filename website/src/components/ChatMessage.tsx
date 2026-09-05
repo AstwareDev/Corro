@@ -59,8 +59,6 @@ function AssistantMessage({
   motionOff: boolean;
 }) {
   const [traceOpen, setTraceOpen] = useState(false);
-  // Only turns that were actually streamed get typed out; replayed history
-  // renders in full immediately.
   const [typeOut] = useState(() => Boolean(message.streaming));
 
   const segments = toSegments(message.blocks);

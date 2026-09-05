@@ -104,9 +104,6 @@ function scopedPrice(html: string, sectionMarker: string): number | undefined {
   return money(pickText(html.slice(at, at + 800), /class="price[^"]*"[^>]*>([\s\S]*?)<\/span>/))
 }
 
-/** The buy button's own label — "Buy" when iStore has stock, "Preorder" when it
- * does not yet. There is no separate stock-status text on the detail page the
- * way there is on a card, so the button is the only signal. */
 function parseAvailability(html: string): string | undefined {
   const text = pickText(html, /class="[^"]*add-to-cart-button[^"]*"[^>]*>([\s\S]*?)<\/button>/)
   if (!text) return undefined
@@ -165,10 +162,6 @@ export interface IstoreCategory {
   children?: Array<{ slug: string; name: string }>
 }
 
-/** The nav's mobile menu (`<nav id="dropdown">`) carries the whole category
- * tree with plain text labels, rendered on every page whether or not it is
- * visible — the desktop flyout right above it repeats the same links as
- * image-only buttons with no text, so that one is not usable here. */
 export function parseCategories(html: string): IstoreCategory[] {
   const navStart = html.indexOf('id="dropdown"')
   if (navStart === -1) return []

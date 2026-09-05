@@ -1,11 +1,5 @@
 import type { Browser, BrowserContext, Page } from 'playwright-core'
 
-/** One real browser per workspace (a workspace is already unique per device+session), kept
- * alive across tool calls within a run and across steps in the same session so browser_open,
- * browser_click, browser_fill and browser_read all act on the same page. Closed explicitly by
- * browser_close, or reclaimed after IDLE_MS of no use so a forgotten session does not leak a
- * live browser process forever. */
-
 export class BrowserError extends Error {}
 
 interface Entry {
@@ -35,10 +29,6 @@ function startSweep() {
   timer.unref?.()
 }
 
-/** Which installed browser to drive. playwright-core ships no browser binary of its own —
- * it launches whatever is already on the machine, so nothing is downloaded on install.
- * Override with CORRO_BROWSER_CHANNEL (e.g. "chromium", "chrome-beta") or point
- * CORRO_BROWSER_PATH at a specific executable. */
 function launchOptions() {
   const executablePath = process.env.CORRO_BROWSER_PATH
   if (executablePath) return { executablePath }

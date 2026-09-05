@@ -29,10 +29,6 @@ function fail(err: unknown) {
   }
 }
 
-/** Trimmed, deduplicated visible text — not raw HTML. A model reasoning over a page wants what
- * a person sees, not markup; the fixed budget below keeps one page from eating the whole context.
- * Passed to page.evaluate as a source string, not a typed closure: it runs in the browser's DOM,
- * which this project's tsconfig (Node-only lib, no "dom") does not type-check against. */
 const READABLE_TEXT_SCRIPT = `
 (() => {
   const skip = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE'])

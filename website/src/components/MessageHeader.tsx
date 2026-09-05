@@ -11,11 +11,6 @@ import { CorroMark, CorroMarkLoading } from "./CorroMark";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-/**
- * The single row above an assistant message: the mark, the name, how long the
- * turn took and what happened during it. Doubles as the disclosure for the
- * reasoning/tool trace when there is one.
- */
 export function MessageHeader({
   message,
   parts,

@@ -17,13 +17,6 @@ export interface CurrencyResult {
   source: string;
 }
 
-/**
- * Currencies span orders of magnitude in one tool result — a dram amount in
- * the thousands next to a Bitcoin rate under 0.0001 — so a single fixed
- * decimal count would either drown small values in zeros or pad large ones
- * pointlessly. This picks enough digits to keep the value legible without
- * padding it, the same judgement a person converting by hand would make.
- */
 function formatAmount(value: number): string {
   const abs = Math.abs(value);
   const maximumFractionDigits =

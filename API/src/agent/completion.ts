@@ -29,13 +29,9 @@ export function confirmedChange(call: ExecutionRecord): boolean {
 const completed = /(?:^\s*(?:saved|updated|edited|created|deleted|renamed)\b|\b(?:(?:i|we)(?:['’]ve| have)?\s+(?:(?:just|actually|already|successfully|now)\s+)*(?:saved|rewrote|rewritten|updated|edited|changed|created|deleted|removed|renamed|moved|written)|(?:file|document|presentation|draft|it)\s+(?:is|has been|was)\s+(?:now\s+)?(?:saved|updated|changed|rewritten|deleted|renamed)|done\b))/i
 const fileName = /[\w-]+(?:\/[\w .-]+)*\.(?:md|txt|csv|json|html|css|js|ts|tsx|py|docx|pptx|xlsx)\b/gi
 
-/** Conservative, deterministic tripwire, not a semantic proof of all natural language.
- * It catches the observed failure while the prompt and native evidence replay address
- * behavior outside these English patterns. Never infer permission from a draft reply. */
 export function completionIssue(text: string, messages: ModelMessage[], calls: ExecutionRecord[]): string | undefined {
   const latest = messages.findLast((m) => m.role === 'user')
   const request = typeof latest?.content === 'string' ? latest.content : ''
-  // Exclude code and blockquotes; these can contain examples, not action claims.
   text = text.replace(/```[\s\S]*?```/g, '').replace(/^>.*$/gm, '')
   const fileContext = /\b(file|document|presentation|draft|workspace|slides?)\b/i.test(request + ' ' + text)
     || fileName.test(request + ' ' + text)

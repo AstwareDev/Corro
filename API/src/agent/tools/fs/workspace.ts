@@ -5,17 +5,9 @@ import { PUBLIC_URL } from '../../../config.js'
 
 export const WORKSPACES_DIR = path.join(DATA_DIR, 'workspaces')
 
-
-
-
-
 export class WorkspaceError extends Error {}
 
 const SAFE_ID = /^[a-z0-9_-]{4,80}$/i
-
-
-
-
 
 export function workspaceRoot(deviceId: string, sessionId?: string): string {
   if (!SAFE_ID.test(deviceId)) {
@@ -35,7 +27,6 @@ export function ensureRoot(root: string): string {
   return root
 }
 
-
 export function resolveInside(root: string, relative: string): string {
   const cleaned = String(relative ?? '').trim()
   if (!cleaned) throw new WorkspaceError('Path is required')
@@ -48,8 +39,6 @@ export function resolveInside(root: string, relative: string): string {
   if (!rel || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
     throw new WorkspaceError(`${JSON.stringify(cleaned)} is outside the workspace`)
   }
-  // Reject symlinks/junctions in every existing path component. Lexical containment alone
-  // permits writes and deletes outside the workspace through a linked directory.
   for (const part of rel.split(path.sep)) {
     if (part.includes(':')) throw new WorkspaceError('Alternate data streams are not supported')
   }
@@ -64,7 +53,6 @@ export function resolveInside(root: string, relative: string): string {
   }
   return full
 }
-
 
 export function toRelative(root: string, full: string): string {
   return path.relative(root, full).split(path.sep).join('/')
@@ -106,7 +94,7 @@ export function listFiles(root: string, limit = 500): WorkspaceFile[] {
           modifiedAt: stat.mtime.toISOString(),
         })
       } catch {
-        
+
       }
     }
   }
@@ -115,11 +103,6 @@ export function listFiles(root: string, limit = 500): WorkspaceFile[] {
   return out.sort((a, b) => a.path.localeCompare(b.path))
 }
 
-
-/** Builds the URL that serves this workspace-relative path as itself (rendered HTML, a
- * downloadable .pptx, an inline image) rather than the JSON envelope /workspace/file returns.
- * Derives device/session back out of the root path so callers only need the values they already
- * have — the workspace root and a relative path — not the request that produced them. */
 export function viewUrl(root: string, relativePath: string): string {
   const parts = path.relative(WORKSPACES_DIR, root).split(path.sep)
   const [deviceId, session] = parts

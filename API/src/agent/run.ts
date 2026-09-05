@@ -14,7 +14,6 @@ export const DEFAULT_MAX_STEPS = 8
 export interface RunInput {
   model: ModelKey
   messages: ModelMessage[]
-  /** Dependency injection for deterministic harness tests; not exposed by HTTP. */
   languageModel?: LanguageModel
   abortSignal?: AbortSignal
   maxSteps?: number
@@ -276,8 +275,6 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
         output?: unknown
         error?: unknown
       }
-      // Hold model prose until the step has ended and completion claims are checked.
-      // Tool progress remains live; rejected drafts never reach any client.
       if (p.type === 'reasoning-delta' && p.text) {
         yield { type: 'reasoning', text: p.text }
       } else if (p.type === 'tool-input-start' && p.id) {
@@ -326,8 +323,6 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
       const stepUsage = await stream.totalUsage
       for (const key of ['inputTokens', 'outputTokens', 'totalTokens'] as const) usage[key] += stepUsage[key] ?? 0
       steps.push({ text: '', toolCalls: [...inputs].map(([toolCallId, c]) => ({ toolCallId, toolName: c.name, input: c.input })), toolResults: results, usage: stepUsage })
-      // Preserve exact tool-call IDs and result ordering, but never replay rejected
-      // prose or hidden reasoning as evidence for a later completion claim.
       for (const message of response.messages) {
         if (message.role === 'tool') responseMessages.push(message)
         else if (message.role === 'assistant' && Array.isArray(message.content)) {
@@ -361,8 +356,6 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
     yield { type: 'done', result }
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Stream failed'
-    // Preserve confirmed side effects even when cancellation interrupts the next
-    // model step. Follow-up turns must not lose the evidence of these writes.
     const recorded = new Set(steps.flatMap((s) => s.toolCalls.map((c) => c.toolCallId)))
     for (const c of calls.filter((c) => !recorded.has(c.toolCallId))) {
       steps.push({ text: '', toolCalls: [{ toolCallId: c.toolCallId, toolName: c.toolName, input: c.input }],

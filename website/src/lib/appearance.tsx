@@ -167,7 +167,6 @@ export function useAppearance(): AppearanceValue {
   return useContext(AppearanceContext);
 }
 
-/** Use for explicit transitions too: MotionConfig only suppresses spatial motion. */
 export function useMotionPreference(): boolean {
   const system = useReducedMotion();
   const { reducedMotion } = useAppearance();

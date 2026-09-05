@@ -86,7 +86,6 @@ workspaceRoutes.put('/workspace/file', route(async (req, res) => {
   }
 }))
 
-
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.htm': 'text/html; charset=utf-8',
@@ -107,9 +106,6 @@ const MIME_TYPES: Record<string, string> = {
 
 const DOWNLOAD_EXTENSIONS = new Set(['.pptx', '.pdf'])
 
-/** Serves a workspace file as itself — real bytes with a real content type — rather than the
- * JSON envelope /workspace/file returns. This is what turns an .html report the model wrote with
- * fs_write into an actual page you can open, and a .pptx or .png into something you can download. */
 workspaceRoutes.get(
   '/workspace/view',
   route(async (req, res) => {

@@ -17,9 +17,6 @@ import {
   type ProductLine,
 } from './parse.js'
 
-/** Fetches one line's buy page and every configuration it offers. Plain
- * `fetchPage` — unlike Amazon and Walmart, Apple's storefront serves this
- * to a first, cookie-less request without a bot check. */
 async function fetchLine(line: ProductLine): Promise<AppleProduct[]> {
   const url = pageUrl(line)
   const html = await fetchPage(SHOP, url)
@@ -57,8 +54,6 @@ export const appleSearch = tool({
     try {
       const perLine = await Promise.all(lines.map((line) => fetchLine(line)))
       const all = perLine.flat()
-      // The line match already narrowed the family; a further text filter
-      // only applies when the query said more than that ("256GB", "silver").
       const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
       const filtered = words.length
         ? all.filter((p) => words.every((w) => p.name.toLowerCase().includes(w) || p.category.toLowerCase().includes(w)))
@@ -107,9 +102,6 @@ export const appleProduct = tool({
 
           const description = pageDescription(html)
           const image = heroImage(html)
-          // One card per configuration, the way the other shop tools render —
-          // the shared description and hero shot ride along on each so every
-          // card stands on its own rather than needing a parent record.
           return { products: configurations.map((c) => ({ ...c, ...(description ? { description } : {}), ...(image ? { image } : {}) })) }
         } catch (err) {
           return { url, error: failure(SHOP, err).error }

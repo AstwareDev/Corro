@@ -121,7 +121,6 @@ export function SidePanel({
       : a.path.localeCompare(b.path),
   );
 
-  // Reset workspace-specific selections when the session changes.
   // biome-ignore lint/correctness/useExhaustiveDependencies: session identity intentionally resets local UI.
   useEffect(() => {
     setPreview(null);

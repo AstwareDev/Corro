@@ -40,7 +40,6 @@ test('builds a real .pptx file with one slide per entry plus a title slide', asy
 
   const full = path.join(root, 'deck.pptx')
   const bytes = fs.readFileSync(full)
-  // A .pptx is a zip; every zip starts with the local file header signature "PK\x03\x04".
   assert.equal(bytes.subarray(0, 4).toString('latin1'), 'PK\x03\x04')
   assert.ok(bytes.length > 1000)
 })

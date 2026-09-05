@@ -44,7 +44,7 @@ export interface Session {
   id: string
   deviceId: string
   title: string
-  
+
   titlePinned?: boolean
   pinned?: boolean
   model: ModelKey
@@ -217,12 +217,6 @@ export function addTotals(session: Session, delta: Partial<SessionTotals>) {
   }
 }
 
-
-
-
-
-
-
 export function sessionTraffic(session: Session): string[] {
   const out: string[] = []
   for (const message of session.messages) {
@@ -239,8 +233,6 @@ export function conversation(session: Session): ModelMessage[] {
     if (m.role === 'user') return [{ role: 'user', content: m.content }]
     if (m.role !== 'assistant') return []
     if (m.agentMessages?.length) return m.agentMessages
-    // Migrate old sessions in memory: replay real records as native tool messages,
-    // including failures and missing results, before replaying the assistant's claim.
     const history: ModelMessage[] = []
     for (const [index, call] of (m.toolCalls ?? []).entries()) {
       const toolCallId = call.id ?? `${m.id}_tool_${index}`
