@@ -83,6 +83,9 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `amazon_product`, `walmart_product` | one product in full: description, brand, stock, photos |
 | `apple_search` | every current colour/storage price for an iPhone or iPad line |
 | `apple_product` | the same, unfiltered, plus a description and photo |
+| `istore_search` | search iStore.am, Armenia's Apple Authorised Reseller: live AMD prices, sale markdowns, stock |
+| `istore_product` | one product in full: configuration, price, stock status, photos |
+| `istore_categories` | walk iStore's category tree — iPad, Mac, iPhone, Watch, TV, AirPods, Audio, Accessories |
 
 The web tools are Tavily. Every response is trimmed before the model sees it:
 tracking parameters stripped from URLs, markup and image links removed, results
@@ -196,6 +199,15 @@ own search, which mixes shop, support and marketing results. Unlike Amazon and W
 Apple's buy pages serve a plain first request with no session needed — Apple sets one
 price for everyone, so there's nothing here worth rate-limiting.
 
+**iStore** ([istore.am](https://istore.am)) is a separate case again: a real reseller, not
+Apple itself, carrying its own stock at its own AMD prices with its own sale markdowns —
+`istore_search` / `istore_product` answer "what does this cost in Armenia" where
+`apple_search` cannot, since Apple's own storefront doesn't sell into Armenia at all. It
+renders server-side like Parma and SAS and needs no session, but publishes no API, so
+`istore/parse.ts` reads the same product cards, attribute rows and category nav a
+shopper's browser gets. `istore_categories` reads the site's own mobile-menu markup for
+the whole category tree in one request rather than walking it level by level.
+
 ## Region
 
 Some tools only make sense in one country, and the model writes a better answer when it
@@ -217,19 +229,22 @@ was detected and how.
 ## Models
 
 `kimi-k3` and `kimi-k3-fast` are the same model; they differ only in where they run.
-`deepseek-v4-pro` is a separate model on the same free endpoint.
+`deepseek-v4-pro` and `qwen3-max` are separate models on their own endpoints.
 
 | Key | Endpoint | Speed | Cost | Modalities |
 | --- | --- | --- | --- | --- |
 | `kimi-k3` *(default)* | `unified-nvidia-api.vercel.app` | variable — sometimes fast, sometimes ~3-10 tok/s | free, keyless, unlimited | text, image, video in → text out |
 | `kimi-k3-fast` | your Modal deployment | fast and steady | spends Modal credits | text, image, video in → text out |
 | `deepseek-v4-pro` | `unified-nvidia-api.vercel.app` | variable, very slow cold starts | free, keyless, unlimited | text only |
+| `qwen3-max` | `api.xkiro.com` (xKiro) | variable | free tier, needs `XKIRO_API_KEY` | text, image, video in → text out |
 
 `deepseek-v4-pro` has a 1M token context window and shares Kimi's reasoning-effort
 range — `none`, `low`, `high`, `max`, default `high` — set with `"reasoningEffort"`
-on `/chat`. `/models` always reports the live set for whichever model answered, so
-a client should read `reasoningEfforts` rather than assume one scale fits every
-model.
+on `/chat`. `qwen3-max` also has a 1M token context window (65K max output) and
+its own three-step scale — `low`, `medium`, `xhigh`, default `xhigh` — shown in
+clients as Fast / Standard / Max. `/models` always reports the live set for
+whichever model answered, so a client should read `reasoningEfforts` rather than
+assume one scale fits every model.
 
 Pick one per request with `"model": "kimi-k3-fast"`, or just ask for fast mode:
 
@@ -336,6 +351,7 @@ Each concern is one place to edit:
 | `src/agent/tools/shops/scrape.ts` | shared HTML reading for the shops with no API |
 | `src/agent/tools/shops/session.ts` | the cookie-jar warm-up Amazon and Walmart need |
 | `src/agent/tools/apple/parse.ts` | the iPhone/iPad product-line directory and page parsing |
+| `src/agent/tools/istore/parse.ts` | iStore.am's product cards, category nav and page parsing |
 | `src/agent/tools/currency/client.ts` | the exchange-rate mirror, its fallback and cache |
 | `src/http/region.ts` | where the caller is, inferred from what they already send |
 | `src/http/geoip.ts` | city/region/timezone from the caller's IP, cached |

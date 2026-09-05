@@ -117,6 +117,14 @@ const APPLE: ShopBrandInfo = {
   Icon: brandIcon("/sources/apple.png", "Apple"),
 };
 
+const ISTORE: ShopBrandInfo = {
+  id: "istore",
+  name: "iStore",
+  host: "istore.am",
+  accent: "#0071e3",
+  Icon: brandIcon("/sources/istore.png", "iStore"),
+};
+
 export interface ToolPresentation {
   Icon: ToolIcon;
 
@@ -230,6 +238,7 @@ const REGISTRY: Record<string, ToolPresentation> = {
   ...shopTools("amazon", AMAZON, { family: MARKETPLACES, categories: false }),
   ...shopTools("walmart", WALMART, { family: MARKETPLACES, categories: false }),
   ...shopTools("apple", APPLE, { family: MARKETPLACES, categories: false }),
+  ...shopTools("istore", ISTORE, { family: MARKETPLACES }),
 
   web_search: {
     Icon: Search,

@@ -3,6 +3,7 @@ import { appleProduct, appleSearch } from './apple/index.js'
 import { calculator } from './calculator.js'
 import { currencyConvert } from './currency/index.js'
 import { createFsTools, FS_TOOL_NAMES } from './fs/index.js'
+import { istoreCategories, istoreProduct, istoreSearch } from './istore/index.js'
 import { parmaCategories, parmaProduct, parmaSearch } from './parma/index.js'
 import { sasCategories, sasProduct, sasSearch } from './sas/index.js'
 import { webCrawl, webExtract, webMap, webSearch } from './tavily/index.js'
@@ -32,6 +33,9 @@ const SHARED = {
   walmart_product: walmartProduct,
   apple_search: appleSearch,
   apple_product: appleProduct,
+  istore_search: istoreSearch,
+  istore_product: istoreProduct,
+  istore_categories: istoreCategories,
 } as const
 
 export type SharedToolName = keyof typeof SHARED
@@ -78,6 +82,7 @@ export { sasSearch, sasProduct, sasCategories, SAS_TOOL_NAMES } from './sas/inde
 export { amazonSearch, amazonProduct, AMAZON_TOOL_NAMES } from './amazon/index.js'
 export { walmartSearch, walmartProduct, WALMART_TOOL_NAMES } from './walmart/index.js'
 export { appleSearch, appleProduct, APPLE_TOOL_NAMES } from './apple/index.js'
+export { istoreSearch, istoreProduct, istoreCategories, ISTORE_TOOL_NAMES } from './istore/index.js'
 export { ShopError } from './shops/scrape.js'
 export { createFsTools, FS_TOOL_NAMES } from './fs/index.js'
 export { listFiles, workspaceRoot, WorkspaceError } from './fs/workspace.js'

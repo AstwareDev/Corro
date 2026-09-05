@@ -13,17 +13,17 @@ const components: Components = {
   ),
   em: ({ children }) => <em className="italic">{children}</em>,
   h1: ({ children }) => (
-    <h1 className="mb-3 mt-4 text-lg font-semibold text-ink first:mt-0">
+    <h1 className="mb-3 mt-5 text-display font-semibold tracking-[-0.01em] text-ink first:mt-0">
       {children}
     </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mb-2 mt-4 text-base font-semibold text-ink first:mt-0">
+    <h2 className="mb-2 mt-5 text-title font-semibold tracking-[-0.01em] text-ink first:mt-0">
       {children}
     </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="mb-2 mt-3 text-[15px] font-semibold text-ink first:mt-0">
+    <h3 className="mb-2 mt-4 text-prose font-semibold text-ink first:mt-0">
       {children}
     </h3>
   ),
@@ -51,31 +51,33 @@ const components: Components = {
   ),
   hr: () => <hr className="my-4 border-border" />,
   table: ({ children }) => (
-    <div className="mb-3 overflow-x-auto scroll-thin">
-      <table className="w-full border-collapse text-left text-[13px]">
+    <div className="mb-3 overflow-x-auto rounded-row border border-border scroll-thin">
+      <table className="w-full border-collapse text-left text-footnote">
         {children}
       </table>
     </div>
   ),
   th: ({ children }) => (
-    <th className="border-b border-border py-1.5 pr-4 font-medium text-ink-muted">
+    <th className="border-b border-border bg-surface-raised px-3 py-2 font-medium text-ink-muted">
       {children}
     </th>
   ),
   td: ({ children }) => (
-    <td className="border-b border-border py-1.5 pr-4">{children}</td>
+    <td className="border-b border-border px-3 py-2 last:border-b-0">
+      {children}
+    </td>
   ),
   code: ({ className, children }) => {
     const isBlock = /language-/.test(className ?? "");
     if (isBlock) {
       return (
-        <pre className="scroll-thin mb-3 overflow-x-auto rounded-xl bg-surface-raised px-3 py-2.5 font-mono text-[13px] leading-relaxed text-ink">
+        <pre className="scroll-thin mb-3 overflow-x-auto rounded-row border border-border bg-surface-raised px-3 py-2.5 font-mono text-footnote leading-relaxed text-ink">
           <code>{children}</code>
         </pre>
       );
     }
     return (
-      <code className="rounded bg-surface-raised px-1 py-0.5 font-mono text-[0.9em] text-ink">
+      <code className="rounded-[4px] bg-surface-raised px-1 py-0.5 font-mono text-[0.875em] text-ink">
         {children}
       </code>
     );

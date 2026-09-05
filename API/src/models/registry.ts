@@ -175,6 +175,9 @@ function baseDescription(spec: ModelSpec, defaultModel: string): ModelDescriptio
     endpoint: '',
     requiresKey: Boolean(spec.apiKeyEnv),
     contextLength: spec.contextLength,
+    reasoningEfforts: spec.reasoningEfforts,
+    defaultReasoningEffort: spec.defaultReasoningEffort,
+    modalities: spec.modalities,
     tokenizer: tokenizerStatus(spec.key),
   }
 }
@@ -202,13 +205,13 @@ export async function describeModel(
       contextLength: card.context_length ?? card.context_window ?? spec.contextLength,
       maxOutputTokens: card.max_output_length ?? card.max_output_tokens,
       modalities: {
-        input: card.input_modalities ?? card.modalities?.input ?? [],
-        output: card.output_modalities ?? card.modalities?.output ?? [],
+        input: card.input_modalities ?? card.modalities?.input ?? spec.modalities?.input ?? [],
+        output: card.output_modalities ?? card.modalities?.output ?? spec.modalities?.output ?? [],
       },
       features: features(card),
       samplingParameters: card.supported_sampling_parameters ?? [],
-      reasoningEfforts: reasoningEfforts(card),
-      defaultReasoningEffort: card.default_reasoning_effort,
+      reasoningEfforts: reasoningEfforts(card).length ? reasoningEfforts(card) : spec.reasoningEfforts ?? [],
+      defaultReasoningEffort: card.default_reasoning_effort ?? spec.defaultReasoningEffort,
       ownedBy: card.owned_by,
     }
   } catch (err) {

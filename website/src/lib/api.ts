@@ -1,4 +1,5 @@
 import type { ContextUsage, ModelDescription } from "./types";
+import { notifyWorkspaceChanged } from "./workspace-events";
 
 export const API_URL =
   process.env.NEXT_PUBLIC_CORRO_API_URL ?? "http://localhost:8787";
@@ -243,6 +244,52 @@ export interface WorkspaceFile {
   modifiedAt: string;
 }
 
+export interface WorkspaceDocument extends WorkspaceFile {
+  content: string;
+  revision: string;
+}
+
+async function workspaceError(
+  response: Response,
+  fallback: string,
+): Promise<Error> {
+  const body = await response.json().catch(() => ({}));
+  return new Error(body.error || fallback);
+}
+
+export async function saveWorkspaceFile(
+  path: string,
+  content: string,
+  expectedRevision: string | null,
+  sessionId?: string | null,
+) {
+  const device = getStoredDevice();
+  const response = await fetch(
+    `${API_URL}/workspace/file?${sessionQuery(sessionId)}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...NGROK_HEADERS,
+        ...(device ? { "X-Corro-Device": device } : {}),
+      },
+      body: JSON.stringify({ path, content, expectedRevision }),
+    },
+  );
+  if (!response.ok) throw await workspaceError(response, "Could not save file");
+  const result = (await response.json()) as WorkspaceFile & {
+    revision: string;
+    verified: boolean;
+    changed: boolean;
+  };
+  if (!result.verified)
+    throw new Error(
+      "The server did not confirm the saved file. Reload to check it.",
+    );
+  notifyWorkspaceChanged(sessionId);
+  return result;
+}
+
 function sessionQuery(sessionId?: string | null): string {
   return sessionId ? `session=${encodeURIComponent(sessionId)}` : "";
 }
@@ -254,6 +301,7 @@ export async function fetchWorkspace(
   const response = await fetch(
     `${API_URL}/workspace?${sessionQuery(sessionId)}`,
     {
+      cache: "no-store",
       headers: {
         ...NGROK_HEADERS,
         ...(device ? { "X-Corro-Device": device } : {}),
@@ -269,23 +317,21 @@ export async function fetchWorkspace(
 export async function fetchWorkspaceFile(
   path: string,
   sessionId?: string | null,
-): Promise<{ path: string; content: string; bytes: number }> {
+): Promise<WorkspaceDocument> {
   const device = getStoredDevice();
   const response = await fetch(
     `${API_URL}/workspace/file?path=${encodeURIComponent(path)}&${sessionQuery(sessionId)}`,
     {
+      cache: "no-store",
       headers: {
         ...NGROK_HEADERS,
         ...(device ? { "X-Corro-Device": device } : {}),
       },
     },
   );
-  if (!response.ok) throw new Error(`Could not read ${path}`);
-  return (await response.json()) as {
-    path: string;
-    content: string;
-    bytes: number;
-  };
+  if (!response.ok)
+    throw await workspaceError(response, `Could not read ${path}`);
+  return (await response.json()) as WorkspaceDocument;
 }
 
 export async function deleteWorkspaceFile(
@@ -293,7 +339,7 @@ export async function deleteWorkspaceFile(
   sessionId?: string | null,
 ): Promise<void> {
   const device = getStoredDevice();
-  await fetch(
+  const response = await fetch(
     `${API_URL}/workspace/file?path=${encodeURIComponent(path)}&${sessionQuery(sessionId)}`,
     {
       method: "DELETE",
@@ -303,6 +349,9 @@ export async function deleteWorkspaceFile(
       },
     },
   );
+  if (!response.ok)
+    throw await workspaceError(response, `Could not delete ${path}`);
+  notifyWorkspaceChanged(sessionId);
 }
 
 export interface SpeechStatus {
@@ -379,6 +428,25 @@ export interface StoredMessage {
 
 export interface SessionDetail extends SessionSummary {
   messages: StoredMessage[];
+}
+
+export async function createWorkspaceSession(
+  model?: string,
+): Promise<SessionDetail> {
+  const device = getStoredDevice();
+  const response = await fetch(`${API_URL}/sessions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...NGROK_HEADERS,
+      ...(device ? { "X-Corro-Device": device } : {}),
+    },
+    body: JSON.stringify({ model: model || undefined }),
+  });
+  if (!response.ok)
+    throw await workspaceError(response, "Could not create a workspace");
+  storeDevice(response.headers.get("X-Corro-Device"));
+  return (await response.json()) as SessionDetail;
 }
 
 export async function fetchSessions(): Promise<SessionSummary[]> {

@@ -99,7 +99,12 @@ export const SPECS: Record<TokenizerKey, TokenizerSpec> = {
 
 export const TOKENIZER_KEYS = Object.keys(SPECS) as TokenizerKey[]
 
-export type ModelKey = 'kimi-k3' | 'kimi-k3-fast' | 'deepseek-v4-pro' | 'diffusiongemma-26b'
+export type ModelKey =
+  | 'kimi-k3'
+  | 'kimi-k3-fast'
+  | 'deepseek-v4-pro'
+  | 'diffusiongemma-26b'
+  | 'qwen3-max'
 
 export type ModelSpeed = 'variable' | 'fast'
 
@@ -115,7 +120,9 @@ export interface ModelSpec {
   defaultBaseUrl?: string
   apiKeyEnv?: string
   notes: string
-  
+  reasoningEfforts?: string[]
+  defaultReasoningEffort?: string
+  modalities?: { input: string[]; output: string[] }
 
 
   internal?: boolean
@@ -180,6 +187,25 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
       'not offered in the chat model picker, it just drafts the follow-up suggestion chips after a reply.',
     internal: true,
   },
+  'qwen3-max': {
+    key: 'qwen3-max',
+    label: 'Qwen 3.8 Max (free)',
+    servedModelId: 'qwen/qwen3.8-max:free',
+    tokenizer: 'kimi-k3',
+    contextLength: 1_000_000,
+    speed: 'variable',
+    free: true,
+    baseUrlEnv: 'XKIRO_BASE_URL',
+    defaultBaseUrl: 'https://api.xkiro.com/v1',
+    apiKeyEnv: 'XKIRO_API_KEY',
+    notes:
+      'Qwen 3.8 Max via xKiro, free tier. 1M token context, 65K max output, text/image/video ' +
+      'input. Selectable reasoning effort: low, medium, xhigh (default). Token counts use the ' +
+      "Kimi tokenizer as an approximation — Qwen's own tokenizer isn't calibrated yet.",
+    reasoningEfforts: ['low', 'medium', 'xhigh'],
+    defaultReasoningEffort: 'xhigh',
+    modalities: { input: ['text', 'image', 'video'], output: ['text'] },
+  },
 }
 
 export const MODEL_KEYS = Object.keys(MODELS) as ModelKey[]
@@ -192,6 +218,9 @@ export const MODEL_ALIASES: Record<string, ModelKey> = {
   deepseek: 'deepseek-v4-pro',
   'deepseek-v4': 'deepseek-v4-pro',
   diffusiongemma: 'diffusiongemma-26b',
+  qwen: 'qwen3-max',
+  'qwen3.8-max': 'qwen3-max',
+  'qwen-max': 'qwen3-max',
 }
 
 export function resolveModel(model: string): ModelSpec {

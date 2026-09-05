@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Poppins } from "next/font/google";
+import { AppearanceProvider } from "@/lib/appearance";
 import "./globals.css";
 
 const inter = Inter({
@@ -62,7 +63,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${jetbrainsMono.variable} ${poppins.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bg text-ink">
-        {children}
+        <AppearanceProvider>{children}</AppearanceProvider>
       </body>
     </html>
   );

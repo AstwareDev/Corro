@@ -10,7 +10,7 @@
     "tokenizers:calibrate": "tsx src/tokenizer/calibrate.ts",
     "tokenizers:check": "tsx src/tokenizer/check.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/agent/tools/calculator.test.ts"
+    "test": "tsx --test src/agent/tools/calculator.test.ts src/agent/tools/fs/workspace.test.ts src/agent/run.test.ts src/routes/workspace.test.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,5 +1,7 @@
 "use client";
 
+import { useMotionPreference } from "@/lib/appearance";
+
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
@@ -33,8 +35,6 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
-
-
 function pressureColor(percent: number): string {
   if (percent >= 85) return "var(--corro-contradicted)";
   if (percent >= 60) return "var(--corro-partial)";
@@ -50,6 +50,7 @@ function Donut({
   size: number;
   stroke: number;
 }) {
+  const motionOff = useMotionPreference();
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
@@ -84,12 +85,16 @@ function Donut({
             stroke={seg.color}
             strokeWidth={stroke}
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            initial={false}
+            initial={motionOff ? false : false}
             animate={{
               strokeDasharray: `${length} ${circumference - length}`,
               strokeDashoffset: dashOffset,
             }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            transition={
+              motionOff
+                ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
+                : { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+            }
           />
         );
       })}
@@ -104,6 +109,7 @@ export function ContextMeter({
   context: ContextUsage;
   placement?: "top" | "bottom";
 }) {
+  const motionOff = useMotionPreference();
   const [open, setOpen] = useState(false);
   const above = placement === "top";
   const ref = useRef<HTMLDivElement>(null);
@@ -131,7 +137,7 @@ export function ContextMeter({
         type="button"
         onClick={() => setOpen((o) => !o)}
         title={`${formatTokens(context.used)} of ${formatTokens(DISPLAY_CONTEXT_MAX)} tokens used`}
-        className="flex items-center gap-1.5 rounded-full px-1.5 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
+        className="flex items-center gap-1.5 rounded-full px-1.5 py-1 text-caption font-medium text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
       >
         <Donut
           size={14}
@@ -150,12 +156,18 @@ export function ContextMeter({
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: above ? 6 : -6, scale: 0.98 }}
+            initial={
+              motionOff ? false : { opacity: 0, y: above ? 6 : -6, scale: 0.98 }
+            }
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: above ? 6 : -6, scale: 0.98 }}
-            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            transition={
+              motionOff
+                ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
+                : { duration: 0.16, ease: [0.16, 1, 0.3, 1] }
+            }
             className={clsx(
-              "absolute left-0 z-30 w-72 overflow-hidden rounded-2xl border border-border bg-surface p-3 shadow-xl",
+              "popover-material absolute left-0 z-30 w-72 overflow-hidden rounded-popover p-3",
               above
                 ? "bottom-full mb-2 origin-bottom-left"
                 : "top-full mt-2 origin-top-left",
@@ -171,12 +183,14 @@ export function ContextMeter({
                 </div>
               </div>
               <div>
-                <p className="text-xs font-medium text-ink">Context window</p>
-                <p className="mt-1 font-mono text-[11px] text-ink-muted">
+                <p className="text-caption font-medium text-ink">
+                  Context window
+                </p>
+                <p className="mt-1 font-mono text-caption text-ink-muted">
                   {formatTokens(context.used)} /{" "}
                   {formatTokens(DISPLAY_CONTEXT_MAX)} used
                 </p>
-                <p className="mt-0.5 font-mono text-[11px] text-ink-muted">
+                <p className="mt-0.5 font-mono text-caption text-ink-muted">
                   {formatTokens(
                     Math.max(0, DISPLAY_CONTEXT_MAX - context.used),
                   )}{" "}
@@ -187,7 +201,7 @@ export function ContextMeter({
 
             <ul className="mt-3 space-y-1.5 border-t border-border pt-2.5">
               {USAGE_KINDS.map((kind) => (
-                <li key={kind} className="flex items-center gap-2 text-[11px]">
+                <li key={kind} className="flex items-center gap-2 text-caption">
                   <span
                     className="size-2 shrink-0 rounded-full"
                     style={{ background: KIND_COLOR[kind] }}

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
+import type { ModelMessage } from 'ai'
 import type { ContextUsage } from '../context/usage.js'
 import type { ModelKey } from '../tokenizer/specs.js'
 
@@ -13,6 +14,7 @@ const SESSIONS_DIR = path.join(DATA_DIR, 'sessions')
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool'
 
 export interface ToolCallRecord {
+  id?: string
   name: string
   input: unknown
   output?: unknown
@@ -25,6 +27,7 @@ export interface StoredMessage {
   at: string
   tokens?: number
   toolCalls?: ToolCallRecord[]
+  agentMessages?: ModelMessage[]
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
 }
 
@@ -198,6 +201,7 @@ export function appendMessage(
     content: message.content,
     ...(message.tokens === undefined ? {} : { tokens: message.tokens }),
     ...(message.toolCalls?.length ? { toolCalls: message.toolCalls } : {}),
+    ...(message.agentMessages?.length ? { agentMessages: message.agentMessages } : {}),
     ...(message.usage ? { usage: message.usage } : {}),
   }
   session.messages.push(stored)
@@ -230,9 +234,22 @@ export function sessionTraffic(session: Session): string[] {
   return out
 }
 
-export function conversation(session: Session): Array<{ role: 'user' | 'assistant'; content: string }> {
-  return session.messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .filter((m) => m.content.trim().length > 0)
-    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+export function conversation(session: Session): ModelMessage[] {
+  return session.messages.flatMap((m): ModelMessage[] => {
+    if (m.role === 'user') return [{ role: 'user', content: m.content }]
+    if (m.role !== 'assistant') return []
+    if (m.agentMessages?.length) return m.agentMessages
+    // Migrate old sessions in memory: replay real records as native tool messages,
+    // including failures and missing results, before replaying the assistant's claim.
+    const history: ModelMessage[] = []
+    for (const [index, call] of (m.toolCalls ?? []).entries()) {
+      const toolCallId = call.id ?? `${m.id}_tool_${index}`
+      history.push({ role: 'assistant', content: [{ type: 'tool-call', toolCallId, toolName: call.name, input: call.input }] })
+      history.push({ role: 'tool', content: [{ type: 'tool-result', toolCallId, toolName: call.name,
+        output: { type: 'json', value: JSON.parse(JSON.stringify(call.output ?? { ok: false, error: 'No result was recorded; success is unknown.' })) },
+      }] })
+    }
+    if (m.content.trim()) history.push({ role: 'assistant', content: m.content })
+    return history
+  })
 }

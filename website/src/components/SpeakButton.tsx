@@ -1,5 +1,7 @@
 "use client";
 
+import { useMotionPreference } from "@/lib/appearance";
+
 import clsx from "clsx";
 import { motion } from "framer-motion";
 import { AlertTriangle, Loader2, Square, Volume2 } from "lucide-react";
@@ -9,10 +11,11 @@ import { synthesiseSpeech } from "@/lib/api";
 type State = "idle" | "loading" | "playing" | "error";
 
 export function SpeakButton({ text }: { text: string }) {
+  const motionOff = useMotionPreference();
   const [state, setState] = useState<State>("idle");
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  
+
   const urlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -85,12 +88,15 @@ export function SpeakButton({ text }: { text: string }) {
     <motion.button
       type="button"
       onClick={play}
-      whileTap={{ scale: 0.8 }}
+      whileTap={motionOff ? undefined : { scale: 0.8 }}
       title={error ?? (state === "playing" ? "Stop" : "Read aloud")}
       className={clsx(
         "rounded-full p-1.5 transition-colors hover:bg-surface-raised hover:text-ink",
         state === "error" && "text-contradicted",
       )}
+      transition={
+        motionOff ? { duration: 0, delay: 0, type: "tween" } : undefined
+      }
     >
       <Icon
         size={15}

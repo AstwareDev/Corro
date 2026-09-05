@@ -1,16 +1,16 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { streamChat, type SessionDetail } from "@/lib/api";
+import { type SessionDetail, streamChat } from "@/lib/api";
 import {
   type ChatMessageUI,
   type ContextUsage,
   type MessageBlock,
   peekDescription,
   type ToolCallUI,
+  toolResultStatus,
 } from "@/lib/types";
-
-
+import { notifyWorkspaceChanged } from "@/lib/workspace-events";
 
 function patchCall(
   blocks: MessageBlock[],
@@ -34,7 +34,6 @@ function patchCall(
 function uid(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
-
 
 function closeReasoning(blocks: MessageBlock[], at: number): MessageBlock[] {
   let changed = false;
@@ -97,6 +96,8 @@ export function useChat() {
 
       const controller = new AbortController();
       abortRef.current = controller;
+      let activeSession = sessionId;
+      let ended = false;
 
       try {
         for await (const event of streamChat({
@@ -106,7 +107,9 @@ export function useChat() {
           reasoningEffort: opts.reasoningEffort,
           signal: controller.signal,
         })) {
+          if (controller.signal.aborted) break;
           if (event.type === "session") {
+            activeSession = event.id;
             setSessionId(event.id);
           } else if (event.type === "start") {
             if (event.context) setContext(event.context);
@@ -163,7 +166,7 @@ export function useChat() {
                 partial: "",
               };
               const last = blocks[blocks.length - 1];
-              
+
               if (last?.kind === "tools") {
                 blocks[blocks.length - 1] = {
                   ...last,
@@ -194,8 +197,6 @@ export function useChat() {
                 ? described.description
                 : undefined;
             patchLast((m) => {
-              
-              
               const existing =
                 event.id &&
                 m.blocks.some(
@@ -239,6 +240,9 @@ export function useChat() {
             });
           } else if (event.type === "tool-result") {
             const now = Date.now();
+            const status = toolResultStatus(event.output);
+            if (event.name.startsWith("fs_") && status === "done")
+              notifyWorkspaceChanged(activeSession);
             patchLast((m) => {
               if (event.id) {
                 return {
@@ -246,7 +250,7 @@ export function useChat() {
                   blocks: patchCall(m.blocks, event.id, (call) => ({
                     ...call,
                     output: event.output,
-                    status: "done",
+                    status,
                     endedAt: now,
                   })),
                 };
@@ -263,7 +267,7 @@ export function useChat() {
                 calls[idx] = {
                   ...calls[idx],
                   output: event.output,
-                  status: "done",
+                  status,
                   endedAt: now,
                 };
                 blocks[i] = { ...block, calls };
@@ -276,6 +280,7 @@ export function useChat() {
           } else if (event.type === "usage") {
             if (event.context) setContext(event.context);
           } else if (event.type === "done") {
+            ended = true;
             const now = Date.now();
             const usage = (
               event as { usage?: { server?: ChatMessageUI["usage"] } }
@@ -288,6 +293,7 @@ export function useChat() {
               usage: usage?.server ?? m.usage,
             }));
           } else if (event.type === "error") {
+            ended = true;
             const now = Date.now();
             patchLast((m) => ({
               ...m,
@@ -298,7 +304,12 @@ export function useChat() {
             }));
           }
         }
+        if (!ended && !controller.signal.aborted)
+          throw new Error(
+            "The connection ended before Corro confirmed completion.",
+          );
       } catch (err) {
+        if (abortRef.current !== controller) return;
         const now = Date.now();
         const aborted = (err as Error)?.name === "AbortError";
         patchLast((m) => ({
@@ -307,15 +318,42 @@ export function useChat() {
           streaming: false,
           completedAt: now,
           ...(aborted
-            ? {}
+            ? { error: "Stopped. Any completed file operations remain saved." }
             : {
                 error:
                   err instanceof Error ? err.message : "Something went wrong",
               }),
         }));
       } finally {
-        setIsStreaming(false);
-        abortRef.current = null;
+        if (abortRef.current === controller) {
+          patchLast((m) => ({
+            ...m,
+            streaming: false,
+            blocks: closeReasoning(m.blocks, Date.now()).map((b) =>
+              b.kind === "tools"
+                ? {
+                    ...b,
+                    calls: b.calls.map((c) =>
+                      c.status === "pending" || c.status === "running"
+                        ? {
+                            ...c,
+                            status: "error",
+                            output: {
+                              ok: false,
+                              error:
+                                "No result received; completion is unknown.",
+                            },
+                            endedAt: Date.now(),
+                          }
+                        : c,
+                    ),
+                  }
+                : b,
+            ),
+          }));
+          setIsStreaming(false);
+          abortRef.current = null;
+        }
       }
     },
     [isStreaming, patchLast, sessionId],
@@ -325,17 +363,33 @@ export function useChat() {
     abortRef.current?.abort();
   }, []);
 
+  const editFrom = useCallback(
+    (
+      id: string,
+      text: string,
+      opts: { model?: string; reasoningEffort?: string },
+    ) => {
+      if (isStreaming) return;
+      const index = messages.findIndex((m) => m.id === id);
+      if (index === -1) return;
+      setMessages((prev) => prev.slice(0, index));
+      send(text, opts);
+    },
+    [messages, isStreaming, send],
+  );
+
   const reset = useCallback(() => {
     abortRef.current?.abort();
+    abortRef.current = null;
+    setIsStreaming(false);
     setMessages([]);
     setSessionId(null);
     setContext(undefined);
   }, []);
 
-  
-
   const load = useCallback((session: SessionDetail) => {
     abortRef.current?.abort();
+    abortRef.current = null;
     setIsStreaming(false);
 
     const replayed: ChatMessageUI[] = session.messages
@@ -352,7 +406,7 @@ export function useChat() {
               name: tc.name,
               input: tc.input,
               output: tc.output,
-              status: "done",
+              status: toolResultStatus(tc.output),
               startedAt: createdAt,
               endedAt: createdAt,
             })),
@@ -384,6 +438,7 @@ export function useChat() {
     stop,
     reset,
     load,
+    editFrom,
     sessionId,
     context,
   };

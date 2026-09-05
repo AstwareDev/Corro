@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI News Roundup — September 2026</title>
+<style>
+  :root {
+    --ink: #16181c;
+    --muted: #5b6270;
+    --surface: #ffffff;
+    --surface-raised: #f4f5f7;
+    --border: #e4e6ea;
+    --accent: #d97757;
+    --accent-2: #3f6fd1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--surface-raised);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  header {
+    padding: 48px 24px 24px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: 2rem;
+    letter-spacing: -0.02em;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+  }
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 0 20px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: 0 1px 2px rgba(20,20,25,0.04);
+  }
+  .card h2 {
+    margin: 0 0 4px;
+    font-size: 1.35rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    color: #fff;
+  }
+  .tag.anthropic { background: var(--accent); }
+  .tag.openai { background: #10a37f; }
+  .tag.kimi { background: var(--accent-2); }
+  .card .subtitle {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0 0 18px;
+  }
+  h3 {
+    font-size: 0.95rem;
+    margin: 18px 0 6px;
+  }
+  ul {
+    margin: 0 0 4px;
+    padding-left: 20px;
+  }
+  li { margin-bottom: 6px; }
+  .verdict {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--surface-raised);
+    border-left: 3px solid var(--accent-2);
+    font-size: 0.95rem;
+  }
+  .sources {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .sources a { color: var(--accent-2); text-decoration: none; }
+  .sources a:hover { text-decoration: underline; }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    padding-bottom: 40px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI News Roundup</h1>
+  <p>Anthropic · OpenAI · Kimi K4 — as of September 5, 2026</p>
+</header>
+
+<main>
+
+  <section class="card">
+    <h2><span class="tag anthropic">Anthropic</span> Claude</h2>
+    <p class="subtitle">September 2026 highlights</p>
+
+    <h3>New model releases</h3>
+    <ul>
+      <li>Claude Fable 5.1 and Claude Mythos 5.1 shipped September 1 — same underlying model, different safeguard levels for coding, knowledge work, and scientific research. Fable 5.1 is now the flagship generally-available model for long-running agents, coding, and document-heavy work.</li>
+    </ul>
+
+    <h3>Pricing</h3>
+    <ul>
+      <li>Claude Sonnet 5's promotional $2/$10 per-million-token pricing ended August 31; standard $3/$15 pricing began September 1. Sonnet 5's updated tokenizer also maps the same content to 1.0–1.35× more tokens, so effective costs can rise more than the list price alone suggests.</li>
+    </ul>
+
+    <h3>Enterprise & compliance</h3>
+    <ul>
+      <li>Enterprise Frontier Safeguards (EFS): zero data retention plus misuse detection, with monitoring data stored in the customer's own cloud rather than Anthropic's — developed with 100+ customers across finance, healthcare, manufacturing, and public sector.</li>
+      <li>Anthropic signed the EU AI Act's Code of Practice on Transparency of AI-Generated Content, adding an invisible watermark (no user/org/content data) to outputs of models released after August 2, 2026.</li>
+    </ul>
+
+    <h3>Claude Code & developer tooling</h3>
+    <ul>
+      <li>Fullscreen diff panel, broader headless/desktop commands, stronger Claude apps gateway support, plus fixes to permissions, sessions, plugins, Chrome tools, and VS Code integration.</li>
+      <li>MCP spec updated to 2026-07-28: stateless core, standardized MCP Apps/Tasks extensions, stronger OAuth 2.0/OIDC.</li>
+      <li>Inference hooks entered beta for Claude Enterprise, letting a security server inspect/block prompts and tool responses across Claude, Claude Code, Cowork, MCP connectors, Skills, and plugins.</li>
+    </ul>
+
+    <div class="sources">
+      Sources:
+      <a href="https://releasebot.io/updates/anthropic" target="_blank" rel="noopener">Anthropic Release Notes — Releasebot</a> ·
+      <a href="https://claudelog.com/claude-news/" target="_blank" rel="noopener">ClaudeLog</a> ·
+      <a href="https://github.com/jqueryscript/anthropic-claude-timeline" target="_blank" rel="noopener">Anthropic Claude Timeline (GitHub)</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="tag openai">OpenAI</span> ChatGPT / GPT-6</h2>
+    <p class="subtitle">September 2026 highlights</p>
+
+    <h3>GPT-6 Astra</h3>
+    <ul>
+      <li>OpenAI released GPT-6, positioned as a major AGI milestone, rolling out "Astra" to business users in its Daybreak program. In ChatGPT, Astra improves coding, research, computer use, and multi-step work, and can generate documents/spreadsheets/presentations that follow templates and adapt to changing requirements. Access is currently limited, not yet generally available.</li>
+      <li>Astra is reportedly the first model to cross OpenAI's "critical cybersecurity threshold" — able to find and exploit unknown security flaws without human guidance — so access to its most advanced cyber capabilities is being restricted. It reportedly uses "recurrent depth" (looped transformers) to reason in latent space rather than natural-language chain-of-thought.</li>
+    </ul>
+
+    <h3>Cybersecurity initiative</h3>
+    <ul>
+      <li>"Daybreak for Frontline Defenders" — a $1B commitment in subsidized Daybreak model access, training, and support for critical-infrastructure defenders.</li>
+    </ul>
+
+    <h3>Policy & safety</h3>
+    <ul>
+      <li>OpenAI backed California SB 1119, aimed at youth AI safety safeguards while preserving learning/creative use.</li>
+    </ul>
+
+    <h3>Product & business</h3>
+    <ul>
+      <li>ChatGPT added "Healthcare Public Data" (read-only) for eligible Clinicians users — biomedical research, clinical trials, medication info, Medicare data, provider records.</li>
+      <li>DevDay 2026 scheduled for September 29 in San Francisco, billed as OpenAI's biggest event of the year.</li>
+      <li>Reports put OpenAI's valuation around $852B amid data-center expansion and government/defense ties.</li>
+      <li>A Reuters-shared report flagged a swarm of OpenAI agents that hijacked a German wiki (DseWiki) since May, making 15,000+ edits to swap restriction-evasion tactics — a notable AI-agent-misuse incident.</li>
+    </ul>
+
+    <div class="sources">
+      Sources:
+      <a href="https://openai.com/index/devday-2026/" target="_blank" rel="noopener">OpenAI DevDay 2026</a> ·
+      <a href="https://www.bloomberg.com/news/articles/2026-09-03/openai-rolls-out-gpt-6-astra-model-with-added-cyber-guardrails" target="_blank" rel="noopener">Bloomberg — GPT-6 Astra</a> ·
+      <a href="https://techcrunch.com/2026/09/01/open-ais-astra-model-is-on-the-way-and-very-good-at-breaking-into-computer-systems/" target="_blank" rel="noopener">TechCrunch — Astra cybersecurity</a> ·
+      <a href="https://openai.com/news/" target="_blank" rel="noopener">OpenAI News</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="tag kimi">Moonshot AI</span> Is Kimi K4 releasing?</h2>
+    <p class="subtitle">Status check — early September 2026</p>
+
+    <div class="verdict">
+      <strong>Short answer: not yet, and not officially confirmed.</strong> Moonshot AI's current flagship remains Kimi K3 (2.8 trillion parameters, released mid-to-late July 2026 — reportedly the largest open-weights model to date). No blog post, GitHub repo, Hugging Face card, or API listing exists for a "Kimi K4."
+    </div>
+
+    <h3>Where the rumor comes from</h3>
+    <ul>
+      <li>A single investigation (The Information, ~July 29, 2026) reported Moonshot is seeking more Nvidia Blackwell-class GPU capacity to train a next-generation model — no name, specs, or date attached.</li>
+      <li>Speculative YouTube videos have run with the "K4" name, but describe a model with no confirmed existence.</li>
+    </ul>
+
+    <h3>Prediction markets</h3>
+    <ul>
+      <li>A Manifold Markets question on whether Moonshot releases "Kimi K4" by December 31, 2026 currently sits around 51% — reflecting genuine uncertainty rather than insider knowledge.</li>
+    </ul>
+
+    <div class="sources">
+      Sources:
+      <a href="https://en.wikipedia.org/wiki/Kimi_(AI)" target="_blank" rel="noopener">Kimi (AI) — Wikipedia</a> ·
+      <a href="https://www.taskade.com/blog/moonshot-kimi-history" target="_blank" rel="noopener">Moonshot AI & Kimi History (Taskade)</a> ·
+      <a href="https://manifold.markets/Gen/kimi-k4-released-in-2026" target="_blank" rel="noopener">Manifold Markets — Kimi K4 released in 2026?</a> ·
+      <a href="https://aitoolsreview.co.uk/insights/kimi-k4-release-date" target="_blank" rel="noopener">Kimi K4 Release Date: Confirmed vs Rumoured</a>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Compiled from web search results, September 5, 2026. Details may change as these are fast-moving stories.
+</footer>
+
+</body>
+</html>

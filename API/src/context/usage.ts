@@ -1,6 +1,7 @@
 import { getTokenizer, messageText, type ChatMessage } from '../tokenizer/index.js'
 import type { ModelKey } from '../tokenizer/specs.js'
 import type { ToolSpec } from '../agent/tools/specs.js'
+import type { ModelMessage } from 'ai'
 
 export type UsageKind = 'system' | 'tools' | 'history' | 'toolTraffic' | 'input' | 'overhead'
 
@@ -29,7 +30,7 @@ export interface ContextUsage {
 export interface MeasureInput {
   model: ModelKey
   system: string
-  messages: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string }>
+  messages: ModelMessage[] | Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string }>
   tools?: ToolSpec[]
   
 
@@ -58,13 +59,14 @@ export function measureContext({
   const tk = getTokenizer(model)
   const toolsMeasured = tools.length === 0 || tk.hasTemplate
 
+  const measurable = messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }))
   const counted = tk.countChat(
-    [{ role: 'system', content: system }, ...messages] as ChatMessage[],
+    [{ role: 'system', content: system }, ...measurable] as ChatMessage[],
     { tools: tk.hasTemplate && tools.length ? tools : undefined }
   )
 
   const systemTokens = tk.countText(system)
-  const perMessage = messages.map((m) => tk.countText(messageText(m.content)))
+  const perMessage = measurable.map((m) => tk.countText(messageText(m.content)))
   
   
   const inputIndex = messages.map((m) => m.role).lastIndexOf('user')

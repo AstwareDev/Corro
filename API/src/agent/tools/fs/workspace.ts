@@ -44,8 +44,22 @@ export function resolveInside(root: string, relative: string): string {
 
   const full = path.resolve(root, cleaned)
   const rel = path.relative(root, full)
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+  if (!rel || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
     throw new WorkspaceError(`${JSON.stringify(cleaned)} is outside the workspace`)
+  }
+  // Reject symlinks/junctions in every existing path component. Lexical containment alone
+  // permits writes and deletes outside the workspace through a linked directory.
+  for (const part of rel.split(path.sep)) {
+    if (part.includes(':')) throw new WorkspaceError('Alternate data streams are not supported')
+  }
+  let current = path.resolve(root)
+  for (const part of ['', ...rel.split(path.sep)]) {
+    current = path.join(current, part)
+    try {
+      if (fs.lstatSync(current).isSymbolicLink()) throw new WorkspaceError('Linked paths are not supported')
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+    }
   }
   return full
 }
@@ -76,7 +90,7 @@ export function listFiles(root: string, limit = 500): WorkspaceFile[] {
     }
     for (const entry of entries) {
       if (out.length >= limit) return
-      if (IGNORED.has(entry.name)) continue
+      if (IGNORED.has(entry.name) || entry.name.startsWith('.corro-')) continue
       const full = path.join(dir, entry.name)
       if (entry.isDirectory()) {
         walk(full)

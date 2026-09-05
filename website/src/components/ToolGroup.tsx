@@ -1,8 +1,10 @@
 "use client";
 
+import { useMotionPreference } from "@/lib/appearance";
+
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { formatDuration } from "@/lib/format";
@@ -11,6 +13,14 @@ import { BrandStack, brandsOf, presentTool, runKey } from "./tools/registry";
 import { ToolResult } from "./tools/ToolResult";
 
 function StatusIcon({ status }: { status: ToolCallUI["status"] }) {
+  if (status === "error")
+    return (
+      <CircleAlert
+        size={12}
+        className="shrink-0 text-contradicted"
+        aria-label="Failed"
+      />
+    );
   if (status === "done") {
     return <Check size={12} className="shrink-0 text-ink-muted" />;
   }
@@ -42,14 +52,19 @@ function Expand({
   open: boolean;
   children: React.ReactNode;
 }) {
+  const motionOff = useMotionPreference();
   return (
     <AnimatePresence initial={false}>
       {open && (
         <motion.div
-          initial={{ height: 0, opacity: 0 }}
+          initial={motionOff ? false : { height: 0, opacity: 0 }}
           animate={{ height: "auto", opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          transition={
+            motionOff
+              ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
+              : { duration: 0.18, ease: [0.16, 1, 0.3, 1] }
+          }
           className="overflow-hidden"
         >
           {children}
@@ -64,7 +79,7 @@ function ToolCallRow({ call, nested }: { call: ToolCallUI; nested?: boolean }) {
   const { Icon, ChildIcon } = presentTool(call.name);
   const Glyph = nested ? ChildIcon : Icon;
   const duration = call.endedAt ? call.endedAt - call.startedAt : undefined;
-  const ready = call.status === "done";
+  const ready = call.status === "done" || call.status === "error";
 
   return (
     <div>
@@ -72,24 +87,27 @@ function ToolCallRow({ call, nested }: { call: ToolCallUI; nested?: boolean }) {
         type="button"
         onClick={() => ready && setOpen((o) => !o)}
         disabled={!ready}
+        aria-expanded={ready ? open : undefined}
         className={clsx(
-          "flex w-full items-center gap-2 rounded-lg py-1 text-left transition-colors",
+          "flex h-7 w-full items-center gap-2 rounded-row px-1.5 text-left transition-colors",
           ready ? "hover:bg-surface-raised" : "cursor-default",
         )}
       >
         {ready ? <Chevron open={open} /> : <span className="w-[13px]" />}
-        <Glyph size={13} className="shrink-0 text-ink-muted" />
-        <span className="truncate text-xs text-ink-muted">{label(call)}</span>
+        <Glyph size={14} className="shrink-0 text-ink-muted" />
+        <span className="truncate text-caption text-ink-muted">
+          {label(call)}
+        </span>
         {!ready && <StatusIcon status={call.status} />}
         {duration !== undefined && (
-          <span className="shrink-0 font-mono text-[10px] text-ink-muted/70">
+          <span className="shrink-0 font-mono text-caption tabular-nums text-ink-muted">
             {formatDuration(duration, { precise: true })}
           </span>
         )}
       </button>
 
       <Expand open={open}>
-        <div className="ml-[26px] border-l border-border py-2 pl-3">
+        <div className="ml-[26px] border-l border-border py-2 pl-3 text-caption">
           <ToolResult call={call} />
         </div>
       </Expand>
@@ -128,18 +146,21 @@ function runHeader(calls: ToolCallUI[]): { glyph: ReactNode; label: string } {
 function ToolRun({ calls }: { calls: ToolCallUI[] }) {
   const [open, setOpen] = useState(true);
   const { glyph, label: groupLabel } = runHeader(calls);
-  const running = calls.some((c) => c.status !== "done");
+  const running = calls.some(
+    (c) => c.status === "pending" || c.status === "running",
+  );
 
   return (
     <div>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 rounded-lg py-1 text-left transition-colors hover:bg-surface-raised"
+        aria-expanded={open}
+        className="flex h-7 w-full items-center gap-2 rounded-row px-1.5 text-left transition-colors hover:bg-surface-raised"
       >
         <Chevron open={open} />
         {glyph}
-        <span className="text-xs text-ink-muted">{groupLabel}</span>
+        <span className="text-caption text-ink-muted">{groupLabel}</span>
         {running && <StatusIcon status="running" />}
       </button>
 

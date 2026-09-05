@@ -1,5 +1,7 @@
 "use client";
 
+import { useMotionPreference } from "@/lib/appearance";
+
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -16,11 +18,10 @@ function throughput(message: ChatMessageUI): number | undefined {
 }
 
 export function MessageFooter({ message }: { message: ChatMessageUI }) {
+  const motionOff = useMotionPreference();
   const [copied, setCopied] = useState(false);
   const [speechAvailable, setSpeechAvailable] = useState(false);
 
-  
-  
   useEffect(() => {
     let cancelled = false;
     fetchSpeechStatus()
@@ -37,28 +38,22 @@ export function MessageFooter({ message }: { message: ChatMessageUI }) {
     return () => clearTimeout(id);
   }, [copied]);
 
-  
-  
-  
-  
   const tokens = message.usage?.outputTokens;
   const rate = throughput(message);
   if (!tokens && !rate && !message.text) return null;
 
   return (
-    <div className="flex items-center gap-3 text-[13px] text-ink-muted">
-      {tokens !== undefined && <span>{tokens.toLocaleString()} Tokens</span>}
+    <div className="flex items-center gap-3 text-caption text-ink-muted">
+      {tokens !== undefined && (
+        <span className="font-mono tabular-nums">
+          {tokens.toLocaleString()} tok
+        </span>
+      )}
       {rate !== undefined && (
-        <>
-          <span aria-hidden>·</span>
-          <span>{rate.toFixed(1)} Tokens/s</span>
-        </>
+        <span className="font-mono tabular-nums">{rate.toFixed(1)} tok/s</span>
       )}
       {message.text && (
         <>
-          <span aria-hidden className="text-border">
-            |
-          </span>
           <motion.button
             type="button"
             onClick={() => {
@@ -67,20 +62,28 @@ export function MessageFooter({ message }: { message: ChatMessageUI }) {
                 .then(() => setCopied(true))
                 .catch(() => {});
             }}
-            whileTap={{ scale: 0.8 }}
+            whileTap={motionOff ? undefined : { scale: 0.8 }}
             title="Copy response"
-            className="rounded-full p-1.5 transition-colors hover:bg-surface-raised hover:text-ink"
+            aria-label="Copy response"
+            className="flex size-7 items-center justify-center rounded-full transition-colors hover:bg-surface-raised hover:text-ink"
+            transition={
+              motionOff ? { duration: 0, delay: 0, type: "tween" } : undefined
+            }
           >
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
                 key={copied ? "check" : "copy"}
-                initial={{ scale: 0.5, opacity: 0 }}
+                initial={motionOff ? false : { scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.5, opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                transition={
+                  motionOff
+                    ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
+                    : { duration: 0.15 }
+                }
                 className="flex"
               >
-                {copied ? <Check size={15} /> : <Copy size={15} />}
+                {copied ? <Check size={14} /> : <Copy size={14} />}
               </motion.span>
             </AnimatePresence>
           </motion.button>

@@ -423,7 +423,7 @@ export function ToolResult({ call }: { call: ToolCallUI }) {
         path={out.path}
         meta={
           typeof out.bytes === "number"
-            ? `${formatBytes(out.bytes)}${out.created ? " · new" : ""}`
+            ? `${formatBytes(out.bytes)} · ${out.changed === false ? "Unchanged" : out.verified ? "Saved & verified" : "Saved"}`
             : undefined
         }
       />
@@ -437,7 +437,9 @@ export function ToolResult({ call }: { call: ToolCallUI }) {
         path={out.path}
         meta={
           typeof out.replaced === "number"
-            ? `${out.replaced} replacement${out.replaced === 1 ? "" : "s"}`
+            ? out.changed === false
+              ? "Unchanged"
+              : `${out.replaced} replacement${out.replaced === 1 ? "" : "s"}${out.verified ? " · verified" : ""}`
             : undefined
         }
       />

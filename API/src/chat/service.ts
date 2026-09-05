@@ -10,15 +10,17 @@ import {
   createSession,
   getSession,
   saveSession,
-  sessionTraffic,
   type Session,
   type ToolCallRecord,
 } from '../sessions/store.js'
 import { nameSession } from '../sessions/titling.js'
 import { getTokenizer } from '../tokenizer/index.js'
 import type { ModelKey } from '../tokenizer/specs.js'
+import type { ModelMessage } from 'ai'
+import { pairToolRecords } from '../agent/completion.js'
 
 export interface ChatRequest {
+  abortSignal?: AbortSignal
   deviceId: string
   model: ModelKey
   message?: string
@@ -47,7 +49,7 @@ export class SessionNotFound extends Error {
 interface Resolved {
   session: Session | null
   turn: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
-  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+  messages: ModelMessage[]
 }
 
 function countTokens(model: ModelKey, text: string): number | undefined {
@@ -95,19 +97,19 @@ function persist(
     })
   }
 
-  const toolCalls: ToolCallRecord[] = run.steps.flatMap((s) =>
-    s.toolCalls.map((c, i) => ({
+  const toolCalls: ToolCallRecord[] = pairToolRecords(run.steps).map((c) => ({
+      id: c.toolCallId,
       name: c.toolName,
       input: c.input,
-      output: s.toolResults[i]?.output,
+      output: c.output,
     }))
-  )
 
   appendMessage(session, {
     role: 'assistant',
     content: run.text,
     tokens: countTokens(req.model, run.text),
     toolCalls,
+    agentMessages: run.responseMessages,
     usage: run.usage.server,
   })
 
@@ -133,7 +135,6 @@ function persist(
     tools: toolSpecs(selectTools(req.tools, { workspace })),
     
     
-    toolTraffic: sessionTraffic(session),
     observed: run.usage.peakInputTokens,
   })
 
@@ -179,9 +180,9 @@ export async function chat(req: ChatRequest): Promise<ChatOutcome> {
   const { session, turn, messages } = resolve(req)
 
   const run = await runAgent({
+    abortSignal: req.abortSignal,
     model: req.model,
     messages,
-    priorTraffic: session ? sessionTraffic(session) : undefined,
     contextFloor: session?.context?.model === req.model ? session.context.used : undefined,
     tools: req.tools,
     maxSteps: req.maxSteps,
@@ -207,9 +208,9 @@ export async function* chatStream(req: ChatRequest): AsyncGenerator<ChatEvent> {
   if (session) yield { type: 'session', session: { id: session.id, title: session.title } }
 
   for await (const event of streamAgent({
+    abortSignal: req.abortSignal,
     model: req.model,
     messages,
-    priorTraffic: session ? sessionTraffic(session) : undefined,
     contextFloor: session?.context?.model === req.model ? session.context.used : undefined,
     tools: req.tools,
     maxSteps: req.maxSteps,
@@ -221,7 +222,7 @@ export async function* chatStream(req: ChatRequest): AsyncGenerator<ChatEvent> {
   })) {
     if (event.type === 'done' && session) {
       persist(req, session, turn, event.result)
-      retitle(req.deviceId, session.id)
+      if (!req.abortSignal?.aborted) retitle(req.deviceId, session.id)
       yield { type: 'done', result: { ...event.result, context: session.context } }
       continue
     }

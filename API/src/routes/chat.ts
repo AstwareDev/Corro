@@ -96,9 +96,12 @@ chatRoutes.post(
     }
 
     const sse = openSse(req, res)
+    const controller = new AbortController()
+    res.on('close', () => controller.abort())
+    request.abortSignal = controller.signal
     try {
       for await (const event of chatStream(request)) {
-        if (!sse.open) break
+        if (!sse.open) continue // Drain the aborted run so confirmed effects are persisted.
         if (event.type === 'done') {
           sse.send('usage', { usage: event.result.usage, context: event.result.context })
           sse.send('done', event.result)
@@ -153,13 +156,16 @@ chatRoutes.post(
     res.setHeader('X-Accel-Buffering', 'no')
 
     let aborted = false
+    const controller = new AbortController()
+    request.abortSignal = controller.signal
     res.on('close', () => {
       aborted = true
+      controller.abort()
     })
 
     try {
       for await (const event of chatStream(request)) {
-        if (aborted) break
+        if (aborted) continue
         if (event.type === 'session') {
           res.setHeader('X-Corro-Session', event.session.id)
         } else if (event.type === 'text') {

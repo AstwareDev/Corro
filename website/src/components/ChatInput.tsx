@@ -1,5 +1,7 @@
 "use client";
 
+import { useMotionPreference } from "@/lib/appearance";
+
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Plus, Square } from "lucide-react";
@@ -37,10 +39,11 @@ export function ChatInput({
   onEffortChange: (v: Effort) => void;
   modelsLoading: boolean;
   context?: ContextUsage;
-  
+
   menuPlacement?: "top" | "bottom";
   placeholder?: string;
 }) {
+  const motionOff = useMotionPreference();
   const [empty, setEmpty] = useState(true);
   const editorRef = useRef<PromptEditorHandle>(null);
 
@@ -55,16 +58,20 @@ export function ChatInput({
   }
 
   return (
-    <div className="relative rounded-[28px] border border-black/[0.06] bg-surface px-4 pb-2 pt-3.5 shadow-[0_1px_2px_rgba(16,16,16,0.04),0_10px_30px_-12px_rgba(16,16,16,0.12)] transition-shadow focus-within:shadow-[0_1px_2px_rgba(16,16,16,0.05),0_14px_36px_-12px_rgba(16,16,16,0.16)]">
+    <div className="corro-composer relative rounded-[22px] border border-border bg-surface px-4 pb-2 pt-3.5 shadow-[0_1px_2px_rgba(16,16,16,0.04),0_10px_30px_-12px_rgba(16,16,16,0.12)] transition-shadow">
       <AnimatePresence>
         {streaming && (
           <motion.div
             key="thinking-ring"
             aria-hidden
-            initial={{ opacity: 0 }}
+            initial={motionOff ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
+            transition={
+              motionOff
+                ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
+                : { duration: 0.35, ease: "easeOut" }
+            }
             className="pointer-events-none absolute inset-0"
           >
             <span className="corro-thinking-glow" />
@@ -111,14 +118,18 @@ export function ChatInput({
             type="button"
             onClick={streaming ? onStop : submit}
             disabled={!streaming && (disabled || empty)}
-            whileTap={{ scale: 0.92 }}
+            whileTap={motionOff ? undefined : { scale: 0.92 }}
             animate={{
               backgroundColor:
                 streaming || !empty
-                  ? "var(--color-ink)"
+                  ? "var(--corro-accent)"
                   : "var(--color-surface-raised)",
             }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            transition={
+              motionOff
+                ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
+                : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
+            }
             className={clsx(
               "relative flex size-8 shrink-0 items-center justify-center rounded-full",
               streaming || !empty ? "text-bg" : "text-ink-muted",
@@ -128,10 +139,16 @@ export function ChatInput({
               {streaming ? (
                 <motion.span
                   key="stop"
-                  initial={{ opacity: 0, scale: 0.4, rotate: -90 }}
+                  initial={
+                    motionOff ? false : { opacity: 0, scale: 0.4, rotate: -90 }
+                  }
                   animate={{ opacity: 1, scale: 1, rotate: 0 }}
                   exit={{ opacity: 0, scale: 0.4, rotate: 90 }}
-                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  transition={
+                    motionOff
+                      ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
+                      : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
+                  }
                   className="absolute inset-0 flex items-center justify-center"
                 >
                   <Square size={12} fill="currentColor" />
@@ -139,10 +156,16 @@ export function ChatInput({
               ) : (
                 <motion.span
                   key="send"
-                  initial={{ opacity: 0, scale: 0.4, rotate: 90 }}
+                  initial={
+                    motionOff ? false : { opacity: 0, scale: 0.4, rotate: 90 }
+                  }
                   animate={{ opacity: 1, scale: 1, rotate: 0 }}
                   exit={{ opacity: 0, scale: 0.4, rotate: -90 }}
-                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  transition={
+                    motionOff
+                      ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
+                      : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
+                  }
                   className="absolute inset-0 flex items-center justify-center"
                 >
                   <ArrowUp size={15} />

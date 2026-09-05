@@ -3,6 +3,7 @@ import path from 'node:path'
 import { tool } from 'ai'
 import { z } from 'zod'
 import { toolDescription } from '../description.js'
+import { MAX_WRITE_BYTES, revisionOf, saveText } from './storage.js'
 import {
   ensureRoot,
   listFiles,
@@ -12,7 +13,6 @@ import {
 } from './workspace.js'
 
 const MAX_READ_BYTES = 400_000
-const MAX_WRITE_BYTES = 2_000_000
 const MAX_MATCHES = 200
 
 function fail(err: unknown) {
@@ -90,6 +90,7 @@ export function createFsTools(root: string) {
           ok: true as const,
           path: toRelative(root, full),
           totalLines: lines.length,
+          revision: revisionOf(text),
           content: numbered(slice.join('\n'), start + 1),
           truncated: end < lines.length,
         }
@@ -107,18 +108,16 @@ export function createFsTools(root: string) {
       description: toolDescription,
       path: z.string().min(1).describe('Workspace-relative path. Parent folders are created.'),
       content: z.string().max(MAX_WRITE_BYTES).describe('The full file contents.'),
+      expectedRevision: z.string().nullable().optional().describe('Revision from fs_read when replacing a file; null requires a new file. Prevents overwriting newer edits.'),
     }),
-    execute: async ({ path: rel, content }) => {
+    execute: async ({ path: rel, content, expectedRevision }) => {
       try {
         const full = resolveInside(root, rel)
-        const existed = fs.existsSync(full)
-        fs.mkdirSync(path.dirname(full), { recursive: true })
-        fs.writeFileSync(full, content, 'utf8')
+        const receipt = saveText(full, content, expectedRevision)
         return {
           ok: true as const,
           path: toRelative(root, full),
-          bytes: Buffer.byteLength(content, 'utf8'),
-          created: !existed,
+          ...receipt,
         }
       } catch (err) {
         return fail(err)
@@ -136,8 +135,9 @@ export function createFsTools(root: string) {
       oldText: z.string().min(1).describe('Exact text to replace, including indentation.'),
       newText: z.string().describe('Replacement text. Empty string deletes the old text.'),
       replaceAll: z.boolean().optional().describe('Replace every occurrence instead of requiring one.'),
+      expectedRevision: z.string().optional().describe('Revision from fs_read, to reject stale edits.'),
     }),
-    execute: async ({ path: rel, oldText, newText, replaceAll }) => {
+    execute: async ({ path: rel, oldText, newText, replaceAll, expectedRevision }) => {
       try {
         const full = resolveInside(root, rel)
         const before = readText(full)
@@ -153,12 +153,13 @@ export function createFsTools(root: string) {
           }
         }
 
-        const after = replaceAll ? before.split(oldText).join(newText) : before.replace(oldText, newText)
-        fs.writeFileSync(full, after, 'utf8')
+        const after = replaceAll ? before.split(oldText).join(newText) : before.replace(oldText, () => newText)
+        const receipt = saveText(full, after, expectedRevision ?? revisionOf(before))
         return {
           ok: true as const,
           path: toRelative(root, full),
           replaced: replaceAll ? occurrences : 1,
+          ...receipt,
         }
       } catch (err) {
         return fail(err)
@@ -179,11 +180,10 @@ export function createFsTools(root: string) {
           return { ok: false as const, error: `${rel} does not exist.` }
         }
         if (fs.statSync(full).isDirectory()) {
-          fs.rmSync(full, { recursive: true })
-          return { ok: true as const, path: toRelative(root, full), kind: 'directory' as const }
+          throw new WorkspaceError('Only individual files can be deleted. Specify a file path.')
         }
         fs.unlinkSync(full)
-        return { ok: true as const, path: toRelative(root, full), kind: 'file' as const }
+        return { ok: true as const, verified: !fs.existsSync(full), changed: true, path: toRelative(root, full), kind: 'file' as const }
       } catch (err) {
         return fail(err)
       }
@@ -202,10 +202,11 @@ export function createFsTools(root: string) {
         const src = resolveInside(root, from)
         const dest = resolveInside(root, to)
         if (!fs.existsSync(src)) return { ok: false as const, error: `${from} does not exist.` }
+        if (!fs.statSync(src).isFile()) throw new WorkspaceError('Only individual files can be renamed.')
         if (fs.existsSync(dest)) return { ok: false as const, error: `${to} already exists.` }
         fs.mkdirSync(path.dirname(dest), { recursive: true })
         fs.renameSync(src, dest)
-        return { ok: true as const, from: toRelative(root, src), to: toRelative(root, dest) }
+        return { ok: true as const, verified: !fs.existsSync(src) && fs.existsSync(dest), changed: true, from: toRelative(root, src), to: toRelative(root, dest) }
       } catch (err) {
         return fail(err)
       }

@@ -1,15 +1,9 @@
-
-
-
-
 export type Effort = string;
-
-
 
 const EFFORT_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
   "kimi-k3": { low: "Standard" },
+  "qwen3-max": { low: "Fast", medium: "Standard", xhigh: "Max" },
 };
-
 
 export function effortLabel(key: Effort, familyId?: string): string {
   const override = familyId && EFFORT_LABEL_OVERRIDES[familyId]?.[key];
@@ -18,8 +12,6 @@ export function effortLabel(key: Effort, familyId?: string): string {
   if (key === "xhigh") return "Extra high";
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
-
-
 
 export function effortOptions(
   m?: ModelDescription,
@@ -30,8 +22,6 @@ export function effortOptions(
     : ["low", "high", "max"];
   return efforts.map((key) => ({ key, label: effortLabel(key, familyId) }));
 }
-
-
 
 export interface ModelModalities {
   input: string[];
@@ -58,16 +48,12 @@ export interface ModelDescription {
   ownedBy?: string;
 }
 
-
-
 export interface ModelFamily {
   id: string;
   label: string;
   standard: ModelDescription;
   fast?: ModelDescription;
 }
-
-
 
 function familyLabel(label: string): string {
   return label.replace(/\s*\([^)]*\)\s*$/, "").trim();
@@ -110,8 +96,13 @@ export function findFamily(
   );
 }
 
-
 export type ToolCallStatus = "pending" | "running" | "done" | "error";
+
+export function toolResultStatus(output: unknown): ToolCallStatus {
+  if (output === undefined) return "error";
+  const result = output as { ok?: boolean; error?: unknown } | null;
+  return result?.ok === false || !!result?.error ? "error" : "done";
+}
 
 export interface ToolCallUI {
   localId: string;
@@ -121,20 +112,16 @@ export interface ToolCallUI {
   status: ToolCallStatus;
   startedAt: number;
   endedAt?: number;
-  
 
   description?: string;
-  
+
   partial?: string;
 }
-
 
 export function humanizeToolName(name: string): string {
   const words = name.replace(/[_-]+/g, " ").trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
-
-
 
 export function peekDescription(partial: string): string | undefined {
   const match = /"description"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(partial);
@@ -145,10 +132,6 @@ export function peekDescription(partial: string): string | undefined {
     return match[1];
   }
 }
-
-
-
-
 
 export type MessageBlock =
   | {
@@ -164,13 +147,12 @@ export type MessageBlock =
 export interface ChatMessageUI {
   id: string;
   role: "user" | "assistant";
-  
+
   text: string;
   blocks: MessageBlock[];
   streaming?: boolean;
   error?: string;
   createdAt: number;
-  
 
   firstTokenAt?: number;
   completedAt?: number;
@@ -199,8 +181,5 @@ export interface ContextUsage {
   percentUsed: number;
   breakdown: Record<UsageKind, number>;
 }
-
-
-
 
 export const DISPLAY_CONTEXT_MAX = 512_000;
