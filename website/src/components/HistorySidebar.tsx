@@ -29,6 +29,7 @@ import { formatRelativeTime } from "@/lib/format";
 import { CorroMark } from "./CorroMark";
 import { CorroWordmark } from "./CorroWordmark";
 import { SettingsMenu } from "./SettingsMenu";
+import { Skeleton } from "./Skeleton";
 
 const COLLAPSE_KEY = "corro_sidebar_collapsed";
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -121,6 +122,44 @@ function RailButton({
         </>
       )}
     </button>
+  );
+}
+
+const CONVERSATION_SKELETON_ROWS: Array<{ title: string; subtitle: string }> = [
+  { title: "78%", subtitle: "46%" },
+  { title: "62%", subtitle: "38%" },
+  { title: "71%", subtitle: "52%" },
+  { title: "56%", subtitle: "34%" },
+  { title: "74%", subtitle: "42%" },
+  { title: "66%", subtitle: "48%" },
+  { title: "60%", subtitle: "36%" },
+];
+
+function SessionSkeleton() {
+  return (
+    <output aria-label="Loading conversations" className="block">
+      <ul className="space-y-px">
+        {CONVERSATION_SKELETON_ROWS.map((row, index) => (
+          <li key={row.title} className="flex items-center gap-2.5 px-2 py-2">
+            <Skeleton
+              width={28}
+              height={28}
+              borderRadius={8}
+              delay={index * 90}
+            />
+            <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <Skeleton height={11} width={row.title} delay={index * 90} />
+              <Skeleton
+                height={9}
+                width={row.subtitle}
+                delay={index * 90 + 45}
+              />
+            </span>
+            <Skeleton width={30} height={9} delay={index * 90 + 60} />
+          </li>
+        ))}
+      </ul>
+    </output>
   );
 }
 
@@ -386,7 +425,10 @@ export function HistorySidebar({
     fetchSessions()
       .then((data) => !cancelled && setSessions(data))
       .catch(() => {})
-      .finally(() => !cancelled && setLoading(false));
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -518,7 +560,7 @@ export function HistorySidebar({
         {expanded && (
           <div className="scroll-thin flex-1 overflow-y-auto px-2 pb-1">
             {loading ? (
-              <p className="px-2 py-2 text-caption text-ink-muted">Loading…</p>
+              <SessionSkeleton />
             ) : sessions.length === 0 ? (
               <p className="px-2 py-2 text-caption leading-relaxed text-ink-muted">
                 Past conversations will collect here.

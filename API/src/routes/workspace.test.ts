@@ -9,6 +9,9 @@ import express from 'express'
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'corro-workspace-http-'))
 process.env.CORRO_DATA_DIR = root
 const { workspaceRoutes } = await import('./workspace.js')
+const { createSession } = await import('../sessions/store.js')
+// Workspaces are private to a chat: the session must exist for this device.
+createSession('dev_test123456', { model: 'kimi-k3', id: 'testsession' })
 const app = express()
 app.use(express.json())
 app.use((req, _res, next) => { req.device = { id: 'dev_test123456', source: 'header', fingerprinted: false }; next() })
@@ -46,6 +49,16 @@ test('HTTP save/read uses revisions, rejects stale updates, and bypasses caches'
   assert.match((await json(stale)).error, /changed since/)
   const actual = await fetch(`${base}/workspace/file?session=testsession&path=draft.md`).then(json)
   assert.equal(actual.content, 'newer')
+})
+
+test('HTTP workspace rejects unknown sessions so chats stay private', async () => {
+  const missing = await fetch(`${base}/workspace?session=nosuchsession`)
+  assert.equal(missing.status, 404)
+  const badSave = await fetch(`${base}/workspace/file?session=nosuchsession`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: 'x.md', content: 'x', expectedRevision: null }),
+  })
+  assert.equal(badSave.status, 404)
 })
 
 test('HTTP deletion refuses workspace roots/directories and reports missing files', async () => {

@@ -1,6 +1,6 @@
 import { Router, text as textBody } from 'express'
 import { z } from 'zod'
-import { MAX_STEPS_CAP, runAgent } from '../agent/run.js'
+import { errorMessage, runAgent } from '../agent/run.js'
 import { chat, chatStream, SessionNotFound, type ChatRequest } from '../chat/service.js'
 import { resolveRegion, type RegionContext } from '../http/region.js'
 import { openSse, parseBody, route, wantsStream } from '../http/respond.js'
@@ -25,8 +25,16 @@ const chatBody = z.object({
   session: z.string().nullable().optional(),
   remember: z.boolean().optional(),
   stream: z.boolean().optional(),
+  attachments: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        kind: z.enum(['image', 'video', 'file']),
+        mime: z.string().optional(),
+      })
+    )
+    .optional(),
   tools: z.array(z.string()).optional(),
-  maxSteps: z.number().int().min(1).max(MAX_STEPS_CAP).optional(),
   systemExtra: z.string().max(4000).optional(),
   temperature: z.number().min(0).max(2).optional(),
   reasoningEffort: z.string().optional(),
@@ -54,10 +62,10 @@ function toRequest(
     model,
     message: body.message,
     messages: body.messages,
+    attachments: body.attachments,
     session: body.session ?? undefined,
     remember: body.remember,
     tools: body.tools,
-    maxSteps: body.maxSteps,
     systemExtra: body.systemExtra,
     temperature: body.temperature,
     reasoningEffort: body.reasoningEffort,
@@ -68,7 +76,7 @@ function toRequest(
 
 function failure(err: unknown): { status: number; error: string } {
   if (err instanceof SessionNotFound) return { status: 404, error: err.message }
-  return { status: 500, error: err instanceof Error ? err.message : 'Chat failed' }
+  return { status: 500, error: errorMessage(err) || 'Chat failed' }
 }
 
 chatRoutes.post(
@@ -84,6 +92,9 @@ chatRoutes.post(
     }
 
     if (!wantsStream(req)) {
+      const controller = new AbortController()
+      res.on('close', () => controller.abort())
+      request.abortSignal = controller.signal
       try {
         const outcome = await chat(request)
         res.json({ ...outcome.run, session: outcome.session, device: req.device.id })
@@ -197,7 +208,7 @@ chatRoutes.get(
     }
 
     const startedAt = Date.now()
-    const run = await runAgent({ model, messages: [{ role: 'user', content: q }], maxSteps: 6 })
+    const run = await runAgent({ model, messages: [{ role: 'user', content: q }] })
     const toolCalls = run.steps.flatMap((s) => s.toolCalls.map((c) => c.toolName))
 
     res.json({

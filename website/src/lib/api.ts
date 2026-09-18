@@ -4,6 +4,10 @@ import { notifyWorkspaceChanged } from "./workspace-events";
 export const API_URL =
   process.env.NEXT_PUBLIC_CORRO_API_URL ?? "http://localhost:8787";
 
+export function resolveAssetUrl(url: string): string {
+  return url.startsWith("/") ? `${API_URL}${url}` : url;
+}
+
 const DEVICE_STORAGE_KEY = "corro_device_id";
 const REGION_CODE = /^[A-Z]{2}$/;
 
@@ -51,39 +55,6 @@ export type SseEvent =
   | { type: "done"; [key: string]: unknown }
   | { type: "error"; error: string };
 
-const SERVER_PING_MS = 15_000;
-const STALL_MS = SERVER_PING_MS * 3;
-
-class StreamStalledError extends Error {
-  constructor() {
-    super(
-      `Corro stopped responding (no data for ${STALL_MS / 1000}s) — the connection likely dropped`,
-    );
-    this.name = "StreamStalledError";
-  }
-}
-
-function readWithStallTimeout(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-): Promise<ReadableStreamReadResult<Uint8Array>> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reader.cancel().catch(() => {});
-      reject(new StreamStalledError());
-    }, STALL_MS);
-    reader.read().then(
-      (result) => {
-        clearTimeout(timer);
-        resolve(result);
-      },
-      (err) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
-}
-
 async function* sseEvents(
   response: Response,
 ): AsyncGenerator<{ event: string; data: Record<string, unknown> }> {
@@ -93,7 +64,7 @@ async function* sseEvents(
   let buffer = "";
 
   while (true) {
-    const { done, value } = await readWithStallTimeout(reader);
+    const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
 
@@ -121,12 +92,19 @@ async function* sseEvents(
   }
 }
 
+export interface ChatAttachment {
+  path: string;
+  kind: "image" | "video" | "file";
+  mime?: string;
+}
+
 export interface AskParams {
   message: string;
   session?: string | null;
   model?: string;
   reasoningEffort?: string;
   tools?: string[];
+  attachments?: ChatAttachment[];
   signal?: AbortSignal;
 }
 
@@ -149,6 +127,7 @@ export async function* streamChat(
       model: params.model,
       reasoningEffort: params.reasoningEffort,
       tools: params.tools,
+      attachments: params.attachments,
       region,
       stream: true,
     }),
@@ -284,6 +263,145 @@ function sessionQuery(sessionId?: string | null): string {
   return sessionId ? `session=${encodeURIComponent(sessionId)}` : "";
 }
 
+export interface UploadResult {
+  path: string;
+  bytes: number;
+  mime: string;
+  kind: "image" | "video" | "file";
+  viewUrl: string;
+  session?: string;
+  sessionId?: string;
+}
+
+export async function uploadAttachment(
+  file: File,
+  sessionId?: string | null,
+): Promise<UploadResult> {
+  const form = new FormData();
+  form.append("file", file);
+  // Uploads are private to a single chat: the backend stores them in that
+  // session's workspace and mints a session when none is given, returning
+  // its id so the chat can continue in the same session.
+  const response = await fetch(
+    `${API_URL}/uploads?${sessionQuery(sessionId)}`,
+    {
+      method: "POST",
+      headers: deviceHeaders(),
+      body: form,
+    },
+  );
+  if (!response.ok) throw await workspaceError(response, "Upload failed");
+  const result = (await response.json()) as UploadResult & { ok: boolean };
+  const resolvedSession = result.sessionId ?? result.session ?? sessionId ?? undefined;
+  notifyWorkspaceChanged(resolvedSession);
+  return result;
+}
+
+export interface BrowserPage {
+  index: number;
+  url: string;
+  title: string;
+  active: boolean;
+}
+
+function deviceHeaders(): Record<string, string> {
+  const device = getStoredDevice();
+  return { ...NGROK_HEADERS, ...(device ? { "X-Corro-Device": device } : {}) };
+}
+
+export async function fetchBrowserPages(
+  sessionId?: string | null,
+): Promise<BrowserPage[]> {
+  const response = await fetch(
+    `${API_URL}/browser?${sessionQuery(sessionId)}`,
+    {
+      cache: "no-store",
+      headers: deviceHeaders(),
+    },
+  );
+  if (!response.ok)
+    throw new Error(`Failed to load browser: ${response.status}`);
+  const json = (await response.json()) as { data?: BrowserPage[] };
+  return json.data ?? [];
+}
+
+export function browserLiveWsUrl(sessionId?: string | null): string {
+  const device = getStoredDevice();
+  const params = new URLSearchParams();
+  if (sessionId) params.set("session", sessionId);
+  if (device) params.set("device", device);
+  const wsBase = API_URL.replace(/^http/, "ws");
+  return `${wsBase}/browser/live?${params}`;
+}
+
+export function browserViewUrl(
+  sessionId: string | null | undefined,
+  index: number,
+  nonce: number,
+): string {
+  const device = getStoredDevice();
+  const params = new URLSearchParams({
+    index: String(index),
+    t: String(nonce),
+  });
+  if (sessionId) params.set("session", sessionId);
+  if (device) params.set("device", device);
+  return `${API_URL}/browser/view?${params}`;
+}
+
+async function browserAction<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...deviceHeaders() },
+    body: JSON.stringify(body),
+  });
+  const json = (await response.json().catch(() => ({}))) as {
+    error?: string;
+  } & T;
+  if (!response.ok)
+    throw new Error(json.error ?? `Request failed: ${response.status}`);
+  return json;
+}
+
+export function activateBrowserPage(
+  sessionId: string | null | undefined,
+  index: number,
+): Promise<{ data: BrowserPage[] }> {
+  return browserAction("/browser/activate", {
+    session: sessionId ?? null,
+    index,
+  });
+}
+
+export function closeBrowserPage(
+  sessionId: string | null | undefined,
+  index: number,
+): Promise<{ data: BrowserPage[] }> {
+  return browserAction("/browser/page/close", {
+    session: sessionId ?? null,
+    index,
+  });
+}
+
+export async function captureBrowserScreenshot(
+  sessionId: string | null | undefined,
+  index: number,
+): Promise<{ path: string }> {
+  const result = await browserAction<{ path: string }>("/browser/screenshot", {
+    session: sessionId ?? null,
+    index,
+  });
+  notifyWorkspaceChanged(sessionId ?? undefined);
+  return result;
+}
+
+export async function closeBrowser(sessionId?: string | null): Promise<void> {
+  await fetch(`${API_URL}/browser?${sessionQuery(sessionId)}`, {
+    method: "DELETE",
+    headers: deviceHeaders(),
+  });
+}
+
 export async function fetchWorkspace(
   sessionId?: string | null,
 ): Promise<WorkspaceFile[]> {
@@ -302,6 +420,19 @@ export async function fetchWorkspace(
     throw new Error(`Failed to load workspace: ${response.status}`);
   const json = (await response.json()) as { data?: WorkspaceFile[] };
   return json.data ?? [];
+}
+
+export function workspaceViewUrl(
+  path: string,
+  sessionId?: string | null,
+  opts?: { download?: boolean },
+): string {
+  const device = getStoredDevice();
+  const params = new URLSearchParams({ path });
+  if (sessionId) params.set("session", sessionId);
+  if (device) params.set("device", device);
+  if (opts?.download) params.set("download", "1");
+  return `${API_URL}/workspace/view?${params}`;
 }
 
 export async function fetchWorkspaceFile(

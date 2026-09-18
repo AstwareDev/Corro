@@ -8,15 +8,31 @@ import { selectTools } from './tools/index.js'
 import { toolSpecs } from './tools/specs.js'
 import { completionIssue, executionReminder, executionSummary, type ExecutionRecord } from './completion.js'
 
-export const MAX_STEPS_CAP = 16
-export const DEFAULT_MAX_STEPS = 8
+export const TOOL_FAILURE_LIMIT = 5
+export const MAX_AGENT_STEPS = 40
+export const MAX_AGENT_MS = 10 * 60 * 1000
+
+export function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object') {
+    const obj = err as Record<string, unknown>
+    if (typeof obj.message === 'string') return obj.message
+    const inner = obj.error
+    if (inner && typeof inner === 'object' && typeof (inner as Record<string, unknown>).message === 'string') {
+      return (inner as Record<string, unknown>).message as string
+    }
+    try {
+      return JSON.stringify(err)
+    } catch {}
+  }
+  return String(err)
+}
 
 export interface RunInput {
   model: ModelKey
   messages: ModelMessage[]
   languageModel?: LanguageModel
   abortSignal?: AbortSignal
-  maxSteps?: number
   tools?: string[]
   systemExtra?: string
   temperature?: number
@@ -48,7 +64,7 @@ export interface RunResult {
   finishReason: string
   steps: RunStep[]
   responseMessages: ModelMessage[]
-  completion: 'complete' | 'unverified' | 'step-limit'
+  completion: 'complete' | 'unverified'
   usage: {
     server: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
     preflight?: {
@@ -85,7 +101,6 @@ interface Prepared {
   system: string
   toolset: Record<string, unknown>
   toolNames: string[]
-  maxSteps: number
   context?: ContextUsage
   preflight?: RunResult['usage']['preflight']
 }
@@ -97,7 +112,6 @@ function prepare(input: RunInput): Prepared {
   const toolset = selectTools(input.tools, { workspace: input.workspace })
   const toolNames = Object.keys(toolset)
   const system = buildSystemPrompt({ toolNames, extra: input.systemExtra, region: input.region })
-  const maxSteps = Math.min(Math.max(1, input.maxSteps ?? DEFAULT_MAX_STEPS), MAX_STEPS_CAP)
 
   const context = floored(
     safeMeasureContext({
@@ -130,7 +144,7 @@ function prepare(input: RunInput): Prepared {
     }
   }
 
-  return { system, toolset, toolNames, maxSteps, context, preflight }
+  return { system, toolset, toolNames, context, preflight }
 }
 
 function assemble(
@@ -216,6 +230,17 @@ export function trafficOf(steps: RunStep[]): string[] {
   return out
 }
 
+function toolFailed(output: unknown): boolean {
+  if (output === null || typeof output !== 'object') return false
+  const out = output as Record<string, unknown>
+  return out.ok === false || out.error !== undefined
+}
+
+function disabledNotice(disabled: Set<string>): string {
+  if (!disabled.size) return ''
+  return `\n<disabled_tools>\n${[...disabled].join(', ')} failed ${TOOL_FAILURE_LIMIT} times in a row and ${disabled.size === 1 ? 'has' : 'have'} been disabled for the rest of this turn. Do not call ${disabled.size === 1 ? 'it' : 'them'} again. Finish with the tools that still work, or explain what you could not do.\n</disabled_tools>`
+}
+
 function reasoningProviderOptions(model: ModelKey, reasoningEffort?: string) {
   if (!reasoningEffort) return {}
   return { providerOptions: { [model]: { reasoningEffort } } }
@@ -238,21 +263,30 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
   const responseMessages: ModelMessage[] = []
   const steps: Array<RunStep & { usage?: { inputTokens?: number } }> = []
   const calls: ExecutionRecord[] = []
-  const usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
+  const usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } = {}
   let repair: string | undefined
   let rejected = 0
   let finalText = ''
-  let finishReason = 'step-limit'
-  let completion: RunResult['completion'] = 'step-limit'
+  let finishReason = 'stop'
+  let completion: RunResult['completion'] = 'unverified'
+  const failures = new Map<string, number>()
+  const disabled = new Set<string>()
+  const startedAt = Date.now()
   try {
-    for (let index = 0; index < prepared.maxSteps; index++) {
+    for (let step = 0; ; step++) {
       input.abortSignal?.throwIfAborted()
+      if (step >= MAX_AGENT_STEPS || Date.now() - startedAt >= MAX_AGENT_MS) {
+        completion = 'unverified'
+        finalText = executionSummary(calls, 'The run stopped after reaching the maximum step/time budget for a single turn.')
+        break
+      }
+      const active = Object.fromEntries(Object.entries(prepared.toolset).filter(([name]) => !disabled.has(name)))
       const stream = streamText({
         model: input.languageModel ?? chatModel(input.model),
-        system: prepared.system + '\n\n' + executionReminder(calls)
+        system: prepared.system + '\n\n' + executionReminder(calls) + disabledNotice(disabled)
           + (repair ? `\n<completion_check>\n${repair}\nYour draft was withheld. Complete only the work the user authorized, then report the actual result; otherwise explain the limitation honestly.\n</completion_check>` : ''),
         messages: [...input.messages, ...responseMessages],
-        ...(prepared.toolNames.length ? { tools: prepared.toolset as never } : {}),
+        ...(Object.keys(active).length ? { tools: active as never } : {}),
         stopWhen: stepCountIs(1),
         abortSignal: input.abortSignal,
         ...(input.temperature === undefined ? {} : { temperature: input.temperature }),
@@ -292,10 +326,18 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
       } else if (p.type === 'tool-result' || p.type === 'tool-error') {
         const id = p.toolCallId ?? p.id ?? ''
         const output = p.type === 'tool-error'
-          ? { ok: false, error: p.error instanceof Error ? p.error.message : String(p.error) }
+          ? { ok: false, error: errorMessage(p.error) }
           : p.output
-        results.push({ toolCallId: id, toolName: p.toolName ?? 'unknown', output })
-        calls.push({ toolCallId: id, toolName: p.toolName ?? 'unknown', input: inputs.get(id)?.input, output })
+        const name = p.toolName ?? 'unknown'
+        results.push({ toolCallId: id, toolName: name, output })
+        calls.push({ toolCallId: id, toolName: name, input: inputs.get(id)?.input, output })
+        if (toolFailed(output)) {
+          const count = (failures.get(name) ?? 0) + 1
+          failures.set(name, count)
+          if (count >= TOOL_FAILURE_LIMIT) disabled.add(name)
+        } else {
+          failures.set(name, 0)
+        }
         yield {
           type: 'tool-result',
           id: p.toolCallId ?? p.id,
@@ -314,14 +356,16 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
         )
         if (context) yield { type: 'context', context }
       } else if (p.type === 'error') {
-        const message = p.error instanceof Error ? p.error.message : String(p.error)
-        throw new Error(message)
+        throw new Error(errorMessage(p.error))
       }
     }
       const response = await stream.response
       const draft = await stream.text
       const stepUsage = await stream.totalUsage
-      for (const key of ['inputTokens', 'outputTokens', 'totalTokens'] as const) usage[key] += stepUsage[key] ?? 0
+      for (const key of ['inputTokens', 'outputTokens', 'totalTokens'] as const) {
+        const n = stepUsage[key]
+        if (typeof n === 'number' && Number.isFinite(n)) usage[key] = (usage[key] ?? 0) + n
+      }
       steps.push({ text: '', toolCalls: [...inputs].map(([toolCallId, c]) => ({ toolCallId, toolName: c.name, input: c.input })), toolResults: results, usage: stepUsage })
       for (const message of response.messages) {
         if (message.role === 'tool') responseMessages.push(message)
@@ -335,7 +379,7 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
       repair = completionIssue(draft, input.messages, calls)
       if (repair) {
         rejected++
-        if (rejected < 2 && index + 1 < prepared.maxSteps) continue
+        if (rejected < 2) continue
         completion = 'unverified'
         finalText = executionSummary(calls, 'I could not verify the completion claim, so I have withheld it.')
       } else if (finishReason !== 'stop') {
@@ -347,7 +391,10 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
       }
       break
     }
-    if (!finalText) finalText = executionSummary(calls, 'The step limit was reached before a final response was ready.')
+    if (!finalText) finalText = executionSummary(calls, 'The run ended before a final response was ready.')
+    if (disabled.size) {
+      finalText += `\n\nDisabled after ${TOOL_FAILURE_LIMIT} consecutive failures: ${[...disabled].map((n) => `\`${n}\``).join(', ')}.`
+    }
     responseMessages.push({ role: 'assistant', content: finalText })
     yield { type: 'text', text: finalText }
     const result = assemble(input, prepared, {
@@ -355,7 +402,7 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
     })
     yield { type: 'done', result }
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Stream failed'
+    const error = errorMessage(err) || 'Stream failed'
     const recorded = new Set(steps.flatMap((s) => s.toolCalls.map((c) => c.toolCallId)))
     for (const c of calls.filter((c) => !recorded.has(c.toolCallId))) {
       steps.push({ text: '', toolCalls: [{ toolCallId: c.toolCallId, toolName: c.toolName, input: c.input }],

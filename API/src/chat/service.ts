@@ -1,8 +1,12 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { buildSystemPrompt, type PromptOptions } from '../agent/prompt.js'
 import { runAgent, streamAgent, type AgentEvent, type RunResult } from '../agent/run.js'
 import { selectTools, workspaceRoot } from '../agent/tools/index.js'
+import { resolveInside } from '../agent/tools/fs/workspace.js'
 import { toolSpecs } from '../agent/tools/specs.js'
 import { notBelow, safeMeasureContext, type ContextUsage } from '../context/usage.js'
+import { MODELS } from '../models/registry.js'
 import {
   addTotals,
   appendMessage,
@@ -19,16 +23,22 @@ import type { ModelKey } from '../tokenizer/specs.js'
 import type { ModelMessage } from 'ai'
 import { pairToolRecords } from '../agent/completion.js'
 
+export interface ChatAttachment {
+  path: string
+  kind: 'image' | 'video' | 'file'
+  mime?: string
+}
+
 export interface ChatRequest {
   abortSignal?: AbortSignal
   deviceId: string
   model: ModelKey
   message?: string
   messages?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+  attachments?: ChatAttachment[]
   session?: string | null
   remember?: boolean
   tools?: string[]
-  maxSteps?: number
   systemExtra?: string
   temperature?: number
   reasoningEffort?: string
@@ -60,6 +70,56 @@ function countTokens(model: ModelKey, text: string): number | undefined {
   }
 }
 
+// Uploads are private to a single chat: new files land directly in that
+// session's workspace. Files uploaded before session-scoped uploads existed
+// may still sit in the device's scratch workspace — if the chat call creates
+// a new session, migrate the file over (legacy path).
+function locateAttachment(deviceId: string, sessionWorkspace: string, relPath: string): string | null {
+  try {
+    const full = resolveInside(sessionWorkspace, relPath)
+    if (fs.existsSync(full)) return full
+
+    const scratch = workspaceRoot(deviceId)
+    if (scratch === sessionWorkspace) return null
+    const scratchFull = resolveInside(scratch, relPath)
+    if (!fs.existsSync(scratchFull)) return null
+
+    fs.mkdirSync(path.dirname(full), { recursive: true })
+    fs.renameSync(scratchFull, full)
+    return full
+  } catch {
+    return null
+  }
+}
+
+function attachmentContent(req: ChatRequest, workspace: string, baseText: string): Array<Record<string, unknown>> | null {
+  if (!req.attachments?.length) return null
+
+  const supported = new Set(MODELS[req.model].modalities?.input ?? [])
+  const parts: Array<Record<string, unknown>> = []
+  const notes: string[] = []
+
+  for (const att of req.attachments) {
+    const full = locateAttachment(req.deviceId, workspace, att.path)
+
+    if (full && (att.kind === 'image' || att.kind === 'video') && supported.has(att.kind)) {
+      const data = fs.readFileSync(full)
+      parts.push(
+        att.kind === 'image'
+          ? { type: 'image', image: data, mediaType: att.mime }
+          : { type: 'file', data, mediaType: att.mime ?? 'video/mp4' }
+      )
+      continue
+    }
+
+    const sizeNote = full ? ` (${fs.statSync(full).size} bytes)` : ''
+    notes.push(`Attached file: ${att.path}${sizeNote} — use fs_read to inspect it.`)
+  }
+
+  const text = notes.length ? `${baseText}\n\n${notes.join('\n')}` : baseText
+  return [{ type: 'text', text }, ...parts]
+}
+
 function resolve(req: ChatRequest): Resolved {
   const turn = req.message !== undefined
     ? [{ role: 'user' as const, content: req.message }]
@@ -78,7 +138,17 @@ function resolve(req: ChatRequest): Resolved {
   }
 
   const history = session ? conversation(session) : []
-  return { session, turn, messages: [...history, ...turn] }
+  const messages: ModelMessage[] = [...history, ...turn]
+
+  const lastTurnMessage = turn[turn.length - 1]
+  const baseText = req.message ?? lastTurnMessage.content
+  const content = attachmentContent(req, workspaceRoot(req.deviceId, session?.id), baseText)
+  if (content) {
+    const last = messages[messages.length - 1]
+    messages[messages.length - 1] = { ...last, content } as ModelMessage
+  }
+
+  return { session, turn, messages }
 }
 
 function persist(
@@ -185,7 +255,6 @@ export async function chat(req: ChatRequest): Promise<ChatOutcome> {
     messages,
     contextFloor: session?.context?.model === req.model ? session.context.used : undefined,
     tools: req.tools,
-    maxSteps: req.maxSteps,
     systemExtra: req.systemExtra,
     temperature: req.temperature,
     reasoningEffort: req.reasoningEffort,
@@ -213,7 +282,6 @@ export async function* chatStream(req: ChatRequest): AsyncGenerator<ChatEvent> {
     messages,
     contextFloor: session?.context?.model === req.model ? session.context.used : undefined,
     tools: req.tools,
-    maxSteps: req.maxSteps,
     systemExtra: req.systemExtra,
     temperature: req.temperature,
     reasoningEffort: req.reasoningEffort,

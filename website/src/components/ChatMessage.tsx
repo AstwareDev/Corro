@@ -1,15 +1,50 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { AlertTriangle, Check, Copy, Pencil, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Copy,
+  File as FileIcon,
+  Pencil,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTypewriter } from "@/hooks/useTypewriter";
+import { resolveAssetUrl } from "@/lib/api";
 import { useMotionPreference } from "@/lib/appearance";
-import type { ChatMessageUI, MessageBlock } from "@/lib/types";
+import { formatBytes } from "@/lib/format";
+import type {
+  ChatMessageUI,
+  MessageAttachment,
+  MessageBlock,
+  ToolCallUI,
+} from "@/lib/types";
 import { Markdown } from "./Markdown";
 import { MessageFooter } from "./MessageFooter";
 import { MessageHeader } from "./MessageHeader";
 import { summarizeTrace, type TraceBlock, TraceGroup } from "./TraceGroup";
+import { ToolResult } from "./tools/ToolResult";
+
+const ARTIFACT_TOOLS = new Set(["fs_write", "fs_edit"]);
+
+function artifactsOf(blocks: MessageBlock[]): ToolCallUI[] {
+  const out: ToolCallUI[] = [];
+  for (const block of blocks) {
+    if (block.kind !== "tools") continue;
+    for (const call of block.calls) {
+      if (call.status !== "done" || !ARTIFACT_TOOLS.has(call.name)) continue;
+      const output = call.output as Record<string, unknown> | undefined;
+      if (
+        typeof output?.viewUrl === "string" &&
+        typeof output.path === "string"
+      ) {
+        out.push(call);
+      }
+    }
+  }
+  return out;
+}
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -36,9 +71,11 @@ function toSegments(blocks: MessageBlock[]): Segment[] {
 export function ChatMessage({
   message,
   onEdit,
+  sessionId,
 }: {
   message: ChatMessageUI;
   onEdit?: (id: string, text: string) => void;
+  sessionId?: string | null;
 }) {
   const motionOff = useMotionPreference();
 
@@ -48,15 +85,23 @@ export function ChatMessage({
     );
   }
 
-  return <AssistantMessage message={message} motionOff={motionOff} />;
+  return (
+    <AssistantMessage
+      message={message}
+      motionOff={motionOff}
+      sessionId={sessionId}
+    />
+  );
 }
 
 function AssistantMessage({
   message,
   motionOff,
+  sessionId,
 }: {
   message: ChatMessageUI;
   motionOff: boolean;
+  sessionId?: string | null;
 }) {
   const [traceOpen, setTraceOpen] = useState(false);
   const [typeOut] = useState(() => Boolean(message.streaming));
@@ -73,6 +118,7 @@ function AssistantMessage({
     lastText?.id ?? "",
   );
   const settled = !message.streaming && complete;
+  const artifacts = settled ? artifactsOf(message.blocks) : [];
 
   return (
     <motion.div
@@ -101,6 +147,7 @@ function AssistantMessage({
               blocks={segment.blocks}
               streaming={Boolean(message.streaming)}
               open={traceOpen}
+              sessionId={sessionId}
             />
           ) : (
             <div
@@ -118,6 +165,18 @@ function AssistantMessage({
           ),
         )}
 
+        {artifacts.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {artifacts.map((call) => (
+              <ToolResult
+                key={call.localId}
+                call={call}
+                sessionId={sessionId}
+              />
+            ))}
+          </div>
+        )}
+
         {message.error && (
           <div className="flex items-center gap-1.5 text-footnote text-contradicted">
             <AlertTriangle size={14} className="shrink-0" />
@@ -128,6 +187,47 @@ function AssistantMessage({
         {settled && <MessageFooter message={message} />}
       </div>
     </motion.div>
+  );
+}
+
+function MessageAttachments({
+  attachments,
+}: {
+  attachments: MessageAttachment[];
+}) {
+  return (
+    <div className="mb-1.5 flex flex-wrap justify-end gap-1.5">
+      {attachments.map((a) => {
+        const ext = a.name.slice(a.name.lastIndexOf(".") + 1).toUpperCase();
+        return (
+          <a
+            key={a.path}
+            href={resolveAssetUrl(a.viewUrl)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${a.name} · ${formatBytes(a.bytes)}`}
+            className="size-16 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-raised"
+          >
+            {a.kind === "image" ? (
+              <img
+                src={resolveAssetUrl(a.viewUrl)}
+                alt={a.name}
+                className="size-full object-cover"
+              />
+            ) : (
+              <div className="flex size-full flex-col items-center justify-center gap-1 text-ink-muted">
+                <FileIcon size={18} />
+                {ext && (
+                  <span className="text-[9px] font-medium tracking-wide">
+                    {ext}
+                  </span>
+                )}
+              </div>
+            )}
+          </a>
+        );
+      })}
+    </div>
   );
 }
 
@@ -182,6 +282,9 @@ function UserMessage({
       }
       className="group flex flex-col items-end"
     >
+      {message.attachments && message.attachments.length > 0 && (
+        <MessageAttachments attachments={message.attachments} />
+      )}
       {editing ? (
         <div className="w-full max-w-[75%] rounded-2xl border border-ink/10 bg-surface-raised p-2">
           <textarea

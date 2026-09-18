@@ -1,5 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
+import { WATERMARK_LABEL } from '../../branding.js'
 import { toolDescription } from '../description.js'
 import { saveBinary } from '../fs/storage.js'
 import { resolveInside, toRelative, viewUrl, WorkspaceError } from '../fs/workspace.js'
@@ -45,6 +46,20 @@ export function createPresentationTools(workspace: string) {
         const BODY_COLOR = '333333'
         const ACCENT = '4A47A3'
 
+        const WATERMARK_COLOR = '9A99B8'
+        const watermark = (slide: ReturnType<typeof pptx.addSlide>) => {
+          slide.addText(WATERMARK_LABEL, {
+            x: 6.5,
+            y: 5.1,
+            w: 3,
+            h: 0.3,
+            align: 'right',
+            fontSize: 9,
+            color: WATERMARK_COLOR,
+            fontFace: 'Arial',
+          })
+        }
+
         const cover = pptx.addSlide()
         cover.background = { color: 'FFFFFF' }
         cover.addShape('rect', { x: 0, y: 0, w: 0.15, h: 5.63, fill: { color: ACCENT } })
@@ -52,6 +67,7 @@ export function createPresentationTools(workspace: string) {
         if (subtitle) {
           cover.addText(subtitle, { x: 0.6, y: 3.5, w: 8.8, h: 0.8, fontSize: 18, color: BODY_COLOR, fontFace: 'Arial' })
         }
+        watermark(cover)
 
         for (const slide of slides) {
           const s = pptx.addSlide()
@@ -74,6 +90,7 @@ export function createPresentationTools(workspace: string) {
               s.addText(slide.text, { x: 0.5, y, w: 9, h: 4.5 - y, fontSize: 18, color: BODY_COLOR, fontFace: 'Arial', valign: 'top' })
             }
           }
+          watermark(s)
           if (slide.notes) s.addNotes(slide.notes)
         }
 

@@ -56,7 +56,6 @@ curl -N -X POST "localhost:8787/say?session=ses_..." -d "and who else was nomina
   "stream": true,            // or send Accept: text/event-stream
   "model": "kimi-k3",        // or "kimi-k3-fast" / "fast"
   "tools": ["web_search"],   // omit for all, [] for none
-  "maxSteps": 8,
   "temperature": 0.2,
   "region": "AM",           // overrides what the headers implied
   "systemExtra": "Prefer primary legal sources."
@@ -87,6 +86,11 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `istore_search` | search iStore.am, Armenia's Apple Authorised Reseller: live AMD prices, sale markdowns, stock |
 | `istore_product` | one product in full: configuration, price, stock status, photos |
 | `istore_categories` | walk iStore's category tree — iPad, Mac, iPhone, Watch, TV, AirPods, Audio, Accessories |
+| `youtube_channel` | a YouTube channel: name, handle, subscribers, about, avatar/banner, join date, video count |
+| `youtube_channel_videos` | a channel's video grid with load-more |
+| `youtube_video` | one video in full: views, likes, description, tags, qualities |
+| `youtube_comments` | top-level comments with load-more (replies out of scope) |
+| `youtube_transcript` | captions as plain text + timestamped segments, every published language |
 | `fs_list`, `fs_read`, `fs_search` | list, read, and regex-search files in the session's workspace |
 | `fs_write`, `fs_edit`, `fs_rename`, `fs_delete` | create, patch, move, and remove workspace files, with revision checks against stale overwrites |
 | `browser_open`, `browser_read` | open a real page in a local browser and read its rendered, visible text |
@@ -241,6 +245,58 @@ renders server-side like Parma and SAS and needs no session, but publishes no AP
 shopper's browser gets. `istore_categories` reads the site's own mobile-menu markup for
 the whole category tree in one request rather than walking it level by level.
 
+## YouTube
+
+Five tools read YouTube with no API key, via its internal Innertube API
+(`youtubei.js` — the same endpoints YouTube's own web client uses):
+
+| Tool | What it does |
+| --- | --- |
+| `youtube_channel` | display name, @handle, subscribers as shown, about text, avatar/banner URLs, join date, video count |
+| `youtube_channel_videos` | a channel's video grid: id, title, thumbnail, duration, views, publish date; first page (~30) + `continuation` load-more |
+| `youtube_video` | one video in full: exact views/likes, comment count, upload date, description, tags/category, qualities/formats |
+| `youtube_comments` | top-level comments only (author, channel URL, text, likes, timestamp); `continuation` loads more; replies out of scope |
+| `youtube_transcript` | published caption tracks (uploaded or auto-generated) as plain text + timestamped segments, in every language YouTube lists |
+
+```bash
+curl -s localhost:8787/tools/youtube_channel -H 'content-type: application/json' \
+  -d '{"description":"Checking the channel","channel":"@RickAstleyYT"}'
+
+curl -s localhost:8787/tools/youtube_channel_videos -H 'content-type: application/json' \
+  -d '{"description":"Listing recent uploads","channel":"@RickAstleyYT","maxResults":5}'
+
+curl -s localhost:8787/tools/youtube_video -H 'content-type: application/json' \
+  -d '{"description":"Reading video detail","video":"dQw4w9WgXcQ"}'
+
+curl -s localhost:8787/tools/youtube_comments -H 'content-type: application/json' \
+  -d '{"description":"Reading top comments","video":"dQw4w9WgXcQ","maxResults":5}'
+
+curl -s localhost:8787/tools/youtube_transcript -H 'content-type: application/json' \
+  -d '{"description":"Reading captions","video":"dQw4w9WgXcQ","language":"en"}'
+```
+
+Implementation notes (`src/agent/tools/youtube/`): one shared Innertube session
+per process (`client.ts`), at least `YOUTUBE_MIN_INTERVAL_MS` (default 1200ms)
+between calls, in-memory caches per kind (channel 24h, videos/video 24h/1h,
+comments 5min, transcript 24h — all tunable, nothing on disk), and stateless
+`yt1_*` load-more tokens that embed YouTube's own continuation token, so
+loading more needs no server state and survives restarts. `youtube_channel_videos`
+opens the Videos tab when a channel has one and falls back to the Shorts shelf
+(marked `short: true`, with a Short badge in the UI) and then live streams for
+Shorts-first channels that have no videos tab at all. Parsers are defensive: a renamed YouTube node comes back as
+`{ ok: false, error: "YouTube layout changed, selector X not found" }`, never a
+crash. Comments fall back honestly — when Innertube answers with a bot-check,
+the tool says so and suggests `browser_open` on the watch page instead of
+pretending there are no comments. Caption files are fetched from the track
+`base_url` YouTube signs per session and parsed as srv3/VTT/json3; when
+YouTube serves an empty caption file to a datacenter IP, the tool still
+returns the accurate track list with a note rather than failing silently.
+
+Legal note: scraping YouTube without the official Data API may violate
+[YouTube's Terms of Service](https://www.youtube.com/t/terms). These tools are
+for local, low-volume research; you assume the risk, keep request rates modest,
+and respect robots, rate limits, and creators' rights.
+
 ## Region
 
 Some tools only make sense in one country, and the model writes a better answer when it
@@ -262,34 +318,26 @@ was detected and how.
 ## Models
 
 `kimi-k3` and `kimi-k3-fast` are the same model; they differ only in where they run.
-`fable-5.1` and `gpt-6-astra` share one endpoint and one key. `deepseek-v4-pro` and
-`qwen3-max` are separate models on their own endpoints. Clients see them in this
+`gpt-5.6-luna` runs on Experiential Labs' gateway. `qwen3-max` is a separate
+model on its own endpoint. Clients see them in this
 order:
 
 | Key | Endpoint | Speed | Cost | Modalities |
 | --- | --- | --- | --- | --- |
 | `kimi-k3` *(default)* | `unified-nvidia-api.vercel.app` | variable — sometimes fast, sometimes ~3-10 tok/s | free, keyless, unlimited | text, image, video in → text out |
 | `kimi-k3-fast` | your Modal deployment | fast and steady | spends Modal credits | text, image, video in → text out |
-| `fable-5.1` | `api.experientiallabs.ai` (Experiential Labs) | fast | free daily allowance, needs `EXPLABS_API_KEY` | text, image in → text out |
-| `gpt-6-astra` | `api.experientiallabs.ai` (Experiential Labs) | fast | free daily allowance, needs `EXPLABS_API_KEY` | text, image in → text out |
+| `gpt-5.6-luna` | `api.experientiallabs.ai` (Experiential Labs) | fast | free, needs `EXPLABS_API_KEY` | text, image in → text out |
 | `qwen3-max` | `api.xkiro.com` (xKiro) | variable | free tier, needs `XKIRO_API_KEY` | text, image, video in → text out |
-| `deepseek-v4-pro` | `unified-nvidia-api.vercel.app` | variable, very slow cold starts | free, keyless, unlimited | text only |
 
-`deepseek-v4-pro` has a 1M token context window and shares Kimi's reasoning-effort
-range — `none`, `low`, `high`, `max`, default `high` — set with `"reasoningEffort"`
-on `/chat`. `qwen3-max` also has a 1M token context window (65K max output) and
+`qwen3-max` has a 1M token context window (65K max output) and
 its own three-step scale — `low`, `medium`, `xhigh`, default `xhigh` — shown in
-clients as Fast / Standard / Max. `fable-5.1` takes Kimi's four-step scale and
-`gpt-6-astra` takes `low`, `medium`, `high` (default `medium`); both have a 1M
-token context window. `/models` always reports the live set for whichever model
+clients as Fast / Standard / Max. `gpt-5.6-luna` takes a six-step scale — `none`, `low`,
+`medium`, `high`, `xhigh`, `max`, default `medium` — and has a 1M token context
+window. `/models` always reports the live set for whichever model
 answered, so a client should read `reasoningEfforts` rather than assume one scale
 fits every model.
 
-The two Experiential Labs models are free only up to a per-model daily token
-allowance on the shared key — GPT-6 Astra's is 1,000,000 input / 800,000 output
-tokens — after which the endpoint answers 429 until 00:00 UTC. `fable-5.1` also
-rejects a conversation that ends with an assistant message: it does not support
-assistant prefill.
+Luna is free on the shared Experiential Labs key.
 
 Pick one per request with `"model": "kimi-k3-fast"`, or just ask for fast mode:
 
@@ -320,17 +368,16 @@ reports which, per model, under `tokenizer`:
 
 | Kind | Used by | How it works |
 | --- | --- | --- |
-| `hf` | `kimi-k3*`, `deepseek-v4-pro`, `diffusiongemma-26b` | real BPE ranks downloaded from Hugging Face by `pnpm tokenizers:prepare` |
-| `builtin` | `gpt-6-astra` | `o200k_base`, already inside the `tiktoken` package — nothing to download |
-| `estimated` | `fable-5.1` | Anthropic publishes no vocabulary, so counts are estimated |
+| `hf` | `kimi-k3*`, `diffusiongemma-26b` | real BPE ranks downloaded from Hugging Face by `pnpm tokenizers:prepare` |
+| `builtin` | `gpt-5.6-luna` | `o200k_base`, already inside the `tiktoken` package — nothing to download |
+| `estimated` | `qwen3-max` | xKiro publishes no vocabulary, so counts are estimated |
 
-`gpt-6-astra` tokenizes with plain `o200k_base`, so its counts are exact.
-`fable-5.1` cannot be: the estimate is a two-term fit,
-`tokens ≈ ratio * o200k_base + perChar * characters`, whose coefficients
+`gpt-5.6-luna` tokenizes with plain `o200k_base`, so its counts come straight
+from the encoder. `qwen3-max` cannot be exact: the estimate is a two-term fit,
+`tokens ≈ ratio * kimi-k3 + perChar * characters`, whose coefficients
 `pnpm tokenizers:calibrate` measures against the endpoint's own reported
-`prompt_tokens` and writes to `.cache/tokenizers/scales.json`. It lands within
-about 13% on average and 30% on held-out prose, and tends to read slightly low;
-`pnpm tokenizers:check` tolerates 35% drift for estimated tokenizers instead of
+`prompt_tokens` and writes to `.cache/tokenizers/scales.json`. `pnpm tokenizers:check`
+tolerates 35% drift for estimated tokenizers instead of
 demanding an exact match. Anything counted this way is reported with
 `"exact": false` and `"estimated": true`.
 
@@ -338,8 +385,8 @@ Both scripts take model keys to work on just those, which is the way to redo one
 model without re-probing every endpoint:
 
 ```bash
-pnpm tokenizers:calibrate fable-5.1 gpt-6-astra
-pnpm tokenizers:check fable-5.1
+pnpm tokenizers:calibrate gpt-5.6-luna qwen3-max
+pnpm tokenizers:check qwen3-max
 ```
 
 ## Sessions live in the API
@@ -426,6 +473,8 @@ Each concern is one place to edit:
 | `src/agent/tools/shops/session.ts` | the cookie-jar warm-up Amazon and Walmart need |
 | `src/agent/tools/apple/parse.ts` | the iPhone/iPad product-line directory and page parsing |
 | `src/agent/tools/istore/parse.ts` | iStore.am's product cards, category nav and page parsing |
+| `src/agent/tools/youtube/` | YouTube Innertube tools: channel, videos, video, comments, transcript |
+| `src/agent/tools/youtube/client.ts` | shared Innertube session, rate limit, in-memory cache + load-more tokens |
 | `src/agent/tools/currency/client.ts` | the exchange-rate mirror, its fallback and cache |
 | `src/http/region.ts` | where the caller is, inferred from what they already send |
 | `src/http/geoip.ts` | city/region/timezone from the caller's IP, cached |

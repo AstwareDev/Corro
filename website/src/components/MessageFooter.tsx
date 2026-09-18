@@ -44,11 +44,11 @@ export function MessageFooter({ message }: { message: ChatMessageUI }) {
 
   return (
     <div className="flex items-center gap-3 text-caption text-ink-muted">
-      {tokens !== undefined && (
+      {tokens ? (
         <span className="font-mono tabular-nums">
           {tokens.toLocaleString()} tok
         </span>
-      )}
+      ) : null}
       {rate !== undefined && (
         <span className="font-mono tabular-nums">{rate.toFixed(1)} tok/s</span>
       )}

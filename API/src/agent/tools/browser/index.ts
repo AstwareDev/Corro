@@ -29,7 +29,7 @@ function fail(err: unknown) {
   }
 }
 
-const READABLE_TEXT_SCRIPT = `
+const READABLE_TEXT_SCRIPT = String.raw`
 (() => {
   const skip = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE'])
   function walk(node, out) {
@@ -54,6 +54,38 @@ async function readableText(page: import('playwright-core').Page): Promise<strin
   return page.evaluate<string>(READABLE_TEXT_SCRIPT)
 }
 
+const INTERSTITIAL_RE =
+  /checking (your )?browser|just a moment|please wait|verifying you are human|verify you are human|enable javascript|attention required|access denied|are you a robot|проверяем браузер|подождите|включите javascript|captcha/i
+const INTERSTITIAL_HINT =
+  'This looks like a loading, bot-check, or verification screen rather than the real page — it can render as ' +
+  'quickly as one second or take several. It is not the page\'s actual content and not evidence the page is ' +
+  'unavailable. Call browser_read again; if it persists after a few tries, take a browser_screenshot to see ' +
+  'what is actually rendered before concluding the site blocked the request.'
+
+function looksLikeInterstitial(title: string, text: string): boolean {
+  const sample = `${title} ${text}`.trim()
+  if (sample.length < 12) return true
+  return sample.length < 400 && INTERSTITIAL_RE.test(sample)
+}
+
+async function captureContent(page: import('playwright-core').Page, maxChars: number) {
+  let text = await readableText(page)
+  let title = await page.title()
+  let interstitial = looksLikeInterstitial(title, text)
+  for (let attempt = 0; interstitial && attempt < 2; attempt++) {
+    await page.waitForTimeout(1500)
+    text = await readableText(page)
+    title = await page.title()
+    interstitial = looksLikeInterstitial(title, text)
+  }
+  return {
+    title,
+    text: text.slice(0, maxChars),
+    truncated: text.length > maxChars,
+    ...(interstitial ? { interstitial: true as const, hint: INTERSTITIAL_HINT } : {}),
+  }
+}
+
 export function createBrowserTools(workspace: string) {
   const key = workspace
 
@@ -70,14 +102,12 @@ export function createBrowserTools(workspace: string) {
         checkUrl(url)
         const page = await getPage(key)
         const response = await page.goto(url, { waitUntil, timeout: NAV_TIMEOUT_MS })
-        const text = await readableText(page)
+        const content = await captureContent(page, maxChars)
         return {
           ok: true as const,
           url: page.url(),
           status: response?.status(),
-          title: await page.title(),
-          text: text.slice(0, maxChars),
-          truncated: text.length > maxChars,
+          ...content,
         }
       } catch (err) {
         return fail(err)
@@ -95,14 +125,8 @@ export function createBrowserTools(workspace: string) {
       try {
         if (!hasSession(key)) return { ok: false as const, error: 'No page is open. Call browser_open first.' }
         const page = await getPage(key)
-        const text = await readableText(page)
-        return {
-          ok: true as const,
-          url: page.url(),
-          title: await page.title(),
-          text: text.slice(0, maxChars),
-          truncated: text.length > maxChars,
-        }
+        const content = await captureContent(page, maxChars)
+        return { ok: true as const, url: page.url(), ...content }
       } catch (err) {
         return fail(err)
       }
@@ -128,14 +152,8 @@ export function createBrowserTools(workspace: string) {
             : page.waitForLoadState(waitUntil, { timeout: NAV_TIMEOUT_MS }).catch(() => {}),
           locator.click({ timeout: NAV_TIMEOUT_MS }),
         ])
-        const text = await readableText(page)
-        return {
-          ok: true as const,
-          url: page.url(),
-          title: await page.title(),
-          text: text.slice(0, 6000),
-          truncated: text.length > 6000,
-        }
+        const content = await captureContent(page, 6000)
+        return { ok: true as const, url: page.url(), ...content }
       } catch (err) {
         return fail(err)
       }

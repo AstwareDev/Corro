@@ -386,6 +386,47 @@ body {
   }
 }
 
+.corro-loader-halo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse at 38% 42%,
+      color-mix(in srgb, var(--corro-accent) 9%, transparent),
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 64% 60%,
+      color-mix(in srgb, var(--color-ink-muted) 7%, transparent),
+      transparent 40%
+    ),
+    radial-gradient(ellipse at 50% 48%, var(--color-surface), transparent 65%);
+}
+
+@keyframes corro-shimmer {
+  0% {
+    background-position: -160% 0;
+  }
+  100% {
+    background-position: 260% 0;
+  }
+}
+
+.corro-skeleton {
+  border-radius: 6px;
+  background-color: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-ink) 9%, transparent),
+    transparent
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: corro-shimmer 1.6s ease-in-out infinite;
+}
+
 @keyframes caret-blink {
   0%,
   100% {
@@ -1539,6 +1580,10 @@ body {
 }
 .corro-user-message {
   border: 0;
+}
+:root[data-theme="dark"] .corro-user-message {
+  background: var(--corro-surface-raised);
+  color: var(--corro-text);
 }
 .corro-thinking-ring,
 .corro-thinking-glow {

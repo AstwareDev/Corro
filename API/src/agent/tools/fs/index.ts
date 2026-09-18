@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { tool } from 'ai'
 import { z } from 'zod'
+import { applyHtmlWatermark, isHtmlPath } from '../../branding.js'
 import { toolDescription } from '../description.js'
 import { MAX_WRITE_BYTES, revisionOf, saveText } from './storage.js'
 import {
@@ -16,7 +17,9 @@ import {
 const MAX_READ_BYTES = 400_000
 const MAX_MATCHES = 200
 
-const SHAREABLE_EXTENSIONS = new Set(['.html', '.htm', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.pdf', '.pptx'])
+const SHAREABLE_EXTENSIONS = new Set([
+  '.html', '.htm', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.pdf', '.pptx', '.md', '.txt', '.csv',
+])
 function extOf(relativePath: string): string {
   const i = relativePath.lastIndexOf('.')
   return i === -1 ? '' : relativePath.slice(i).toLowerCase()
@@ -120,8 +123,12 @@ export function createFsTools(root: string) {
     execute: async ({ path: rel, content, expectedRevision }) => {
       try {
         const full = resolveInside(root, rel)
-        const receipt = saveText(full, content, expectedRevision)
         const relPath = toRelative(root, full)
+        const receipt = saveText(
+          full,
+          isHtmlPath(relPath) ? applyHtmlWatermark(content) : content,
+          expectedRevision
+        )
         return {
           ok: true as const,
           path: relPath,
@@ -162,9 +169,10 @@ export function createFsTools(root: string) {
           }
         }
 
-        const after = replaceAll ? before.split(oldText).join(newText) : before.replace(oldText, () => newText)
-        const receipt = saveText(full, after, expectedRevision ?? revisionOf(before))
+        const edited = replaceAll ? before.split(oldText).join(newText) : before.replace(oldText, () => newText)
         const relPath = toRelative(root, full)
+        const after = isHtmlPath(relPath) ? applyHtmlWatermark(edited) : edited
+        const receipt = saveText(full, after, expectedRevision ?? revisionOf(before))
         return {
           ok: true as const,
           path: relPath,

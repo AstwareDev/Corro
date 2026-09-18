@@ -12,11 +12,13 @@ export function MessageList({
   suggestions,
   onSuggestionSelect,
   onEditMessage,
+  sessionId,
 }: {
   messages: ChatMessageUI[];
   suggestions?: string[];
   onSuggestionSelect?: (text: string) => void;
   onEditMessage?: (id: string, text: string) => void;
+  sessionId?: string | null;
 }) {
   const motionOff = useMotionPreference();
   const endRef = useRef<HTMLDivElement>(null);
@@ -49,7 +51,12 @@ export function MessageList({
       <div className="corro-conversation mx-auto flex w-full flex-col gap-7">
         <AnimatePresence initial={false}>
           {messages.map((m) => (
-            <ChatMessage key={m.id} message={m} onEdit={onEditMessage} />
+            <ChatMessage
+              key={m.id}
+              message={m}
+              onEdit={onEditMessage}
+              sessionId={sessionId}
+            />
           ))}
         </AnimatePresence>
         {suggestions && suggestions.length > 0 && onSuggestionSelect && (

@@ -5,6 +5,7 @@ import { type SessionDetail, streamChat } from "@/lib/api";
 import {
   type ChatMessageUI,
   type ContextUsage,
+  type MessageAttachment,
   type MessageBlock,
   peekDescription,
   type ToolCallUI,
@@ -70,6 +71,7 @@ export function useChat() {
     async (
       text: string,
       opts: { model?: string; reasoningEffort?: string },
+      attachments?: MessageAttachment[],
     ) => {
       const trimmed = text.trim();
       if (!trimmed || isStreaming) return;
@@ -79,6 +81,7 @@ export function useChat() {
         role: "user",
         text: trimmed,
         blocks: [],
+        attachments,
         createdAt: Date.now(),
       };
       const assistantMessage: ChatMessageUI = {
@@ -105,6 +108,11 @@ export function useChat() {
           session: sessionId,
           model: opts.model,
           reasoningEffort: opts.reasoningEffort,
+          attachments: attachments?.map(({ path, kind, mime }) => ({
+            path,
+            kind,
+            mime,
+          })),
           signal: controller.signal,
         })) {
           if (controller.signal.aborted) break;
@@ -440,6 +448,7 @@ export function useChat() {
     load,
     editFrom,
     sessionId,
+    setSessionId,
     context,
   };
 }

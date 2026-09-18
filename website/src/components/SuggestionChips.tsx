@@ -1,9 +1,8 @@
 "use client";
 
-import { useMotionPreference } from "@/lib/appearance";
-
 import { motion } from "framer-motion";
 import { ArrowRight, MessageCircle } from "lucide-react";
+import { useMotionPreference } from "@/lib/appearance";
 
 export function SuggestionChips({
   suggestions,
@@ -24,7 +23,7 @@ export function SuggestionChips({
           ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
           : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
       }
-      className="flex flex-col gap-1.5 pl-[30px]"
+      className="-mt-5 flex flex-col gap-1.5"
     >
       {suggestions.map((text) => (
         <motion.button

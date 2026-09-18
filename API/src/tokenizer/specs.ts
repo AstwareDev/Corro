@@ -1,9 +1,8 @@
 export type TokenizerKey =
   | 'kimi-k3'
-  | 'deepseek-v4-pro'
   | 'diffusiongemma-26b'
   | 'o200k'
-  | 'claude-fable'
+  | 'qwen3-max'
 
 export type SpecialsLayout =
 
@@ -111,20 +110,6 @@ export const SPECS: Record<TokenizerKey, TokenizerSpec> = {
     specials: { kind: 'reserved', count: 256, configFile: 'tokenizer_config.json' },
     patStr: KIMI_PAT,
   },
-  'deepseek-v4-pro': {
-    kind: 'hf',
-    key: 'deepseek-v4-pro',
-    hfRepo: 'deepseek-ai/DeepSeek-V4-Pro-0813',
-    ranksPath: 'tokenizer.json',
-
-
-
-
-    baseVocab: 127997,
-    specials: { kind: 'exhaustive', configFile: 'tokenizer_config.json' },
-    patStr: DEEPSEEK_PAT,
-    vocabFormat: 'hf-bpe',
-  },
   'diffusiongemma-26b': {
     kind: 'hf',
     key: 'diffusiongemma-26b',
@@ -153,7 +138,7 @@ export const SPECS: Record<TokenizerKey, TokenizerSpec> = {
     encoding: 'o200k_base',
     note:
       "OpenAI's o200k_base, shipped inside the tiktoken package — nothing to download. " +
-      'Reproduces gpt-6-astra prompt_tokens exactly.',
+      'Tokenizes gpt-5.6-luna prompt text directly.',
   },
 
 
@@ -162,17 +147,18 @@ export const SPECS: Record<TokenizerKey, TokenizerSpec> = {
 
 
 
-  'claude-fable': {
+  'qwen3-max': {
     kind: 'estimated',
-    key: 'claude-fable',
-    base: 'o200k',
-    ratio: 1.1087,
-    perChar: 0.1202,
+    key: 'qwen3-max',
+    base: 'kimi-k3',
+    ratio: 1.65,
+    perChar: 0,
     note:
-      "Anthropic does not publish Fable's vocabulary, so counts are estimated from o200k_base " +
-      'plus a character term, fitted against the endpoint\'s own prompt_tokens by ' +
-      '`pnpm tokenizers:calibrate`. Expect roughly ±15% on prose, worse on long runs of ' +
-      'repeated characters.',
+      "xKiro does not publish Qwen 3.8 Max's vocabulary, so counts are estimated from the Kimi K3 " +
+      "ranks plus a character term, fitted against the endpoint's own prompt_tokens by " +
+      '`pnpm tokenizers:calibrate qwen3-max`. The fit lands near a flat character rate and holds ' +
+      'to about 3% on prose, code and markdown; CJK runs roughly 10% low. Raw Kimi counts on their ' +
+      'own are about 40% low, which is why this estimate exists.',
   },
 }
 
@@ -181,10 +167,8 @@ export const TOKENIZER_KEYS = Object.keys(SPECS) as TokenizerKey[]
 export type ModelKey =
   | 'kimi-k3'
   | 'kimi-k3-fast'
-  | 'fable-5.1'
-  | 'gpt-6-astra'
+  | 'gpt-5.6-luna'
   | 'qwen3-max'
-  | 'deepseek-v4-pro'
   | 'diffusiongemma-26b'
 
 export type ModelSpeed = 'variable' | 'fast'
@@ -240,30 +224,10 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
     apiKeyEnv: 'MODAL_API_KEY',
     notes: 'The same model on a self-hosted Modal endpoint. Fast and steady, but it costs credits.',
   },
-  'fable-5.1': {
-    key: 'fable-5.1',
-    label: 'Fable 5.1',
-    servedModelId: 'claude-fable-5.1',
-    tokenizer: 'claude-fable',
-    contextLength: 1_000_000,
-    speed: 'fast',
-    free: true,
-    baseUrlEnv: 'EXPLABS_BASE_URL',
-    defaultBaseUrl: 'https://api.experientiallabs.ai/v1',
-    apiKeyEnv: 'EXPLABS_API_KEY',
-    notes:
-      "Anthropic's Fable 5.1 through Experiential Labs' OpenAI-compatible gateway. Fast and steady, " +
-      'text and image in, tool calls supported, 1M token context. Free up to a daily token allowance ' +
-      'on the shared key, after which the endpoint answers 429 until 00:00 UTC. Token counts are ' +
-      'estimated, not exact — see the claude-fable tokenizer.',
-    reasoningEfforts: ['none', 'low', 'high', 'max'],
-    defaultReasoningEffort: 'high',
-    modalities: { input: ['text', 'image'], output: ['text'] },
-  },
-  'gpt-6-astra': {
-    key: 'gpt-6-astra',
-    label: 'GPT 6 Astra',
-    servedModelId: 'gpt-6-astra',
+  'gpt-5.6-luna': {
+    key: 'gpt-5.6-luna',
+    label: 'GPT 5.6 Luna',
+    servedModelId: 'gpt-5.6-luna',
     tokenizer: 'o200k',
     contextLength: 1_000_000,
     speed: 'fast',
@@ -272,11 +236,10 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
     defaultBaseUrl: 'https://api.experientiallabs.ai/v1',
     apiKeyEnv: 'EXPLABS_API_KEY',
     notes:
-      "OpenAI's GPT-6 Astra on the same Experiential Labs gateway as fable-5.1. Fast, text and image " +
-      'in, tool calls supported. Free up to a daily allowance of 1,000,000 input / 800,000 output ' +
-      'tokens on the shared key, then 429 until 00:00 UTC. Counts are exact: it tokenizes with ' +
-      'o200k_base.',
-    reasoningEfforts: ['low', 'medium', 'high'],
+      "OpenAI's GPT-5.6 Luna through Experiential Labs' OpenAI-compatible gateway. Fast, text and image " +
+      'in, tool calls supported, 1M token context. Free on the shared key; token counts come straight ' +
+      'from o200k_base.',
+    reasoningEfforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max'],
     defaultReasoningEffort: 'medium',
     modalities: { input: ['text', 'image'], output: ['text'] },
   },
@@ -284,7 +247,7 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
     key: 'qwen3-max',
     label: 'Qwen 3.8 Max (free)',
     servedModelId: 'qwen/qwen3.8-max:free',
-    tokenizer: 'kimi-k3',
+    tokenizer: 'qwen3-max',
     contextLength: 1_000_000,
     speed: 'variable',
     free: true,
@@ -293,26 +256,11 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
     apiKeyEnv: 'XKIRO_API_KEY',
     notes:
       'Qwen 3.8 Max via xKiro, free tier. 1M token context, 65K max output, text/image/video ' +
-      'input. Selectable reasoning effort: low, medium, xhigh (default). Token counts use the ' +
-      "Kimi tokenizer as an approximation — Qwen's own tokenizer isn't calibrated yet.",
+      'input. Selectable reasoning effort: low, medium, xhigh (default). Token counts are estimated ' +
+      'from the Kimi ranks and fitted against the endpoint — see the qwen3-max tokenizer.',
     reasoningEfforts: ['low', 'medium', 'xhigh'],
     defaultReasoningEffort: 'xhigh',
     modalities: { input: ['text', 'image', 'video'], output: ['text'] },
-  },
-  'deepseek-v4-pro': {
-    key: 'deepseek-v4-pro',
-    label: 'DeepSeek V4 Pro',
-    servedModelId: 'deepseek-ai/deepseek-v4-pro-0813',
-    tokenizer: 'deepseek-v4-pro',
-    contextLength: 1_000_000,
-    speed: 'variable',
-    free: true,
-    baseUrlEnv: 'DEEPSEEK_BASE_URL',
-    defaultBaseUrl: 'https://unified-nvidia-api.vercel.app/v1',
-    notes:
-      'DeepSeek V4 Pro, the largest V4 tier, on the same free keyless endpoint as kimi-k3. Text only — ' +
-      'no image, video or audio input. Very slow cold starts, allow several minutes for a first response. ' +
-      'Selectable reasoning effort from none up to max, high by default.',
   },
   'diffusiongemma-26b': {
     key: 'diffusiongemma-26b',
@@ -326,7 +274,7 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
     defaultBaseUrl: 'https://unified-nvidia-api.vercel.app/v1',
     notes:
       "Google's diffusion-based Gemma 4 (25.2B total / 3.8B active params, MoE), on the same free " +
-      'keyless endpoint as kimi-k3 and deepseek-v4-pro. Denoises whole token blocks in parallel ' +
+      'keyless endpoint as kimi-k3. Denoises whole token blocks in parallel ' +
       'instead of one token at a time, so throughput can exceed 1,000 tok/s. A microtask model only — ' +
       'not offered in the chat model picker, it just drafts the follow-up suggestion chips after a reply.',
     internal: true,
@@ -340,19 +288,13 @@ export const MODEL_ALIASES: Record<string, ModelKey> = {
   free: 'kimi-k3',
   kimi: 'kimi-k3',
   'kimi-k3-free': 'kimi-k3',
-  deepseek: 'deepseek-v4-pro',
-  'deepseek-v4': 'deepseek-v4-pro',
   diffusiongemma: 'diffusiongemma-26b',
   qwen: 'qwen3-max',
   'qwen3.8-max': 'qwen3-max',
   'qwen-max': 'qwen3-max',
-  fable: 'fable-5.1',
-  'fable-5-1': 'fable-5.1',
-  'claude-fable': 'fable-5.1',
-  'claude-fable-5.1': 'fable-5.1',
-  gpt6: 'gpt-6-astra',
-  'gpt-6': 'gpt-6-astra',
-  astra: 'gpt-6-astra',
+  luna: 'gpt-5.6-luna',
+  'gpt-5.6': 'gpt-5.6-luna',
+  'gpt-luna': 'gpt-5.6-luna',
 }
 
 export function resolveModel(model: string): ModelSpec {

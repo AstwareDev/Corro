@@ -28,7 +28,7 @@ test('withholds false completion, recovers by writing, and counts every model st
     response('I updated draft.md.'),
   ] })
   const events: AgentEvent[] = []
-  for await (const e of streamAgent({ model: 'kimi-k3', languageModel: model, messages, workspace: root, tools: ['fs_write'], maxSteps: 4 })) events.push(e)
+  for await (const e of streamAgent({ model: 'kimi-k3', languageModel: model, messages, workspace: root, tools: ['fs_write'] })) events.push(e)
   const text = events.filter((e) => e.type === 'text').map((e) => e.text).join('')
   assert.equal(text, 'I updated draft.md.')
   assert.equal(fs.readFileSync(path.join(root, 'draft.md'), 'utf8'), 'Natural draft')
@@ -45,17 +45,23 @@ test('a read-only attempt followed by another false claim ends unverified', asyn
     response("I've just rewritten the whole file. Done."),
     response('Done. The file is updated.'),
   ] })
-  const result = await runAgent({ model: 'kimi-k3', languageModel: model, messages, workspace: root, tools: ['fs_read'], maxSteps: 5 })
+  const result = await runAgent({ model: 'kimi-k3', languageModel: model, messages, workspace: root, tools: ['fs_read'] })
   assert.equal(result.completion, 'unverified')
   assert.match(result.text, /No file changes were confirmed/)
   assert.equal(model.doStreamCalls.length, 3)
 })
 
-test('a successful write at the step cap is reported as partial, not a finished task', async () => {
-  const model = new MockLanguageModelV3({ doStream: response(undefined, [{ id: 'cap', name: 'fs_write', input: { description: 'Saving a draft', path: 'cap.md', content: 'partial' } }]) })
-  const result = await runAgent({ model: 'kimi-k3', languageModel: model, messages, workspace: root, tools: ['fs_write'], maxSteps: 1 })
-  assert.equal(result.completion, 'step-limit')
-  assert.match(result.text, /Confirmed file changes: `cap.md`/)
+test('a tool that keeps failing is disabled and the run still finishes', async () => {
+  const bad = (id: string) => response(undefined, [{ id, name: 'fs_write', input: { description: 'Saving a draft', path: '../outside.md', content: 'no' } }])
+  const model = new MockLanguageModelV3({ doStream: [
+    bad('f1'), bad('f2'), bad('f3'), bad('f4'), bad('f5'),
+    response('I could not write outside the workspace.'),
+  ] })
+  const result = await runAgent({ model: 'kimi-k3', languageModel: model, messages, workspace: root, tools: ['fs_write'] })
+  assert.equal(model.doStreamCalls.length, 6)
+  assert.equal(result.steps.length, 6)
+  assert.match(result.text, /Disabled after 5 consecutive failures: `fs_write`/)
+  assert.ok(!model.doStreamCalls[5].tools?.length)
 })
 
 test('normal conversation does not require tools or a retry', async () => {
@@ -98,7 +104,7 @@ test('failed tools emit failed output and cannot substantiate a success', async 
     response(undefined, [{ id: 'bad', name: 'fs_write', input: { description: 'Saving the draft', path: '../outside.md', content: 'no' } }]),
     response('Done. I updated draft.md.'), response('Done. I updated draft.md.'),
   ] })
-  const run = await runAgent({ model: 'kimi-k3', languageModel: model, messages, workspace: root, tools: ['fs_write'], maxSteps: 4 })
+  const run = await runAgent({ model: 'kimi-k3', languageModel: model, messages, workspace: root, tools: ['fs_write'] })
   assert.equal(run.completion, 'unverified')
   assert.match(run.text, /Tool failure:/)
   assert.equal((run.steps[0].toolResults[0].output as { ok: boolean }).ok, false)

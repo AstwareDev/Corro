@@ -1,5 +1,7 @@
 import { Router } from 'express'
+import fs from 'node:fs'
 import { z } from 'zod'
+import { workspaceRoot } from '../agent/tools/fs/workspace.js'
 import { parseBody, route } from '../http/respond.js'
 import { normaliseModel, MODEL_KEYS } from '../models/registry.js'
 import {
@@ -91,10 +93,16 @@ sessionRoutes.patch(
 )
 
 sessionRoutes.delete('/sessions/:id', (req, res) => {
-  const removed = deleteSession(req.device.id, String(req.params.id))
+  const id = String(req.params.id)
+  const removed = deleteSession(req.device.id, id)
   if (!removed) {
     res.status(404).json({ error: 'No such session for this device' })
     return
   }
-  res.json({ deleted: true, id: String(req.params.id) })
+  // The workspace (including its private uploads/) belongs to this chat —
+  // remove it so deleted chats leave no files behind.
+  try {
+    fs.rmSync(workspaceRoot(req.device.id, id), { recursive: true, force: true })
+  } catch {}
+  res.json({ deleted: true, id })
 })

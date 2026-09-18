@@ -16,8 +16,11 @@ export type Accent = "graphite" | "blue" | "green" | "amber" | "rose";
 export type TextSize = "small" | "default" | "large";
 export type AmbientPalette = "sky" | "ice" | "mint" | "sand";
 
+export type InspectorStyle = "sidebar" | "popover";
+
 export interface Appearance {
   layout: Layout;
+  inspectorStyle: InspectorStyle;
   ambient: boolean;
   ambientPalette: AmbientPalette;
   ambientIntensity: number;
@@ -31,6 +34,7 @@ export interface Appearance {
 const STORAGE_KEY = "corro_appearance";
 const DEFAULTS: Appearance = {
   layout: "inset",
+  inspectorStyle: "sidebar",
   ambient: true,
   ambientPalette: "sky",
   ambientIntensity: 60,
@@ -62,6 +66,9 @@ function read(): Appearance {
       layout: ["inset", "borderless", "focus", "studio"].includes(parsed.layout)
         ? parsed.layout
         : DEFAULTS.layout,
+      inspectorStyle: ["sidebar", "popover"].includes(parsed.inspectorStyle)
+        ? parsed.inspectorStyle
+        : DEFAULTS.inspectorStyle,
       ambient: parsed.ambient !== false,
       ambientPalette: ["sky", "ice", "mint", "sand"].includes(
         parsed.ambientPalette,

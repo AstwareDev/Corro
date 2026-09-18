@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useMotionPreference } from "@/lib/appearance";
 
-const BASE_RATE = 55;
-const CATCHUP_RATE = 7;
+const DRAIN_SECONDS = 2.4;
+const MIN_RATE = 90;
+const MAX_RATE = 1100;
 
 export function useTypewriter(
   text: string,
@@ -51,7 +52,10 @@ export function useTypewriter(
 
       const target = textRef.current.length;
       const remaining = target - countRef.current;
-      const rate = BASE_RATE + remaining * CATCHUP_RATE;
+      const rate = Math.min(
+        MAX_RATE,
+        Math.max(MIN_RATE, remaining / DRAIN_SECONDS),
+      );
       countRef.current = Math.min(
         target,
         countRef.current + Math.max(1, Math.round((rate * dt) / 1000)),

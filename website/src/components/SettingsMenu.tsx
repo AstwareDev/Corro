@@ -328,7 +328,8 @@ function AppearancePanel() {
 }
 
 function LayoutPanel() {
-  const { layout, setLayout } = useAppearance();
+  const { layout, setLayout, inspectorStyle, updateAppearance } =
+    useAppearance();
   return (
     <>
       <div className="settings-layout-grid">
@@ -353,6 +354,24 @@ function LayoutPanel() {
             <span className="settings-layout-description">{description}</span>
           </button>
         ))}
+      </div>
+      <div className="settings-row last">
+        <div>
+          <h3>Compact panel</h3>
+          <p>
+            Show sources, files, and browser as a small popover instead of a
+            side panel.
+          </p>
+        </div>
+        <Toggle
+          checked={inspectorStyle === "popover"}
+          onChange={(checked) =>
+            updateAppearance({
+              inspectorStyle: checked ? "popover" : "sidebar",
+            })
+          }
+          label="Compact panel"
+        />
       </div>
       <div className="settings-note">
         <LayoutGrid size={17} />

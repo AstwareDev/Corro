@@ -7,7 +7,11 @@ import { MODEL_KEYS } from './models/registry.js'
 import { deviceMiddleware } from './sessions/device.js'
 import { DATA_DIR } from './sessions/store.js'
 import { logError, printBanner, requestLogger } from './lib/logger.js'
+import { attachBrowserLive } from './routes/browserLive.js'
+import { browserRoutes } from './routes/browser.js'
 import { chatRoutes } from './routes/chat.js'
+import { exportRoutes } from './routes/export.js'
+import { instagramRoutes } from './routes/instagram.js'
 import { metaRoutes } from './routes/meta.js'
 import { modelRoutes } from './routes/models.js'
 import { promptRoutes } from './routes/prompt.js'
@@ -16,6 +20,7 @@ import { tokenRoutes } from './routes/tokens.js'
 import { toolRoutes } from './routes/tools.js'
 import { speechRoutes } from './routes/speech.js'
 import { suggestionRoutes } from './routes/suggestions.js'
+import { uploadRoutes } from './routes/uploads.js'
 import { workspaceRoutes } from './routes/workspace.js'
 
 const app = express()
@@ -48,6 +53,10 @@ app.use(sessionRoutes)
 app.use(modelRoutes)
 app.use(toolRoutes)
 app.use(workspaceRoutes)
+app.use(exportRoutes)
+app.use(browserRoutes)
+app.use(instagramRoutes)
+app.use(uploadRoutes)
 app.use(speechRoutes)
 app.use(promptRoutes)
 app.use(tokenRoutes)
@@ -63,6 +72,8 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: message })
 })
 
-app.listen(PORT, () => {
+const httpServer = app.listen(PORT, () => {
   printBanner({ port: PORT, models: MODEL_KEYS, tools: TOOL_NAMES, dataDir: DATA_DIR })
 })
+
+attachBrowserLive(httpServer)

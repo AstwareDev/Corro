@@ -144,12 +144,22 @@ export type MessageBlock =
   | { kind: "text"; id: string; text: string }
   | { kind: "tools"; id: string; calls: ToolCallUI[] };
 
+export interface MessageAttachment {
+  name: string;
+  path: string;
+  kind: "image" | "video" | "file";
+  mime?: string;
+  bytes: number;
+  viewUrl: string;
+}
+
 export interface ChatMessageUI {
   id: string;
   role: "user" | "assistant";
 
   text: string;
   blocks: MessageBlock[];
+  attachments?: MessageAttachment[];
   streaming?: boolean;
   error?: string;
   createdAt: number;

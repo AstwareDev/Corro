@@ -1,10 +1,10 @@
 import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import { resolveAssetUrl } from "@/lib/api";
+import { convertMathBrackets } from "@/lib/math-brackets";
 import { rehypeWordSpans } from "@/lib/rehype-word-spans";
-
-
-
-
 
 const components: Components = {
   p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
@@ -36,7 +36,7 @@ const components: Components = {
   li: ({ children }) => <li className="pl-0.5">{children}</li>,
   a: ({ children, href }) => (
     <a
-      href={href}
+      href={href ? resolveAssetUrl(href) : href}
       target="_blank"
       rel="noopener noreferrer"
       className="text-citation underline underline-offset-2 hover:no-underline"
@@ -84,27 +84,39 @@ const components: Components = {
   },
 };
 
-const remarkPlugins = [remarkGfm];
-const wordAnimatedRehypePlugins = [rehypeWordSpans];
-const noRehypePlugins: [] = [];
+const remarkPlugins = [remarkGfm, remarkMath];
+// KaTeX's default \vec arrow is a tiny fixed glyph that reads as a smudge;
+// map it to the full-width stretchy arrow physics content expects.
+const katexOptions = { macros: { "\\vec": "\\overrightarrow" } };
+type KatexPlugin = [typeof rehypeKatex, typeof katexOptions];
+// KaTeX first so equations become styled spans before the streaming
+// word-splitter runs (which skips KaTeX subtrees — see rehype-word-spans).
+const wordAnimatedRehypePlugins = [
+  [rehypeKatex, katexOptions] as KatexPlugin,
+  rehypeWordSpans,
+];
+const settledRehypePlugins = [[rehypeKatex, katexOptions] as KatexPlugin];
 
 export function Markdown({
   text,
   animateWords = false,
 }: {
   text: string;
-  
+
   animateWords?: boolean;
 }) {
+  // Accept LaTeX bracket delimiters (\[...\], \(...\)) alongside dollars;
+  // code blocks/spans are exempt so source examples stay literal.
+  const converted = convertMathBrackets(text);
   return (
     <ReactMarkdown
       remarkPlugins={remarkPlugins}
       rehypePlugins={
-        animateWords ? wordAnimatedRehypePlugins : noRehypePlugins
+        animateWords ? wordAnimatedRehypePlugins : settledRehypePlugins
       }
       components={components}
     >
-      {text}
+      {converted}
     </ReactMarkdown>
   );
 }

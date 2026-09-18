@@ -39,7 +39,12 @@ function providerFor(key: ModelKey) {
   let p = providers.get(key)
   if (!p) {
     const { baseUrl, apiKey } = endpointConfig(key)
-    p = createOpenAICompatible({ name: key, baseURL: baseUrl, ...(apiKey ? { apiKey } : {}) })
+    p = createOpenAICompatible({
+      name: key,
+      baseURL: baseUrl,
+      includeUsage: true,
+      ...(apiKey ? { apiKey } : {}),
+    })
     providers.set(key, p)
   }
   return p

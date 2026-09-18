@@ -1,14 +1,14 @@
 "use client";
 
-import { useMotionPreference } from "@/lib/appearance";
-
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
-import { PanelRight } from "lucide-react";
+import { Monitor, PanelRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatInput } from "@/components/ChatInput";
+import { ComputerView } from "@/components/ComputerView";
 import { HeroLockup } from "@/components/HeroLockup";
 import { HistorySidebar } from "@/components/HistorySidebar";
+import { InspectorPopover } from "@/components/InspectorPopover";
 import { MessageList } from "@/components/MessageList";
 import { SidePanel } from "@/components/SidePanel";
 import { useChat } from "@/hooks/useChat";
@@ -19,9 +19,9 @@ import {
   fetchWorkspace,
   type WorkspaceFile,
 } from "@/lib/api";
-import { useAppearance } from "@/lib/appearance";
+import { useAppearance, useMotionPreference } from "@/lib/appearance";
 import { collectSources } from "@/lib/sources";
-import type { Effort, ModelDescription } from "@/lib/types";
+import type { Effort, MessageAttachment, ModelDescription } from "@/lib/types";
 import { onWorkspaceChanged } from "@/lib/workspace-events";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -31,6 +31,7 @@ export default function Home() {
   const reduce = useMotionPreference();
   const [models, setModels] = useState<ModelDescription[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   const [model, setModel] = useState<string>("");
   const [effort, setEffort] = useState<Effort>("high");
   const [files, setFiles] = useState<WorkspaceFile[]>([]);
@@ -40,7 +41,8 @@ export default function Home() {
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const { layout, ambient } = useAppearance();
+  const [computerOpen, setComputerOpen] = useState(false);
+  const { layout, ambient, inspectorStyle } = useAppearance();
   const inset = layout !== "borderless";
 
   useEffect(() => {
@@ -57,6 +59,7 @@ export default function Home() {
     load,
     editFrom,
     sessionId,
+    setSessionId,
     context,
   } = useChat();
 
@@ -141,10 +144,17 @@ export default function Home() {
       .then((data) => {
         if (cancelled) return;
         setModels(data);
+        setModelsError(null);
         const def = data.find((m) => m.isDefault) ?? data[0];
         if (def) setModel(def.key);
       })
-      .catch(() => {})
+      .catch((error) => {
+        if (!cancelled) {
+          setModelsError(
+            error instanceof Error ? error.message : "Failed to load models",
+          );
+        }
+      })
       .finally(() => !cancelled && setModelsLoading(false));
     return () => {
       cancelled = true;
@@ -161,8 +171,8 @@ export default function Home() {
     if (next) setEffort(next);
   }, [model, models]);
 
-  function handleSend(text: string) {
-    send(text, { model, reasoningEffort: effort });
+  function handleSend(text: string, attachments?: MessageAttachment[]) {
+    send(text, { model, reasoningEffort: effort }, attachments);
   }
 
   function handleEditMessage(id: string, text: string) {
@@ -173,7 +183,6 @@ export default function Home() {
     <ChatInput
       onSend={handleSend}
       onStop={stop}
-      onNewChat={reset}
       disabled={isStreaming || !model}
       streaming={isStreaming}
       models={models}
@@ -183,6 +192,8 @@ export default function Home() {
       onEffortChange={setEffort}
       modelsLoading={modelsLoading}
       context={context}
+      sessionId={sessionId}
+      onSessionCreated={setSessionId}
       menuPlacement={menuPlacement}
       placeholder={
         messages.length ? "Message Corro" : "Assign a task to Corro…"
@@ -216,6 +227,18 @@ export default function Home() {
       >
         {ambient && <div aria-hidden className="panel-wash" />}
 
+        {sessionId && (
+          <button
+            type="button"
+            onClick={() => setComputerOpen(true)}
+            title="Open Corro's Computer"
+            aria-label="Open Corro's Computer"
+            className="absolute right-14 top-3 z-20 flex size-8 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
+          >
+            <Monitor size={16} />
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => setInspectorOpen((o) => !o)}
@@ -248,6 +271,7 @@ export default function Home() {
               suggestions={isStreaming ? undefined : suggestions}
               onSuggestionSelect={handleSend}
               onEditMessage={isStreaming ? undefined : handleEditMessage}
+              sessionId={sessionId}
             />
           </motion.div>
         )}
@@ -280,6 +304,12 @@ export default function Home() {
 
             {renderInput(hasMessages ? "top" : "bottom")}
 
+            {modelsError && (
+              <p className="mt-2 text-center text-caption text-contradicted">
+                Could not load models: {modelsError}
+              </p>
+            )}
+
             <AnimatePresence>
               {hasMessages && (
                 <motion.p
@@ -302,15 +332,34 @@ export default function Home() {
         </div>
       </main>
 
-      <SidePanel
-        open={inspectorOpen}
-        onClose={() => setInspectorOpen(false)}
-        sources={sources}
-        files={files}
-        filesError={filesError}
-        filesLoading={filesLoading}
+      {inspectorStyle === "popover" ? (
+        <InspectorPopover
+          open={inspectorOpen}
+          onClose={() => setInspectorOpen(false)}
+          sources={sources}
+          files={files}
+          filesError={filesError}
+          filesLoading={filesLoading}
+          sessionId={sessionId}
+          onFilesChanged={refreshFiles}
+        />
+      ) : (
+        <SidePanel
+          open={inspectorOpen}
+          onClose={() => setInspectorOpen(false)}
+          sources={sources}
+          files={files}
+          filesError={filesError}
+          filesLoading={filesLoading}
+          sessionId={sessionId}
+          onFilesChanged={refreshFiles}
+        />
+      )}
+
+      <ComputerView
+        open={computerOpen}
         sessionId={sessionId}
-        onFilesChanged={refreshFiles}
+        onClose={() => setComputerOpen(false)}
       />
     </div>
   );

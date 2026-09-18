@@ -4,7 +4,6 @@ export interface CorroOptions {
   fast?: boolean
   device?: string
   tools?: string[]
-  maxSteps?: number
   temperature?: number
   systemExtra?: string
   fetch?: typeof fetch
@@ -16,7 +15,6 @@ export interface AskOptions {
   model?: string
   fast?: boolean
   tools?: string[]
-  maxSteps?: number
   temperature?: number
   systemExtra?: string
   signal?: AbortSignal
@@ -111,7 +109,6 @@ export class Corro {
       session: opts.session,
       remember: opts.remember,
       tools: opts.tools ?? this.#options.tools,
-      maxSteps: opts.maxSteps ?? this.#options.maxSteps,
       temperature: opts.temperature ?? this.#options.temperature,
       systemExtra: opts.systemExtra ?? this.#options.systemExtra,
     }

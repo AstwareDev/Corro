@@ -6,6 +6,7 @@ import {
   resolveInside,
   workspaceRoot,
 } from '../agent/tools/fs/workspace.js'
+import { getSession } from '../sessions/store.js'
 import { route } from '../http/respond.js'
 import { z } from 'zod'
 import { MAX_WRITE_BYTES, revisionOf, RevisionConflict, saveText } from '../agent/tools/fs/storage.js'
@@ -19,12 +20,42 @@ workspaceRoutes.use((_req, res, next) => {
 const MAX_PREVIEW_BYTES = 400_000
 
 function sessionParam(req: { query: Record<string, unknown> }): string | undefined {
-  return typeof req.query.session === 'string' ? req.query.session : undefined
+  return typeof req.query.session === 'string' && req.query.session.trim()
+    ? req.query.session.trim()
+    : undefined
+}
+
+// Workspaces (including uploads/) are private to a single chat. When the
+// client names a session, it must be a real session owned by this device —
+// otherwise one chat could read or overwrite another chat's files by
+// guessing its id, and uploads would leak across chats.
+function ownedRoot(deviceId: string, session: string | undefined): string {
+  if (!session) return workspaceRoot(deviceId, undefined)
+  let owned: ReturnType<typeof getSession>
+  try {
+    owned = getSession(deviceId, session)
+  } catch {
+    throw Object.assign(new Error('Invalid session id'), { status: 400 })
+  }
+  if (!owned) throw Object.assign(new Error('No such session for this device'), { status: 404 })
+  return workspaceRoot(deviceId, owned.id)
+}
+
+function rootOrError(req: { query: Record<string, unknown> }, deviceId: string, res: import('express').Response): string | null {
+  try {
+    return ensureRoot(ownedRoot(deviceId, sessionParam(req)))
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Invalid session'
+    const status = (err as { status?: number }).status ?? 400
+    res.status(status).json({ error: message })
+    return null
+  }
 }
 
 workspaceRoutes.get('/workspace', (req, res) => {
+  const root = rootOrError(req, req.device.id, res)
+  if (!root) return
   const session = sessionParam(req)
-  const root = ensureRoot(workspaceRoot(req.device.id, session))
   const files = listFiles(root)
   res.json({
     object: 'list',
@@ -44,8 +75,9 @@ workspaceRoutes.get(
       res.status(400).json({ error: 'Provide ?path=' })
       return
     }
+    const root = rootOrError(req, req.device.id, res)
+    if (!root) return
     try {
-      const root = ensureRoot(workspaceRoot(req.device.id, sessionParam(req)))
       const full = resolveInside(root, rel)
       const stat = fs.statSync(full)
       if (!stat.isFile()) throw new Error('Select an individual file')
@@ -76,8 +108,9 @@ workspaceRoutes.put('/workspace/file', route(async (req, res) => {
     res.status(400).json({ error: 'Provide path, content and expectedRevision (null for a new file).' })
     return
   }
+  const root = rootOrError(req, req.device.id, res)
+  if (!root) return
   try {
-    const root = ensureRoot(workspaceRoot(req.device.id, sessionParam(req)))
     const { path: rel, content, expectedRevision } = parsed.data
     const receipt = saveText(resolveInside(root, rel), content, expectedRevision)
     res.json({ ok: true, path: rel, ...receipt })
@@ -97,6 +130,12 @@ const MIME_TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
   '.pdf': 'application/pdf',
   '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   '.txt': 'text/plain; charset=utf-8',
@@ -114,15 +153,16 @@ workspaceRoutes.get(
       res.status(400).json({ error: 'Provide ?path=' })
       return
     }
+    const root = rootOrError(req, req.device.id, res)
+    if (!root) return
     try {
-      const root = ensureRoot(workspaceRoot(req.device.id, sessionParam(req)))
       const full = resolveInside(root, rel)
       const stat = fs.statSync(full)
       if (!stat.isFile()) throw new Error('Select an individual file')
       const ext = rel.slice(rel.lastIndexOf('.')).toLowerCase()
       const type = MIME_TYPES[ext] ?? 'application/octet-stream'
       res.setHeader('Content-Type', type)
-      if (DOWNLOAD_EXTENSIONS.has(ext) || type === 'application/octet-stream') {
+      if (DOWNLOAD_EXTENSIONS.has(ext) || type === 'application/octet-stream' || req.query.download === '1') {
         const filename = rel.split('/').pop() ?? 'download'
         res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/"/g, '')}"`)
       }
@@ -141,8 +181,9 @@ workspaceRoutes.delete(
       res.status(400).json({ error: 'Provide ?path=' })
       return
     }
+    const root = rootOrError(req, req.device.id, res)
+    if (!root) return
     try {
-      const root = ensureRoot(workspaceRoot(req.device.id, sessionParam(req)))
       const full = resolveInside(root, rel)
       if (!fs.statSync(full).isFile()) throw new Error('Only individual files can be deleted')
       fs.unlinkSync(full)

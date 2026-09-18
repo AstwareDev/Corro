@@ -25,6 +25,7 @@ metaRoutes.get('/api', (_req, res) => {
       'GET /models/:key': 'one model',
       'GET /tools': 'the agent toolbelt',
       'POST /tools/:name': 'run one tool directly, no model involved',
+      'GET /api/instagram': 'local Instagram scraper (profile/posts/post/comments; stories unsupported)',
       'GET /prompt': 'the system prompt as the agent receives it',
       'POST /tokens': 'count tokens for text or messages',
       'GET /test': 'end-to-end smoke test (?model=&q=)',

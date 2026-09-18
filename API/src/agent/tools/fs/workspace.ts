@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { DATA_DIR } from '../../../sessions/store.js'
-import { PUBLIC_URL } from '../../../config.js'
 
 export const WORKSPACES_DIR = path.join(DATA_DIR, 'workspaces')
 
@@ -109,5 +108,5 @@ export function viewUrl(root: string, relativePath: string): string {
   const params = new URLSearchParams({ path: relativePath })
   if (deviceId) params.set('device', deviceId)
   if (session && session !== '_scratch') params.set('session', session)
-  return `${PUBLIC_URL}/workspace/view?${params.toString()}`
+  return `/workspace/view?${params.toString()}`
 }

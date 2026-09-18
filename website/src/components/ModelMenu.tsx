@@ -1,7 +1,5 @@
 "use client";
 
-import { useMotionPreference } from "@/lib/appearance";
-
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -15,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useMotionPreference } from "@/lib/appearance";
 import {
   type Effort,
   effortLabel as effortLabelFor,
@@ -23,6 +22,7 @@ import {
   groupModels,
   type ModelDescription,
 } from "@/lib/types";
+import { Skeleton } from "./Skeleton";
 
 type Panel = "model" | "effort";
 
@@ -49,11 +49,11 @@ const VECTOR_LOGOS: Record<string, string> = {
 };
 
 const FAMILY_LOGOS: Record<string, string> = {
-  "deepseek-v4-pro": "/deepseek-logo.svg",
   "qwen3-max": "/qwen-logo.svg",
-  "fable-5.1": "/claude-logo.svg",
-  "gpt-6-astra": "/openai-logo.svg",
+  "gpt-5.6-luna": "/openai-logo.svg",
 };
+
+const MONO_LOGOS = new Set(["gpt-5.6-luna"]);
 
 function ProviderLogo({
   family,
@@ -66,6 +66,26 @@ function ProviderLogo({
 }) {
   const vector =
     (family && FAMILY_LOGOS[family]) || (ownedBy && VECTOR_LOGOS[ownedBy]);
+
+  if (vector && family && MONO_LOGOS.has(family)) {
+    return (
+      <span
+        aria-hidden
+        className={clsx("shrink-0 bg-ink", className)}
+        style={{
+          maskImage: `url(${vector})`,
+          WebkitMaskImage: `url(${vector})`,
+          maskSize: "contain",
+          WebkitMaskSize: "contain",
+          maskPosition: "center",
+          WebkitMaskPosition: "center",
+          maskRepeat: "no-repeat",
+          WebkitMaskRepeat: "no-repeat",
+        }}
+      />
+    );
+  }
+
   if (vector) {
     return (
       <img
@@ -140,7 +160,7 @@ function Submenu({
         "popover-material absolute z-10 overflow-hidden rounded-popover p-1.5",
         stacked
           ? "left-0 right-0 top-full mt-1.5 w-auto origin-top"
-          : "left-full top-0 ml-1.5 w-60 origin-top-left",
+          : "left-full bottom-0 top-0 my-auto ml-1.5 h-fit w-60 origin-left",
       )}
     >
       <motion.p
@@ -152,7 +172,9 @@ function Submenu({
       >
         {title}
       </motion.p>
-      {children}
+      <div className="scroll-thin max-h-[250px] overflow-y-auto overscroll-contain">
+        {children}
+      </div>
     </motion.div>
   );
 }
@@ -240,6 +262,32 @@ function ToggleRow({
   );
 }
 
+const MODEL_SKELETON_WIDTHS = ["72%", "58%", "66%", "52%"];
+
+function ModelSkeletonRows() {
+  return (
+    <output aria-label="Loading models" className="block">
+      {MODEL_SKELETON_WIDTHS.map((width, index) => (
+        <div
+          key={width}
+          className="flex w-full items-center gap-2.5 px-2.5 py-2.5"
+        >
+          <Skeleton
+            width={24}
+            height={24}
+            borderRadius={6}
+            delay={index * 90}
+            className="shrink-0"
+          />
+          <span className="min-w-0 flex-1">
+            <Skeleton height={12} width={width} delay={index * 90 + 45} />
+          </span>
+        </div>
+      ))}
+    </output>
+  );
+}
+
 export function ModelMenu({
   models,
   model,
@@ -298,17 +346,28 @@ export function ModelMenu({
     setPanel(null);
   }
 
+  const showTriggerSkeleton = loading && !active;
+
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
         onClick={() => (open ? close() : setOpen(true))}
-        disabled={loading}
+        aria-busy={loading}
         suppressHydrationWarning
-        className="flex items-center gap-1.5 rounded-full px-2 py-1 text-footnote font-medium transition-colors hover:bg-surface-raised disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-full px-2 py-1 text-footnote font-medium transition-colors hover:bg-surface-raised"
       >
-        <span className="text-ink">{active?.label ?? "Model"}</span>
-        <span className="text-ink-muted">{effortLabel}</span>
+        {showTriggerSkeleton ? (
+          <>
+            <Skeleton width={64} height={13} />
+            <Skeleton width={40} height={12} />
+          </>
+        ) : (
+          <>
+            <span className="text-ink">{active?.label ?? "Model"}</span>
+            <span className="text-ink-muted">{effortLabel}</span>
+          </>
+        )}
         <ChevronDown
           size={13}
           className={clsx(
@@ -380,33 +439,37 @@ export function ModelMenu({
             <AnimatePresence mode="popLayout" initial={false}>
               {panel === "model" && (
                 <Submenu key="model" title="Model">
-                  {families.map((family) => (
-                    <Option
-                      key={family.id}
-                      icon={
-                        <ProviderLogo
-                          family={family.id}
-                          ownedBy={family.standard.ownedBy}
-                          className="size-6"
-                        />
-                      }
-                      label={family.label}
-                      badges={
-                        <ModalityBadges
-                          modalities={family.standard.modalities?.input}
-                        />
-                      }
-                      selected={family.id === active?.id}
-                      onClick={() => {
-                        onModelChange(
-                          fastOn && family.fast
-                            ? family.fast.key
-                            : family.standard.key,
-                        );
-                        close();
-                      }}
-                    />
-                  ))}
+                  {loading && !families.length ? (
+                    <ModelSkeletonRows />
+                  ) : (
+                    families.map((family) => (
+                      <Option
+                        key={family.id}
+                        icon={
+                          <ProviderLogo
+                            family={family.id}
+                            ownedBy={family.standard.ownedBy}
+                            className="size-6"
+                          />
+                        }
+                        label={family.label}
+                        badges={
+                          <ModalityBadges
+                            modalities={family.standard.modalities?.input}
+                          />
+                        }
+                        selected={family.id === active?.id}
+                        onClick={() => {
+                          onModelChange(
+                            fastOn && family.fast
+                              ? family.fast.key
+                              : family.standard.key,
+                          );
+                          close();
+                        }}
+                      />
+                    ))
+                  )}
                   {!families.length && !loading && (
                     <p className="px-2.5 py-3 text-center text-caption text-ink-muted">
                       No models reachable

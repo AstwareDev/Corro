@@ -12,4 +12,4 @@ export const FAST_MODEL = pick(process.env.CORRO_FAST_MODEL, 'kimi-k3-fast')
 
 export const BODY_LIMIT = process.env.CORRO_BODY_LIMIT ?? '4mb'
 
-export const PUBLIC_URL = (process.env.CORRO_PUBLIC_URL ?? `http://localhost:${PORT}`).replace(/\/$/, '')
+export const UPLOAD_LIMIT_MB = Number(process.env.CORRO_UPLOAD_LIMIT_MB ?? 25)

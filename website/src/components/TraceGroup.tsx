@@ -36,10 +36,12 @@ export function TraceGroup({
   blocks,
   streaming,
   open,
+  sessionId,
 }: {
   blocks: TraceBlock[];
   streaming: boolean;
   open: boolean;
+  sessionId?: string | null;
 }) {
   const motionOff = useMotionPreference();
 
@@ -76,7 +78,11 @@ export function TraceGroup({
                     endedAt={block.endedAt}
                   />
                 ) : (
-                  <ToolGroup key={block.id} calls={block.calls} />
+                  <ToolGroup
+                    key={block.id}
+                    calls={block.calls}
+                    sessionId={sessionId}
+                  />
                 ),
               )
             )}

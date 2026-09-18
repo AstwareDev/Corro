@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   Calculator,
+  Compass,
   File,
   FilePen,
   FilePlus,
@@ -59,6 +60,18 @@ export const MARKETPLACES: ToolFamily = {
   id: "marketplaces",
   label: "Checked online retailers",
   Icon: Store,
+};
+
+export const VIDEO: ToolFamily = {
+  id: "youtube",
+  label: "Checked YouTube",
+  Icon: brandIcon("/sources/youtube.svg", "YouTube"),
+};
+
+export const SOCIAL: ToolFamily = {
+  id: "instagram",
+  label: "Checked Instagram",
+  Icon: Globe,
 };
 
 export interface ShopBrandInfo {
@@ -123,6 +136,22 @@ const ISTORE: ShopBrandInfo = {
   host: "istore.am",
   accent: "#0071e3",
   Icon: brandIcon("/sources/istore.png", "iStore"),
+};
+
+const YOUTUBE: ShopBrandInfo = {
+  id: "youtube",
+  name: "YouTube",
+  host: "youtube.com",
+  accent: "#ff0033",
+  Icon: brandIcon("/sources/youtube.svg", "YouTube"),
+};
+
+const INSTAGRAM: ShopBrandInfo = {
+  id: "instagram",
+  name: "Instagram",
+  host: "instagram.com",
+  accent: "#ee2a7b",
+  Icon: brandIcon("/sources/instagram.svg", "Instagram"),
 };
 
 export interface ToolPresentation {
@@ -240,6 +269,89 @@ const REGISTRY: Record<string, ToolPresentation> = {
   ...shopTools("apple", APPLE, { family: MARKETPLACES, categories: false }),
   ...shopTools("istore", ISTORE, { family: MARKETPLACES }),
 
+  youtube_channel: {
+    family: VIDEO,
+    brand: YOUTUBE,
+    Icon: YOUTUBE.Icon,
+    ChildIcon: Compass,
+    label: "View a YouTube channel",
+    groupLabel: "Checked YouTube channels",
+    verb: "Checked a channel",
+  },
+  youtube_channel_videos: {
+    family: VIDEO,
+    brand: YOUTUBE,
+    Icon: YOUTUBE.Icon,
+    ChildIcon: LayoutGrid,
+    label: "List a channel's videos",
+    groupLabel: "Listed channel videos",
+    verb: "Listed videos",
+  },
+  youtube_video: {
+    family: VIDEO,
+    brand: YOUTUBE,
+    Icon: YOUTUBE.Icon,
+    ChildIcon: Tag,
+    label: "View a YouTube video",
+    groupLabel: "Looked up YouTube videos",
+    verb: "Looked up a video",
+  },
+  youtube_comments: {
+    family: VIDEO,
+    brand: YOUTUBE,
+    Icon: YOUTUBE.Icon,
+    ChildIcon: FileText,
+    label: "Read YouTube comments",
+    groupLabel: "Read comments",
+    verb: "Read comments",
+  },
+  youtube_transcript: {
+    family: VIDEO,
+    brand: YOUTUBE,
+    Icon: YOUTUBE.Icon,
+    ChildIcon: FileText,
+    label: "Read video captions",
+    groupLabel: "Read captions",
+    verb: "Read captions",
+  },
+
+  instagram_profile: {
+    family: SOCIAL,
+    brand: INSTAGRAM,
+    Icon: INSTAGRAM.Icon,
+    ChildIcon: Compass,
+    label: "View an Instagram profile",
+    groupLabel: "Checked Instagram profiles",
+    verb: "Checked a profile",
+  },
+  instagram_posts: {
+    family: SOCIAL,
+    brand: INSTAGRAM,
+    Icon: INSTAGRAM.Icon,
+    ChildIcon: LayoutGrid,
+    label: "List Instagram posts",
+    groupLabel: "Listed Instagram posts",
+    verb: "Listed posts",
+  },
+  instagram_post: {
+    family: SOCIAL,
+    brand: INSTAGRAM,
+    Icon: INSTAGRAM.Icon,
+    ChildIcon: Tag,
+    label: "View an Instagram post",
+    groupLabel: "Looked up Instagram posts",
+    verb: "Looked up a post",
+  },
+  instagram_comments: {
+    family: SOCIAL,
+    brand: INSTAGRAM,
+    Icon: INSTAGRAM.Icon,
+    ChildIcon: FileText,
+    label: "Read Instagram comments",
+    groupLabel: "Read Instagram comments",
+    verb: "Read comments",
+  },
+
   web_search: {
     Icon: Search,
     ChildIcon: Globe,
@@ -330,6 +442,48 @@ const REGISTRY: Record<string, ToolPresentation> = {
     label: "Search the workspace",
     groupLabel: "Searched the workspace",
     verb: "Searched the workspace",
+  },
+  browser_open: {
+    Icon: Compass,
+    ChildIcon: Compass,
+    label: "Open a browser page",
+    groupLabel: "Browsed the web",
+    verb: "Opened a page",
+  },
+  browser_read: {
+    Icon: Compass,
+    ChildIcon: Compass,
+    label: "Read a browser page",
+    groupLabel: "Browsed the web",
+    verb: "Read a page",
+  },
+  browser_click: {
+    Icon: Compass,
+    ChildIcon: Compass,
+    label: "Click in the browser",
+    groupLabel: "Browsed the web",
+    verb: "Clicked in the browser",
+  },
+  browser_fill: {
+    Icon: Compass,
+    ChildIcon: Compass,
+    label: "Fill a browser form",
+    groupLabel: "Browsed the web",
+    verb: "Filled a form",
+  },
+  browser_screenshot: {
+    Icon: Compass,
+    ChildIcon: Compass,
+    label: "Screenshot the browser",
+    groupLabel: "Browsed the web",
+    verb: "Took a screenshot",
+  },
+  browser_close: {
+    Icon: Compass,
+    ChildIcon: Compass,
+    label: "Close the browser",
+    groupLabel: "Browsed the web",
+    verb: "Closed the browser",
   },
 };
 
