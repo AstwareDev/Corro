@@ -131,7 +131,7 @@ function Shot({
 
 function DiscountBadge({ percent }: { percent: number }) {
   return (
-    <span className="shrink-0 rounded-md bg-[color:var(--shop-accent)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+    <span className="shrink-0 rounded-md bg-[color:var(--shop-accent)] px-1.5 py-0.5 text-caption font-semibold leading-none text-white">
       −{Math.round(percent)}%
     </span>
   );
@@ -140,7 +140,7 @@ function DiscountBadge({ percent }: { percent: number }) {
 function Rating({ value, count }: { value?: number; count?: number }) {
   if (value === undefined) return null;
   return (
-    <span className="flex items-center gap-0.5 text-[10px] text-ink-muted">
+    <span className="flex items-center gap-0.5 text-caption text-ink-muted">
       <Star size={9} className="fill-current" />
       <span className="tabular-nums">{value.toFixed(1)}</span>
       {count !== undefined && (
@@ -168,7 +168,7 @@ function Price({
       <span
         className={clsx(
           "font-semibold tabular-nums",
-          size === "lg" ? "text-[15px]" : "text-[13px]",
+          size === "lg" ? "text-body" : "text-footnote",
           wasPrice !== undefined
             ? "text-[color:var(--shop-accent)]"
             : "text-ink",
@@ -177,7 +177,7 @@ function Price({
         {money(price, currency)}
       </span>
       {wasPrice !== undefined && (
-        <span className="text-[11px] tabular-nums text-ink-muted line-through">
+        <span className="text-caption tabular-nums text-ink-muted line-through">
           {money(wasPrice, currency)}
         </span>
       )}
@@ -211,11 +211,11 @@ function ProductCard({
       />
       <div className="flex min-h-0 flex-1 flex-col gap-1">
         {product.category && (
-          <span className="truncate text-[10px] uppercase tracking-wide text-ink-muted">
+          <span className="truncate text-caption uppercase tracking-wide text-ink-muted">
             {product.category}
           </span>
         )}
-        <span className="line-clamp-2 text-[12px] leading-snug text-ink group-hover:underline">
+        <span className="line-clamp-2 text-caption leading-snug text-ink group-hover:underline">
           {product.name}
         </span>
         <Rating value={product.rating} count={product.reviewCount} />
@@ -227,12 +227,12 @@ function ProductCard({
             currency={currency}
           />
           {perUnit && (
-            <p className="mt-0.5 text-[10px] tabular-nums text-ink-muted">
+            <p className="mt-0.5 text-caption tabular-nums text-ink-muted">
               {perUnit}
             </p>
           )}
           {product.soldByWeight === true && (
-            <p className="mt-0.5 flex items-center gap-1 text-[10px] text-ink-muted">
+            <p className="mt-0.5 flex items-center gap-1 text-caption text-ink-muted">
               <Scale size={9} /> sold by weight
             </p>
           )}
@@ -265,7 +265,7 @@ export function ShopSearchResults({
 }) {
   if (!products.length) {
     return (
-      <p className="text-[12px] text-ink-muted">
+      <p className="text-caption text-ink-muted">
         Nothing in {shop?.name ?? "the catalogue"} matched
         {query ? ` “${query}”` : ""}.
       </p>
@@ -285,7 +285,7 @@ export function ShopSearchResults({
           <ProductCard key={p.id} product={p} currency={currency} />
         ))}
       </div>
-      <p className="text-[10px] text-ink-muted">
+      <p className="text-caption text-ink-muted">
         {totalMatches !== undefined
           ? `${products.length} of ${totalMatches.toLocaleString()} `
           : `${products.length} `}
@@ -301,7 +301,7 @@ export function ShopSearchResults({
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-2 text-[11px] leading-relaxed">
+    <div className="flex gap-2 text-caption leading-relaxed">
       <span className="w-20 shrink-0 text-ink-muted">{label}</span>
       <span className="min-w-0 flex-1 text-ink">{value}</span>
     </div>
@@ -311,11 +311,11 @@ function Fact({ label, value }: { label: string; value: string }) {
 function Prose({ label, text }: { label: string; text: string }) {
   return (
     <div>
-      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+      <p className="mb-0.5 text-caption font-semibold uppercase tracking-wide text-ink-muted">
         {label}
       </p>
 
-      <p className="whitespace-pre-line text-[12px] leading-relaxed text-ink">
+      <p className="whitespace-pre-line text-caption leading-relaxed text-ink">
         {text}
       </p>
     </div>
@@ -396,7 +396,7 @@ function ProductDetail({
         <div className="min-w-0 flex-1 space-y-2">
           <div>
             {product.categoryPath?.length && (
-              <p className="mb-0.5 flex flex-wrap items-center gap-0.5 text-[10px] text-ink-muted">
+              <p className="mb-0.5 flex flex-wrap items-center gap-0.5 text-caption text-ink-muted">
                 {product.categoryPath.map((step, i) => (
                   <span key={step} className="flex items-center gap-0.5">
                     {i > 0 && <ChevronRight size={9} />}
@@ -409,7 +409,7 @@ function ProductDetail({
               href={product.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[13px] font-medium leading-snug text-ink hover:underline"
+              className="text-footnote font-medium leading-snug text-ink hover:underline"
             >
               {product.name}
             </a>
@@ -425,14 +425,14 @@ function ProductDetail({
               size="lg"
             />
             {perUnit && (
-              <p className="mt-0.5 text-[10px] tabular-nums text-ink-muted">
+              <p className="mt-0.5 text-caption tabular-nums text-ink-muted">
                 {perUnit}
               </p>
             )}
           </div>
 
           {window && (
-            <p className="flex items-center gap-1 text-[10px] text-ink-muted">
+            <p className="flex items-center gap-1 text-caption text-ink-muted">
               <Tag size={9} />
               {window}
             </p>
@@ -471,12 +471,12 @@ function ProductDetail({
           {product.howToUse && <Prose label="Use" text={product.howToUse} />}
           {(product.nutrition?.length || product.details?.length) && (
             <div>
-              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+              <p className="mb-0.5 text-caption font-semibold uppercase tracking-wide text-ink-muted">
                 {product.nutrition?.length ? "Nutrition" : "Details"}
               </p>
               <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
                 {(product.nutrition ?? product.details ?? []).map((line) => (
-                  <li key={line} className="text-[11px] tabular-nums text-ink">
+                  <li key={line} className="text-caption tabular-nums text-ink">
                     {line}
                   </li>
                 ))}
@@ -488,7 +488,7 @@ function ProductDetail({
 
       {product.alsoConsider?.length && (
         <div className="mt-2.5 border-t border-border pt-2.5">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+          <p className="mb-1.5 text-caption font-semibold uppercase tracking-wide text-ink-muted">
             Also on the shelf
           </p>
           <ul className="space-y-1">
@@ -500,7 +500,7 @@ function ProductDetail({
                   rel="noopener noreferrer"
                   className="flex items-baseline gap-2 rounded-md px-1 py-0.5 hover:bg-surface-raised"
                 >
-                  <span className="min-w-0 flex-1 truncate text-[11px] text-ink">
+                  <span className="min-w-0 flex-1 truncate text-caption text-ink">
                     {alt.name}
                   </span>
                   <Price
@@ -539,7 +539,7 @@ export function ShopProductDetails({
       {failed?.map((f) => (
         <p
           key={f.id ?? f.slug ?? f.url}
-          className="rounded-lg bg-contradicted/5 px-2.5 py-2 text-[12px] text-contradicted"
+          className="rounded-lg bg-contradicted/5 px-2.5 py-2 text-caption text-contradicted"
         >
           {f.id ?? f.slug ?? f.url}: {f.error}
         </p>
@@ -578,7 +578,7 @@ export function ShopCategories({
 }) {
   if (!categories.length) {
     return (
-      <p className="text-[12px] text-ink-muted">
+      <p className="text-caption text-ink-muted">
         This section has no sub-categories.
       </p>
     );
@@ -594,15 +594,15 @@ export function ShopCategories({
             <li key={categoryKey(c)}>
               <div className="flex items-center gap-1.5">
                 {c.image && <Shot src={c.image} alt="" className="size-5" />}
-                <span className="text-[12px] font-medium text-ink">
+                <span className="text-caption font-medium text-ink">
                   {c.name}
                 </span>
-                <span className="font-mono text-[9px] text-ink-muted/60">
+                <span className="font-mono text-caption text-ink-muted/60">
                   {c.slug ?? c.id}
                 </span>
               </div>
               {c.children?.length ? (
-                <p className="ml-1 mt-0.5 text-[11px] leading-relaxed text-ink-muted">
+                <p className="ml-1 mt-0.5 text-caption leading-relaxed text-ink-muted">
                   {c.children.map((child) => child.name).join(" · ")}
                 </p>
               ) : null}
@@ -617,25 +617,25 @@ export function ShopCategories({
               className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2 py-1"
             >
               {c.image && <Shot src={c.image} alt="" className="size-5" />}
-              <span className="text-[12px] text-ink">{c.name}</span>
+              <span className="text-caption text-ink">{c.name}</span>
               {c.productCount !== undefined && (
-                <span className="tabular-nums text-[10px] text-ink-muted">
+                <span className="tabular-nums text-caption text-ink-muted">
                   {c.productCount.toLocaleString()}
                 </span>
               )}
               {c.ageRestricted && (
-                <span className="rounded bg-surface-raised px-1 text-[9px] font-semibold text-ink-muted">
+                <span className="rounded bg-surface-raised px-1 text-caption font-semibold text-ink-muted">
                   18+
                 </span>
               )}
-              <span className="font-mono text-[9px] text-ink-muted/60">
+              <span className="font-mono text-caption text-ink-muted/60">
                 {c.slug ?? `#${c.id}`}
               </span>
             </li>
           ))}
         </ul>
       )}
-      <p className="text-[10px] text-ink-muted">
+      <p className="text-caption text-ink-muted">
         {categories.length} {level === "top" ? "top-level " : ""}
         {categories.length === 1 ? "category" : "categories"}
         {shop ? ` · ${shop.host}` : ""}

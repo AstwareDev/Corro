@@ -42,8 +42,8 @@ function ResultRow({
         <span
           className={
             emphasis
-              ? "text-[17px] font-semibold tabular-nums text-ink"
-              : "text-[13px] font-medium tabular-nums text-ink"
+              ? "text-title font-semibold tabular-nums text-ink"
+              : "text-footnote font-medium tabular-nums text-ink"
           }
         >
           {formatAmount(result.converted)}
@@ -51,14 +51,14 @@ function ResultRow({
         <span
           className={
             emphasis
-              ? "text-[13px] font-medium text-ink-muted"
-              : "text-[11px] text-ink-muted"
+              ? "text-footnote font-medium text-ink-muted"
+              : "text-caption text-ink-muted"
           }
         >
           {result.code}
         </span>
       </div>
-      <span className="shrink-0 truncate text-[10px] text-ink-muted">
+      <span className="shrink-0 truncate text-caption text-ink-muted">
         1 {from} = {formatAmount(result.rate)} {result.code}
       </span>
     </div>
@@ -71,7 +71,7 @@ export function CurrencyConversion({ data }: { data: CurrencyResult }) {
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface p-3">
-      <div className="flex items-center gap-2 text-[13px] text-ink-muted">
+      <div className="flex items-center gap-2 text-footnote text-ink-muted">
         <span className="font-medium tabular-nums text-ink">
           {formatAmount(data.amount)} {data.from.code}
         </span>
@@ -97,7 +97,7 @@ export function CurrencyConversion({ data }: { data: CurrencyResult }) {
         )}
       </div>
 
-      <p className="text-[10px] text-ink-muted">
+      <p className="text-caption text-ink-muted">
         Rates as of {data.date} · {data.source}
       </p>
     </div>

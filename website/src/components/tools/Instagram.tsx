@@ -79,16 +79,16 @@ function MediaThumb({
       ) : (
         <span className="flex flex-col items-center gap-1 text-white/60">
           <ImageIcon size={16} />
-          <span className="text-[10px]">No preview</span>
+          <span className="text-caption">No preview</span>
         </span>
       )}
       {type && (
-        <span className="absolute left-1 top-1 rounded bg-black/70 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-white">
+        <span className="absolute left-1 top-1 rounded bg-black/70 px-1 py-px text-caption font-semibold uppercase tracking-wide text-white">
           {type.charAt(0).toUpperCase() + type.slice(1)}
         </span>
       )}
       {corner && (
-        <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-px font-mono text-[10px] tabular-nums text-white">
+        <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-px font-mono text-caption tabular-nums text-white">
           {corner}
         </span>
       )}
@@ -115,7 +115,7 @@ function TypeChip({ type }: { type: string }) {
           : "Photo";
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-ink-muted"
+      className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-1.5 py-0.5 text-caption font-medium text-ink-muted"
       title={`Media type: ${label}`}
     >
       <Icon size={10} />
@@ -135,7 +135,7 @@ function CountStat({
 }) {
   return (
     <span
-      className="flex items-center gap-1 text-[11px] tabular-nums text-ink-muted"
+      className="flex items-center gap-1 text-caption tabular-nums text-ink-muted"
       title={label}
     >
       <Icon size={11} />
@@ -147,14 +147,14 @@ function CountStat({
 function NoteLine({ note }: { note?: string }) {
   if (!note) return null;
   return (
-    <p className="rounded-lg bg-surface-raised px-2.5 py-1.5 text-[11px] leading-relaxed text-ink-muted">
+    <p className="rounded-lg bg-surface-raised px-2.5 py-1.5 text-caption leading-relaxed text-ink-muted">
       {note}
     </p>
   );
 }
 
 function SourceLine({ children }: { children: React.ReactNode }) {
-  return <p className="text-[10px] text-ink-muted">{children}</p>;
+  return <p className="text-caption text-ink-muted">{children}</p>;
 }
 
 // --- types mirroring the scraper output ---
@@ -205,10 +205,10 @@ export interface InstagramComment {
 function StatCell({ value, label }: { value: string; label: string }) {
   return (
     <span className="flex flex-col items-center">
-      <span className="text-[13px] font-semibold tabular-nums text-ink">
+      <span className="text-footnote font-semibold tabular-nums text-ink">
         {value}
       </span>
-      <span className="text-[10px] text-ink-muted">{label}</span>
+      <span className="text-caption text-ink-muted">{label}</span>
     </span>
   );
 }
@@ -240,7 +240,7 @@ export function InstagramProfileCard({
             className="size-16 shrink-0 rounded-full object-cover ring-2 ring-[color:var(--shop-accent)] ring-offset-2 ring-offset-surface"
           />
         ) : (
-          <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[22px] font-semibold text-ink">
+          <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-surface-raised text-display font-semibold text-ink">
             {profile.username.slice(0, 1).toUpperCase()}
           </span>
         )}
@@ -250,7 +250,7 @@ export function InstagramProfileCard({
               href={profile.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[13px] font-medium leading-snug text-ink hover:underline"
+              className="text-footnote font-medium leading-snug text-ink hover:underline"
             >
               {profile.displayName ?? profile.username}
             </a>
@@ -263,13 +263,13 @@ export function InstagramProfileCard({
               </span>
             )}
             {profile.private && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+              <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-1.5 py-0.5 text-caption font-medium text-ink-muted">
                 <Lock size={9} />
                 Private
               </span>
             )}
           </p>
-          <p className="mt-0.5 text-[11px] text-ink-muted">
+          <p className="mt-0.5 text-caption text-ink-muted">
             @{profile.username}
           </p>
           <div className="mt-1.5 flex gap-4">
@@ -305,7 +305,7 @@ export function InstagramProfileCard({
         <div>
           <p
             className={clsx(
-              "whitespace-pre-line text-[12px] leading-relaxed text-ink",
+              "whitespace-pre-line text-caption leading-relaxed text-ink",
               clipped && "line-clamp-3",
             )}
           >
@@ -315,7 +315,7 @@ export function InstagramProfileCard({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="mt-0.5 text-[11px] font-medium text-citation hover:underline"
+              className="mt-0.5 text-caption font-medium text-citation hover:underline"
             >
               {expanded ? "Show less" : "Show more"}
             </button>
@@ -324,7 +324,7 @@ export function InstagramProfileCard({
       )}
       {preview.length > 0 && (
         <div>
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ink-muted">
+          <p className="mb-1 text-caption font-medium uppercase tracking-wide text-ink-muted">
             Recent posts
           </p>
           <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
@@ -388,7 +388,7 @@ function PostCard({ post }: { post: InstagramPost }) {
         className="aspect-square w-full"
       />
       {post.caption && (
-        <span className="line-clamp-2 text-[12px] leading-snug text-ink group-hover:underline">
+        <span className="line-clamp-2 text-caption leading-snug text-ink group-hover:underline">
           {post.caption}
         </span>
       )}
@@ -412,7 +412,7 @@ function PostCard({ post }: { post: InstagramPost }) {
           label="Comments"
         />
         {formatPostDate(post.timestamp) && (
-          <span className="text-[10px] text-ink-muted">
+          <span className="text-caption text-ink-muted">
             {formatPostDate(post.timestamp)}
           </span>
         )}
@@ -439,7 +439,7 @@ export function InstagramPostGrid({
   if (!posts.length) {
     return (
       <div className="space-y-2">
-        <p className="text-[12px] text-ink-muted">
+        <p className="text-caption text-ink-muted">
           {emptyText ??
             "No posts on this page. The grid may need a session Instagram trusts."}
         </p>
@@ -529,7 +529,7 @@ export function InstagramPostDetail({
       <div className="flex flex-wrap items-center gap-1.5">
         <TypeChip type={post.type} />
         {post.type === "reel" && post.playCount !== undefined && (
-          <span className="text-[11px] tabular-nums text-ink-muted">
+          <span className="text-caption tabular-nums text-ink-muted">
             {formatCount(post.playCount)} plays
           </span>
         )}
@@ -538,13 +538,13 @@ export function InstagramPostDetail({
             href={`https://www.instagram.com/${post.ownerUsername}/`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[11px] text-citation hover:underline"
+            className="text-caption text-citation hover:underline"
           >
             @{post.ownerUsername}
           </a>
         )}
         {formatPostDate(post.timestamp) && (
-          <span className="text-[11px] text-ink-muted">
+          <span className="text-caption text-ink-muted">
             · {formatPostDate(post.timestamp)}
           </span>
         )}
@@ -573,7 +573,7 @@ export function InstagramPostDetail({
         <div>
           <p
             className={clsx(
-              "whitespace-pre-line text-[12px] leading-relaxed text-ink",
+              "whitespace-pre-line text-caption leading-relaxed text-ink",
               clipped && "line-clamp-4",
             )}
           >
@@ -583,7 +583,7 @@ export function InstagramPostDetail({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="mt-0.5 text-[11px] font-medium text-citation hover:underline"
+              className="mt-0.5 text-caption font-medium text-citation hover:underline"
             >
               {expanded ? "Show less" : "Show more"}
             </button>
@@ -625,7 +625,7 @@ export function InstagramComments({
   if (!comments.length) {
     return (
       <div className="space-y-2">
-        <p className="text-[12px] text-ink-muted">
+        <p className="text-caption text-ink-muted">
           {note ??
             (disabled
               ? "Comments are disabled on this post."
@@ -642,11 +642,11 @@ export function InstagramComments({
             key={`${c.username}-${i}`}
             className="rounded-xl border border-border bg-surface px-2.5 py-2"
           >
-            <p className="text-[12px] leading-relaxed text-ink">
+            <p className="text-caption leading-relaxed text-ink">
               <span className="font-medium">{c.username}</span>{" "}
               <span className="whitespace-pre-line">{c.text}</span>
             </p>
-            <p className="mt-1 flex items-center gap-2.5 text-[10px] tabular-nums text-ink-muted">
+            <p className="mt-1 flex items-center gap-2.5 text-caption tabular-nums text-ink-muted">
               {formatPostDate(c.timestamp) && (
                 <span>{formatPostDate(c.timestamp)}</span>
               )}

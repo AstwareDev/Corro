@@ -78,10 +78,10 @@ function Thumb({
           className="size-full object-cover"
         />
       ) : (
-        <span className="text-[11px] text-white/60">No thumbnail</span>
+        <span className="text-caption text-white/60">No thumbnail</span>
       )}
       {badge && (
-        <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-px font-mono text-[10px] tabular-nums text-white">
+        <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-px font-mono text-caption tabular-nums text-white">
           {badge}
         </span>
       )}
@@ -99,7 +99,7 @@ function Stat({
   label: string;
 }) {
   return (
-    <span className="flex items-center gap-1 text-[11px] tabular-nums text-ink-muted" title={label}>
+    <span className="flex items-center gap-1 text-caption tabular-nums text-ink-muted" title={label}>
       <Icon size={11} />
       {value}
     </span>
@@ -146,7 +146,7 @@ export function YouTubeChannelCard({
             className="size-14 shrink-0 rounded-full ring-1 ring-border"
           />
         ) : (
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[18px] font-semibold text-ink">
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-surface-raised text-title font-semibold text-ink">
             {channel.title.slice(0, 1)}
           </span>
         )}
@@ -155,11 +155,11 @@ export function YouTubeChannelCard({
             href={channel.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[13px] font-medium leading-snug text-ink hover:underline"
+            className="text-footnote font-medium leading-snug text-ink hover:underline"
           >
             {channel.title}
           </a>
-          <p className="mt-0.5 flex flex-wrap gap-x-1.5 text-[11px] text-ink-muted">
+          <p className="mt-0.5 flex flex-wrap gap-x-1.5 text-caption text-ink-muted">
             {channel.handle && <span>{channel.handle}</span>}
             {channel.subscriberText && <span>· {channel.subscriberText}</span>}
             {channel.subscriberText === undefined && channel.subscriberCount !== undefined && (
@@ -169,17 +169,17 @@ export function YouTubeChannelCard({
               <span>· {channel.videoCount.toLocaleString()} videos</span>
             )}
           </p>
-          {channel.joined && <p className="mt-0.5 text-[11px] text-ink-muted">{channel.joined}</p>}
+          {channel.joined && <p className="mt-0.5 text-caption text-ink-muted">{channel.joined}</p>}
           {about && (
             <div className="mt-1.5">
-              <p className={clsx("whitespace-pre-line text-[12px] leading-relaxed text-ink", clipped && "line-clamp-2")}>
+              <p className={clsx("whitespace-pre-line text-caption leading-relaxed text-ink", clipped && "line-clamp-2")}>
                 {about}
               </p>
               {about.length > 220 && (
                 <button
                   type="button"
                   onClick={() => setExpanded((v) => !v)}
-                  className="mt-0.5 text-[11px] font-medium text-citation hover:underline"
+                  className="mt-0.5 text-caption font-medium text-citation hover:underline"
                 >
                   {expanded ? "Show less" : "Show more"}
                 </button>
@@ -222,14 +222,14 @@ function VideoCard({ video }: { video: YouTubeVideoRow }) {
         className="aspect-video w-full"
       />
       {video.short && (
-        <span className="absolute left-1 top-1 rounded bg-[color:var(--shop-accent)] px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-white">
+        <span className="absolute left-1 top-1 rounded bg-[color:var(--shop-accent)] px-1 py-px text-caption font-semibold uppercase tracking-wide text-white">
           Short
         </span>
       )}
-      <span className="line-clamp-2 text-[12px] leading-snug text-ink group-hover:underline">
+      <span className="line-clamp-2 text-caption leading-snug text-ink group-hover:underline">
         {video.title}
       </span>
-      <span className="text-[10px] tabular-nums text-ink-muted">
+      <span className="text-caption tabular-nums text-ink-muted">
         {[video.views ?? (video.viewCount !== undefined ? `${formatCount(video.viewCount)} views` : undefined), video.published]
           .filter(Boolean)
           .join(" · ") || "youtube.com"}
@@ -252,7 +252,7 @@ export function YouTubeVideoGrid({
   hasMore?: boolean;
 }) {
   if (!videos.length) {
-    return <p className="text-[12px] text-ink-muted">This channel has no videos on this tab.</p>;
+    return <p className="text-caption text-ink-muted">This channel has no videos on this tab.</p>;
   }
   return (
     <div className="space-y-2" style={accentStyle(brand)}>
@@ -261,7 +261,7 @@ export function YouTubeVideoGrid({
           <VideoCard key={v.id} video={v} />
         ))}
       </div>
-      <p className="text-[10px] text-ink-muted">
+      <p className="text-caption text-ink-muted">
         {videos.length} {tab ?? "video"}{videos.length === 1 ? "" : "s"}
         {sort ? ` · ${sort}` : ""}
         {hasMore ? " · more available" : ""} · {brand?.host ?? "youtube.com"}
@@ -316,12 +316,12 @@ export function YouTubeVideoDetail({
           href={video.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[13px] font-medium leading-snug text-ink hover:underline"
+          className="text-footnote font-medium leading-snug text-ink hover:underline"
         >
           {video.title}
         </a>
         {video.channel?.name && (
-          <p className="mt-0.5 text-[11px] text-ink-muted">
+          <p className="mt-0.5 text-caption text-ink-muted">
             {video.channel.url ? (
               <a href={video.channel.url} target="_blank" rel="noopener noreferrer" className="text-citation hover:underline">
                 {video.channel.name}
@@ -340,7 +340,7 @@ export function YouTubeVideoDetail({
         <Stat Icon={ThumbsUp} value={video.likeCount !== undefined ? formatCount(video.likeCount) : "—"} label="Likes" />
         <Stat Icon={MessageSquare} value={video.commentCount !== undefined ? formatCount(video.commentCount) : "—"} label="Comments" />
         {video.qualities?.length ? (
-          <span className="flex items-center gap-1 text-[11px] text-ink-muted">
+          <span className="flex items-center gap-1 text-caption text-ink-muted">
             <Captions size={11} />
             {video.qualities.slice(0, 6).join(" · ")}
           </span>
@@ -349,7 +349,7 @@ export function YouTubeVideoDetail({
       {video.tags?.length ? (
         <p className="flex flex-wrap gap-1">
           {video.tags.slice(0, 12).map((t) => (
-            <span key={t} className="rounded-md bg-surface-raised px-1.5 py-0.5 text-[10px] text-ink-muted">
+            <span key={t} className="rounded-md bg-surface-raised px-1.5 py-0.5 text-caption text-ink-muted">
               {t}
             </span>
           ))}
@@ -357,14 +357,14 @@ export function YouTubeVideoDetail({
       ) : null}
       {about && (
         <div className="border-t border-border pt-2">
-          <p className={clsx("whitespace-pre-line text-[12px] leading-relaxed text-ink", clipped && "line-clamp-4")}>
+          <p className={clsx("whitespace-pre-line text-caption leading-relaxed text-ink", clipped && "line-clamp-4")}>
             {about}
           </p>
           {about.length > 400 && (
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="mt-0.5 text-[11px] font-medium text-citation hover:underline"
+              className="mt-0.5 text-caption font-medium text-citation hover:underline"
             >
               {expanded ? "Show less" : "Show more"}
             </button>
@@ -402,7 +402,7 @@ function AuthorAvatar({ name, src }: { name: string; src?: string }) {
     );
   }
   return (
-    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[12px] font-semibold text-ink">
+    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-raised text-caption font-semibold text-ink">
       {name.slice(0, 1).toUpperCase()}
     </span>
   );
@@ -423,7 +423,7 @@ export function YouTubeComments({
 }) {
   if (!comments.length) {
     return (
-      <p className="text-[12px] text-ink-muted">
+      <p className="text-caption text-ink-muted">
         {note ?? "No comments on this page. They may be disabled."}
       </p>
     );
@@ -437,27 +437,27 @@ export function YouTubeComments({
             <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-baseline gap-x-1.5">
               {c.authorUrl ? (
-                <a href={c.authorUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] font-medium text-citation hover:underline">
+                <a href={c.authorUrl} target="_blank" rel="noopener noreferrer" className="text-caption font-medium text-citation hover:underline">
                   {c.author}
                 </a>
               ) : (
-                <span className="text-[12px] font-medium text-ink">{c.author}</span>
+                <span className="text-caption font-medium text-ink">{c.author}</span>
               )}
-              {c.published && <span className="text-[10px] text-ink-muted">{c.published}</span>}
-              <span className="ml-auto flex items-center gap-1 text-[10px] tabular-nums text-ink-muted">
+              {c.published && <span className="text-caption text-ink-muted">{c.published}</span>}
+              <span className="ml-auto flex items-center gap-1 text-caption tabular-nums text-ink-muted">
                 <ThumbsUp size={9} />
                 {c.likes ?? (c.likeCount !== undefined ? formatCount(c.likeCount) : "")}
               </span>
             </p>
-            <p className="mt-1 whitespace-pre-line text-[12px] leading-relaxed text-ink">{c.text}</p>
+            <p className="mt-1 whitespace-pre-line text-caption leading-relaxed text-ink">{c.text}</p>
             {c.replyCount ? (
-              <p className="mt-1 text-[10px] text-ink-muted">{c.replyCount} {c.replyCount === 1 ? "reply" : "replies"} — replies out of scope</p>
+              <p className="mt-1 text-caption text-ink-muted">{c.replyCount} {c.replyCount === 1 ? "reply" : "replies"} — replies out of scope</p>
             ) : null}
             </div>
           </li>
         ))}
       </ul>
-      <p className="text-[10px] text-ink-muted">
+      <p className="text-caption text-ink-muted">
         {comments.length} shown{totalText ? ` · ${totalText}` : ""}
         {hasMore ? " · more available" : ""} · top-level only · {brand?.host ?? "youtube.com"}
       </p>
@@ -496,7 +496,7 @@ export function YouTubeTranscript({
 }) {
   const [showStamps, setShowStamps] = useState(true);
   if (!languages.length) {
-    return <p className="text-[12px] text-ink-muted">This video publishes no captions.</p>;
+    return <p className="text-caption text-ink-muted">This video publishes no captions.</p>;
   }
   return (
     <div className="space-y-2" style={accentStyle(brand)}>
@@ -506,7 +506,7 @@ export function YouTubeTranscript({
           <span
             key={`${l.code}-${l.name}`}
             className={clsx(
-              "rounded-md px-1.5 py-0.5 font-mono text-[10px]",
+              "rounded-md px-1.5 py-0.5 font-mono text-caption",
               picked?.code === l.code ? "bg-[color:var(--shop-accent)] text-white" : "bg-surface-raised text-ink-muted",
             )}
             title={l.auto ? "Auto-generated" : "Uploaded"}
@@ -516,11 +516,11 @@ export function YouTubeTranscript({
           </span>
         ))}
         {languages.length > 10 && (
-          <span className="text-[10px] text-ink-muted">+{languages.length - 10} more</span>
+          <span className="text-caption text-ink-muted">+{languages.length - 10} more</span>
         )}
       </p>
       {picked && (
-        <p className="text-[10px] text-ink-muted">
+        <p className="text-caption text-ink-muted">
           Showing {picked.name} ({picked.code}){picked.auto ? " — auto-generated" : ""}
         </p>
       )}
@@ -529,7 +529,7 @@ export function YouTubeTranscript({
           <button
             type="button"
             onClick={() => setShowStamps((v) => !v)}
-            className="mb-1 text-[11px] font-medium text-citation hover:underline"
+            className="mb-1 text-caption font-medium text-citation hover:underline"
           >
             {showStamps ? "Hide timestamps" : "Show timestamps"}
           </button>
@@ -537,19 +537,19 @@ export function YouTubeTranscript({
             {segments.map((s, i) => (
               <li key={`${s.start}-${i}`} className="flex items-start gap-2 rounded-lg px-1.5 py-1">
                 {showStamps && (
-                  <span className="mt-px shrink-0 font-mono text-[10px] tabular-nums text-ink-muted">
+                  <span className="mt-px shrink-0 font-mono text-caption tabular-nums text-ink-muted">
                     {cueTime(s.start)}
                   </span>
                 )}
-                <span className="text-[12px] leading-relaxed text-ink">{s.text}</span>
+                <span className="text-caption leading-relaxed text-ink">{s.text}</span>
               </li>
             ))}
           </ol>
         </div>
       ) : (
-        <p className="text-[12px] text-ink-muted">{note ?? text ?? "No caption text returned."}</p>
+        <p className="text-caption text-ink-muted">{note ?? text ?? "No caption text returned."}</p>
       )}
-      {note && segments?.length ? <p className="text-[10px] text-ink-muted">{note}</p> : null}
+      {note && segments?.length ? <p className="text-caption text-ink-muted">{note}</p> : null}
     </div>
   );
 }

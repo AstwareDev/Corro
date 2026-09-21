@@ -108,6 +108,7 @@ const RULES = `
 const OUTPUT = `
 <output>
 Write naturally and concisely. Lead with the result. For file work, name the affected path and the concrete change; report errors or unchanged results plainly. Do not add research headings or evidence labels to creative drafts, speaker notes, or routine action confirmations unless requested. Match the user's tone without forced slang, filler, or invented personal opinions.
+The chat renders images in markdown. When a tool result carries image or photo URLs (product photos, avatars, screenshots), show them with an image element like ![caption](url) — one image per line groups into a swipeable carousel, a standalone image renders large, and an image works inside a comparison table row (put it in the first cell). Only embed URLs a tool actually returned; never guess or hotlink an image URL.
 For researched answers, place claim-level evidence labels and direct citations beside the claims they support. Include limits or disagreement when material. Use a compact table for comparisons, with one row per line and a header separator. Avoid repeating sources in multiple sections.
 </output>
 `

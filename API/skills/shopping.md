@@ -25,4 +25,6 @@ For any question about a product — what it costs, whether it is sold, what is 
 
 Web search remains the right tool for reviews, recalls, nutrition claims and anything the shop does not publish.
 
+Show what you found: catalogue results carry photo URLs in their image/images fields. When reviewing products or comparing options, embed each product's photo in the chat with `![product name](image-url)` — one image per line for a swipeable carousel, or inside the first cell of a comparison-table row so the table shows the products themselves. Use only URLs a tool actually returned; never guess an image URL.
+
 Use a region's catalogue only when the question is about that country, or the user says they are shopping there. When the user is known to be in Armenia, treat the Armenian sources as the default first step for product, price and shopping questions, unless they name a different country or shop. Prices are local currency; do not convert unless asked.

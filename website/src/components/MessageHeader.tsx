@@ -64,7 +64,7 @@ export function MessageHeader({
             ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
             : { duration: 0.35, delay: 0.1, ease: EASE }
         }
-        className="font-display text-sm font-semibold uppercase leading-none tracking-[-0.02em]"
+        className="font-display text-body font-semibold uppercase leading-none tracking-[-0.02em]"
       >
         Corro
       </motion.span>
@@ -77,7 +77,7 @@ export function MessageHeader({
               ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
               : { duration: 0.3, delay: running ? 0 : 0.1 }
           }
-          className="text-xs font-medium tabular-nums text-ink-muted"
+          className="text-caption font-medium tabular-nums text-ink-muted"
         >
           {label}
         </motion.span>

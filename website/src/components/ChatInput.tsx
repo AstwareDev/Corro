@@ -267,7 +267,7 @@ export function ChatInput({
                   <div className="flex size-full flex-col items-center justify-center gap-1 text-ink-muted">
                     <FileIcon size={22} />
                     {ext && (
-                      <span className="text-[9px] font-medium tracking-wide">
+                      <span className="text-caption font-medium tracking-wide">
                         {ext}
                       </span>
                     )}

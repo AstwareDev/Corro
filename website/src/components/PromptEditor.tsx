@@ -5,6 +5,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { EditorContent, Extension, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { SkillIcon } from "./tools/registry";
 import {
   type RefObject,
   useEffect,
@@ -85,13 +86,21 @@ const SlashHighlight = Extension.create({
           decorations(state) {
             const first = state.doc.firstChild;
             if (!first || first.type.name !== "paragraph") return null;
-            const match = /^\/[A-Za-z0-9-_]+/.exec(first.textContent);
-            if (!match) return null;
-            return DecorationSet.create(state.doc, [
-              Decoration.inline(1, 1 + match[0].length, {
-                class: "corro-slash",
-              }),
-            ]);
+            const run = /^((?:\/[A-Za-z0-9-_]+\s*)+)/.exec(
+              first.textContent,
+            );
+            if (!run) return null;
+            const decos: Decoration[] = [];
+            for (const m of run[1].matchAll(/\/[A-Za-z0-9-_]+/g)) {
+              const at = 1 + (m.index ?? 0);
+              decos.push(
+                Decoration.inline(at, at + m[0].length, {
+                  class: "corro-slash",
+                }),
+              );
+            }
+            if (!decos.length) return null;
+            return DecorationSet.create(state.doc, decos);
           },
         },
       }),
@@ -99,7 +108,13 @@ const SlashHighlight = Extension.create({
   },
 });
 
-const SLASH_TOKEN = /^\/([A-Za-z0-9-_]*)$/;
+function leadingSkillNames(text: string): string[] {
+  const run = /^((?:\/[A-Za-z0-9-_]+\s*)+)/.exec(text);
+  if (!run) return [];
+  return [...run[1].matchAll(/\/([A-Za-z0-9-_]+)/g)].map((m) =>
+    m[1].toLowerCase(),
+  );
+}
 
 interface CursorState {
   state: {
@@ -112,20 +127,27 @@ interface CursorState {
       $head: {
         parent: unknown;
         parentOffset: number;
+        pos: number;
         before: () => number;
       };
     };
   };
 }
 
+// Matches the /token being typed right before the cursor, but only when
+// everything ahead of it in the first paragraph is already-complete skill
+// tokens — so `/a /b /par|` chains, while mid-message slashes stay quiet.
 function slashQueryAtCursor(editor: CursorState): string | null {
   const { state } = editor;
   const first = state.doc.firstChild;
   const $head = state.selection.$head;
   if (!first || $head.parent !== first) return null;
   const before = first.textBetween(0, $head.parentOffset);
-  const match = SLASH_TOKEN.exec(before);
-  return match ? match[1] : null;
+  const token = /\/([A-Za-z0-9-_]*)$/.exec(before);
+  if (!token) return null;
+  const prefix = before.slice(0, token.index);
+  if (!/^(?:\/[A-Za-z0-9-_]+\s+)*\s*$/.test(prefix)) return null;
+  return token[1];
 }
 
 export function PromptEditor({
@@ -151,6 +173,7 @@ export function PromptEditor({
 
   const [skills, setSkills] = useState<SkillDescription[]>([]);
   const [slash, setSlash] = useState<string | null>(null);
+  const [used, setUsed] = useState<string[]>([]);
   const [selected, setSelected] = useState(0);
 
   useEffect(() => {
@@ -166,8 +189,10 @@ export function PromptEditor({
   const matches =
     slash === null
       ? []
-      : skills.filter((s) =>
-          s.name.toLowerCase().startsWith(slash.toLowerCase()),
+      : skills.filter(
+          (s) =>
+            !used.includes(s.name.toLowerCase()) &&
+            s.name.toLowerCase().startsWith(slash.toLowerCase()),
         );
   const open = slash !== null && matches.length > 0;
 
@@ -211,7 +236,7 @@ export function PromptEditor({
     editorProps: {
       attributes: {
         class:
-          "corro-prompt scroll-thin max-h-[240px] overflow-y-auto px-1 py-1 text-[15px] leading-relaxed text-ink focus:outline-none",
+          "corro-prompt scroll-thin max-h-[240px] overflow-y-auto px-1 py-1 text-body leading-relaxed text-ink focus:outline-none",
       },
       handlePaste: (_view, event) => {
         const files = Array.from(event.clipboardData?.files ?? []);
@@ -231,11 +256,13 @@ export function PromptEditor({
       onChange?.(e.isEmpty);
       const query = slashQueryAtCursor(e);
       setSlash((prev) => (prev === query ? prev : query));
+      setUsed(leadingSkillNames(e.state.doc.firstChild?.textContent ?? ""));
       setSelected(0);
     },
     onSelectionUpdate: ({ editor: e }) => {
       const query = slashQueryAtCursor(e);
       setSlash((prev) => (prev === query ? prev : query));
+      setUsed(leadingSkillNames(e.state.doc.firstChild?.textContent ?? ""));
       setSelected(0);
     },
   });
@@ -244,8 +271,9 @@ export function PromptEditor({
     if (!editor || slash === null) return;
     const { state } = editor;
     const $head = state.selection.$head;
-    const from = $head.before() + 1;
-    const to = from + 1 + slash.length;
+    // The partial token always sits immediately before the cursor.
+    const to = $head.pos;
+    const from = to - slash.length - 1;
     editor
       .chain()
       .focus()
@@ -296,38 +324,53 @@ export function PromptEditor({
     editor?.setEditable(!disabled);
   }, [editor, disabled]);
 
+  const active = matches[Math.min(selected, matches.length - 1)];
+
   return (
     <div className="relative">
       {open && (
-        <div className="popover-material absolute bottom-full left-0 z-30 mb-2 w-80 max-w-full rounded-popover p-1.5">
-          <p className="px-2.5 pb-1 pt-1 text-caption font-medium text-ink-muted">
-            Skills
-          </p>
-          <div className="scroll-thin max-h-[240px] overflow-y-auto overscroll-contain">
-            {matches.map((s, i) => (
-              <button
-                key={s.name}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => complete(s.name)}
-                onMouseEnter={() => setSelected(i)}
-                className={`flex w-full items-center gap-2.5 rounded-row px-2.5 py-2 text-left transition-colors ${
-                  i === selected ? "bg-surface-raised" : "hover:bg-surface-raised"
-                }`}
-              >
-                <span className="shrink-0 text-footnote font-medium text-citation">
-                  /{s.name}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-footnote text-ink-muted">
-                  {s.description}
-                </span>
-              </button>
-            ))}
+        <>
+          <div className="popover-material absolute bottom-full left-0 z-30 mb-2 w-64 max-w-full rounded-popover p-1.5">
+            <div className="scroll-thin max-h-[240px] overflow-y-auto overscroll-contain">
+              {matches.map((s, i) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => complete(s.name)}
+                  onMouseEnter={() => setSelected(i)}
+                  className={`flex w-full items-center gap-2 rounded-row px-2.5 py-2 text-left transition-colors ${
+                    i === selected ? "bg-accent-soft" : "hover:bg-surface-raised"
+                  }`}
+                >
+                  <SkillIcon
+                    size={14}
+                    className={`shrink-0 ${
+                      i === selected ? undefined : "opacity-60"
+                    }`}
+                  />
+                  <span
+                    className={`min-w-0 flex-1 truncate font-sans text-footnote font-semibold ${
+                      i === selected ? "text-accent-text" : "text-ink"
+                    }`}
+                  >
+                    /{s.name}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-          <p className="px-2.5 pb-1 pt-1 text-caption text-ink-muted">
-            Tab to complete · Esc to dismiss
-          </p>
-        </div>
+          {active && (
+            <div className="popover-material absolute bottom-full left-[272px] z-30 mb-2 hidden w-72 max-w-full rounded-popover px-3 py-2.5 sm:block">
+              <p className="font-sans text-footnote font-semibold text-accent-text">
+                /{active.name}
+              </p>
+              <p className="mt-1 text-footnote leading-relaxed text-ink">
+                {active.description}
+              </p>
+            </div>
+          )}
+        </>
       )}
       <EditorContent editor={editor} />
     </div>

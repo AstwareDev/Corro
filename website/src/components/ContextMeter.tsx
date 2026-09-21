@@ -177,7 +177,7 @@ export function ContextMeter({
               <div className="relative shrink-0">
                 <Donut size={64} stroke={9} segments={segments} />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="font-mono text-sm font-semibold leading-none text-ink">
+                  <span className="font-mono text-body font-semibold leading-none text-ink">
                     {percent.toFixed(0)}%
                   </span>
                 </div>

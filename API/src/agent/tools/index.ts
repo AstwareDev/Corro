@@ -86,7 +86,7 @@ export function selectTools(
 
 export { calculator, evaluate, CalcError } from './calculator.js'
 export { readSkill } from '../skills/readSkill.js'
-export { listSkills, readSkillBody, parseSkillCommand, SkillNotFound } from '../skills/loader.js'
+export { listSkills, readSkillBody, parseSkillCommand, parseSkillCommands, SkillNotFound } from '../skills/loader.js'
 export { currencyConvert, CURRENCY_TOOL_NAMES } from './currency/index.js'
 export { webSearch, webExtract, webCrawl, webMap, hasTavilyKey, TavilyError } from './tavily/index.js'
 export {

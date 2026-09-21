@@ -76,7 +76,7 @@ function RawJson({ value }: { value: unknown }) {
     }
   }
   return (
-    <pre className="scroll-thin max-h-80 overflow-auto rounded-lg bg-surface-raised px-2.5 py-2 font-mono text-[11px] leading-relaxed text-ink">
+    <pre className="scroll-thin max-h-80 overflow-auto rounded-lg bg-surface-raised px-2.5 py-2 font-mono text-caption leading-relaxed text-ink">
       {text || "—"}
     </pre>
   );
@@ -84,7 +84,7 @@ function RawJson({ value }: { value: unknown }) {
 
 function ErrorLine({ error }: { error: string }) {
   return (
-    <p className="rounded-lg bg-contradicted/5 px-2.5 py-2 text-[12px] text-contradicted">
+    <p className="rounded-lg bg-contradicted/5 px-2.5 py-2 text-caption text-contradicted">
       {error}
     </p>
   );
@@ -99,10 +99,10 @@ function CalculatorResult({
 }) {
   return (
     <div className="rounded-xl border border-border bg-surface-raised px-3 py-2.5">
-      <div className="truncate font-mono text-[12px] text-ink-muted">
+      <div className="truncate font-mono text-caption text-ink-muted">
         {expression}
       </div>
-      <div className="mt-0.5 truncate font-mono text-[20px] font-semibold text-ink">
+      <div className="mt-0.5 truncate font-mono text-title font-semibold text-ink">
         = {formatted}
       </div>
     </div>
@@ -121,9 +121,9 @@ function PathLine({
   return (
     <div className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-raised px-3 py-2.5">
       <Icon size={13} className="shrink-0 text-ink-muted" />
-      <span className="truncate font-mono text-[12px] text-ink">{path}</span>
+      <span className="truncate font-mono text-caption text-ink">{path}</span>
       {meta && (
-        <span className="ml-auto shrink-0 text-[10px] text-ink-muted">
+        <span className="ml-auto shrink-0 text-caption text-ink-muted">
           {meta}
         </span>
       )}
@@ -328,10 +328,10 @@ function FileResultCard({
             <FileTypeBadge path={path} size={18} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[14px] font-medium text-ink">
+            <div className="truncate text-body font-medium text-ink">
               {path}
             </div>
-            {meta && <div className="text-[11px] text-ink-muted">{meta}</div>}
+            {meta && <div className="text-caption text-ink-muted">{meta}</div>}
           </div>
         </button>
         <a
@@ -366,7 +366,7 @@ function FileResultCard({
                     setPreview(true);
                     setMenuOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-ink transition-colors hover:bg-surface-raised"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-caption text-ink transition-colors hover:bg-surface-raised"
                 >
                   Open
                 </button>
@@ -376,7 +376,7 @@ function FileResultCard({
                       key={key}
                       href={hrefFor(key)}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] text-ink transition-colors hover:bg-surface-raised"
+                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-caption text-ink transition-colors hover:bg-surface-raised"
                     >
                       <Icon />
                       {label}
@@ -386,7 +386,7 @@ function FileResultCard({
                   <a
                     href={fileDownloadHref(viewUrl)}
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] text-ink transition-colors hover:bg-surface-raised"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-caption text-ink transition-colors hover:bg-surface-raised"
                   >
                     <Download size={14} />
                     Download
@@ -413,7 +413,7 @@ function FileResultCard({
           className="block max-h-[420px] w-full cursor-pointer overflow-hidden border-t border-border bg-surface px-4 py-4 text-left"
         >
           {error ? (
-            <p className="text-[12px] text-contradicted">{error}</p>
+            <p className="text-caption text-contradicted">{error}</p>
           ) : isImage ? (
             <img
               src={href}
@@ -443,11 +443,11 @@ function FileResultCard({
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             >
               {isMarkdown ? (
-                <div className="text-[13px] leading-relaxed text-ink">
+                <div className="text-footnote leading-relaxed text-ink">
                   <Markdown text={content} />
                 </div>
               ) : (
-                <pre className="whitespace-pre font-mono text-[12px] leading-relaxed text-ink">
+                <pre className="whitespace-pre font-mono text-caption leading-relaxed text-ink">
                   {content || "—"}
                 </pre>
               )}
@@ -478,7 +478,7 @@ interface WorkspaceFile {
 function FileList({ files }: { files: WorkspaceFile[] }) {
   if (!files.length) {
     return (
-      <p className="rounded-lg bg-surface-raised px-2.5 py-2 text-[12px] text-ink-muted">
+      <p className="rounded-lg bg-surface-raised px-2.5 py-2 text-caption text-ink-muted">
         The workspace is empty.
       </p>
     );
@@ -491,10 +491,10 @@ function FileList({ files }: { files: WorkspaceFile[] }) {
           className="flex items-center gap-1.5 rounded-lg px-2 py-1"
         >
           <FileTypeBadge path={f.path} size={13} />
-          <span className="truncate font-mono text-[11px] text-ink">
+          <span className="truncate font-mono text-caption text-ink">
             {f.path}
           </span>
-          <span className="ml-auto shrink-0 font-mono text-[10px] text-ink-muted">
+          <span className="ml-auto shrink-0 font-mono text-caption text-ink-muted">
             {formatBytes(f.bytes)}
           </span>
         </li>
@@ -520,7 +520,7 @@ function FileSearchMatches({
 }) {
   if (!matches.length) {
     return (
-      <p className="rounded-lg bg-surface-raised px-2.5 py-2 text-[12px] text-ink-muted">
+      <p className="rounded-lg bg-surface-raised px-2.5 py-2 text-caption text-ink-muted">
         No matches for <span className="font-mono">{pattern}</span>.
       </p>
     );
@@ -533,17 +533,17 @@ function FileSearchMatches({
             key={`${m.path}:${m.line}:${i}`}
             className="flex items-start gap-1.5 rounded-lg px-2 py-1"
           >
-            <span className="mt-0.5 shrink-0 font-mono text-[10px] text-ink-muted">
+            <span className="mt-0.5 shrink-0 font-mono text-caption text-ink-muted">
               {m.path}:{m.line}
             </span>
-            <span className="truncate font-mono text-[11px] text-ink">
+            <span className="truncate font-mono text-caption text-ink">
               {m.text}
             </span>
           </li>
         ))}
       </ul>
       {truncated && (
-        <p className="text-[10px] text-ink-muted">
+        <p className="text-caption text-ink-muted">
           Showing the first {matches.length} matches.
         </p>
       )}
@@ -564,16 +564,16 @@ function FileContent({
     <div>
       <div className="mb-1 flex items-center gap-1.5">
         <FileTypeBadge path={path} size={13} />
-        <span className="truncate font-mono text-[10px] text-ink-muted">
+        <span className="truncate font-mono text-caption text-ink-muted">
           {path}
         </span>
         {truncated && (
-          <span className="ml-auto shrink-0 text-[10px] text-ink-muted">
+          <span className="ml-auto shrink-0 text-caption text-ink-muted">
             truncated
           </span>
         )}
       </div>
-      <pre className="scroll-thin max-h-80 overflow-auto whitespace-pre rounded-lg bg-surface-raised px-2.5 py-2 font-mono text-[11px] leading-relaxed text-ink">
+      <pre className="scroll-thin max-h-80 overflow-auto whitespace-pre rounded-lg bg-surface-raised px-2.5 py-2 font-mono text-caption leading-relaxed text-ink">
         {content || "—"}
       </pre>
     </div>
@@ -584,11 +584,11 @@ function FileRename({ from, to }: { from: string; to: string }) {
   return (
     <div className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-raised px-3 py-2.5">
       <FilePen size={13} className="shrink-0 text-ink-muted" />
-      <span className="truncate font-mono text-[12px] text-ink-muted">
+      <span className="truncate font-mono text-caption text-ink-muted">
         {from}
       </span>
       <ArrowRight size={12} className="shrink-0 text-ink-muted" />
-      <span className="truncate font-mono text-[12px] text-ink">{to}</span>
+      <span className="truncate font-mono text-caption text-ink">{to}</span>
     </div>
   );
 }
@@ -598,11 +598,11 @@ function AnswerCard({ answer }: { answer: string }) {
     <div className="rounded-xl border border-border bg-surface-raised px-3 py-2.5">
       <div className="mb-1 flex items-center gap-1.5">
         <Sparkles size={12} className="text-ink-muted" />
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+        <span className="text-caption font-semibold uppercase tracking-wide text-ink-muted">
           Overview · not a source
         </span>
       </div>
-      <p className="text-[13px] leading-relaxed text-ink">{answer}</p>
+      <p className="text-footnote leading-relaxed text-ink">{answer}</p>
     </div>
   );
 }
@@ -633,7 +633,7 @@ function SearchResults({
           const host = hostOf(url);
           return (
             <li key={url || i} className="flex gap-2.5">
-              <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded bg-surface-raised font-mono text-[9px] text-ink-muted">
+              <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded bg-surface-raised font-mono text-caption text-ink-muted">
                 {i + 1}
               </span>
               <div className="min-w-0 flex-1">
@@ -641,23 +641,23 @@ function SearchResults({
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[13px] font-medium text-citation hover:underline"
+                  className="text-footnote font-medium text-citation hover:underline"
                 >
                   {r.title || host || url}
                 </a>
                 <div className="mt-0.5 flex items-center gap-1.5">
                   <Favicon host={host} size={12} />
-                  <span className="truncate font-mono text-[10px] text-ink-muted">
+                  <span className="truncate font-mono text-caption text-ink-muted">
                     {url}
                   </span>
                   {r.published && (
-                    <span className="shrink-0 font-mono text-[10px] text-ink-muted/70">
+                    <span className="shrink-0 font-mono text-caption text-ink-muted/70">
                       {r.published}
                     </span>
                   )}
                 </div>
                 {r.content && (
-                  <p className="mt-1 line-clamp-3 text-[12px] leading-relaxed text-ink-muted">
+                  <p className="mt-1 line-clamp-3 text-caption leading-relaxed text-ink-muted">
                     {r.content}
                   </p>
                 )}
@@ -668,7 +668,7 @@ function SearchResults({
       </ol>
 
       {distinctDomains !== undefined && (
-        <p className="text-[10px] text-ink-muted">
+        <p className="text-caption text-ink-muted">
           {results.length} results across {distinctDomains} distinct{" "}
           {distinctDomains === 1 ? "domain" : "domains"}
         </p>
@@ -697,12 +697,12 @@ function Pages({
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="truncate font-mono text-[10px] text-citation hover:underline"
+                className="truncate font-mono text-caption text-citation hover:underline"
               >
                 {url}
               </a>
             </div>
-            <pre className="scroll-thin max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised px-2.5 py-2 font-mono text-[11px] leading-relaxed text-ink">
+            <pre className="scroll-thin max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised px-2.5 py-2 font-mono text-caption leading-relaxed text-ink">
               {p.content || "—"}
             </pre>
           </div>
@@ -722,8 +722,8 @@ function SiteMap({ site, urls }: { site?: string; urls: string[] }) {
       {site && (
         <div className="mb-1.5 flex items-center gap-1.5">
           <Favicon host={site} size={12} />
-          <span className="font-mono text-[11px] text-ink">{site}</span>
-          <span className="text-[10px] text-ink-muted">{urls.length} URLs</span>
+          <span className="font-mono text-caption text-ink">{site}</span>
+          <span className="text-caption text-ink-muted">{urls.length} URLs</span>
         </div>
       )}
       <ul className="scroll-thin max-h-72 space-y-0.5 overflow-auto">
@@ -733,7 +733,7 @@ function SiteMap({ site, urls }: { site?: string; urls: string[] }) {
               href={u}
               target="_blank"
               rel="noopener noreferrer"
-              className="block truncate font-mono text-[10px] text-citation hover:underline"
+              className="block truncate font-mono text-caption text-citation hover:underline"
             >
               {u}
             </a>
@@ -749,10 +749,10 @@ function SkillLoaded({ name }: { name: string }) {
     <div className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-raised px-3 py-2.5">
       <SkillIcon size={18} className="shrink-0" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium text-ink">
+        <div className="truncate text-footnote font-medium text-ink">
           /{name}
         </div>
-        <div className="text-[11px] text-ink-muted">
+        <div className="text-caption text-ink-muted">
           Skill instructions loaded into context for this turn
         </div>
       </div>

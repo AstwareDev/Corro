@@ -504,7 +504,7 @@ export function HistorySidebar({
           <div className="flex h-8 min-w-0 flex-1 items-center gap-2 overflow-hidden pl-2 text-ink">
             <CorroMark className="size-[18px] shrink-0" />
             {expanded && (
-              <CorroWordmark className="truncate text-[15px] leading-none" />
+              <CorroWordmark className="truncate text-body leading-none" />
             )}
           </div>
           {expanded && (

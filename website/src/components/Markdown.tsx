@@ -4,9 +4,25 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { resolveAssetUrl } from "@/lib/api";
 import { convertMathBrackets } from "@/lib/math-brackets";
+import { rehypeImageFigures } from "@/lib/rehype-image-figures";
 import { rehypeWordSpans } from "@/lib/rehype-word-spans";
 
 const components: Components = {
+  img: ({ src, alt }) => {
+    const href = typeof src === "string" ? resolveAssetUrl(src) : "";
+    return (
+      <a
+        href={href || undefined}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={alt || undefined}
+        className="chat-img-link"
+      >
+        {/* biome-ignore lint/performance/noImgElement: arbitrary remote chat images don't belong to Next image optimisation */}
+        <img src={href} alt={alt ?? ""} loading="lazy" className="chat-img" />
+      </a>
+    );
+  },
   p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
   strong: ({ children }) => (
     <strong className="font-semibold text-ink">{children}</strong>
@@ -51,7 +67,7 @@ const components: Components = {
   ),
   hr: () => <hr className="my-4 border-border" />,
   table: ({ children }) => (
-    <div className="mb-3 overflow-x-auto rounded-row border border-border scroll-thin">
+    <div className="chat-table mb-3 overflow-x-auto rounded-row border border-border scroll-thin">
       <table className="w-full border-collapse text-left text-footnote">
         {children}
       </table>
@@ -93,9 +109,13 @@ type KatexPlugin = [typeof rehypeKatex, typeof katexOptions];
 // word-splitter runs (which skips KaTeX subtrees — see rehype-word-spans).
 const wordAnimatedRehypePlugins = [
   [rehypeKatex, katexOptions] as KatexPlugin,
+  rehypeImageFigures,
   rehypeWordSpans,
 ];
-const settledRehypePlugins = [[rehypeKatex, katexOptions] as KatexPlugin];
+const settledRehypePlugins = [
+  [rehypeKatex, katexOptions] as KatexPlugin,
+  rehypeImageFigures,
+];
 
 export function Markdown({
   text,

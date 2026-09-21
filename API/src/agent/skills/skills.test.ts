@@ -10,6 +10,7 @@ import {
   listSkills,
   parseFrontmatter,
   parseSkillCommand,
+  parseSkillCommands,
   readSkillBody,
   resolveSkillsDir,
   SkillNotFound,
@@ -77,6 +78,19 @@ test('slash commands parse only at the message start', () => {
   assert.equal(parseSkillCommand('please /research this'), null)
   assert.equal(parseSkillCommand('/'), null)
   assert.equal(parseSkillCommand('hello'), null)
+})
+
+test('slash commands parse multiple leading skills', () => {
+  assert.deepEqual(parseSkillCommands('/research /shopping compare prices'), {
+    names: ['research', 'shopping'],
+    rest: 'compare prices',
+  })
+  assert.deepEqual(parseSkillCommands('/research'), { names: ['research'], rest: '' })
+  assert.deepEqual(parseSkillCommands('  /Research /Shopping  '), { names: ['research', 'shopping'], rest: '' })
+  assert.deepEqual(parseSkillCommands('/a-b_c9 x'), { names: ['a-b_c9'], rest: 'x' })
+  assert.equal(parseSkillCommands('please /research this'), null)
+  assert.equal(parseSkillCommands('/'), null)
+  assert.equal(parseSkillCommands('hello'), null)
 })
 
 test('system prompt carries the skill index, never skill bodies or a clock', () => {

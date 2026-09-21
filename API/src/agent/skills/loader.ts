@@ -101,3 +101,14 @@ export function parseSkillCommand(text: string): { name: string; rest: string } 
   if (!match) return null
   return { name: match[1].toLowerCase(), rest: (match[2] ?? '').trim() }
 }
+
+const SKILL_TOKEN = /\/([A-Za-z0-9-_]+)/g
+
+export function parseSkillCommands(text: string): { names: string[]; rest: string } | null {
+  const trimmed = text.trim()
+  const run = /^((?:\/[A-Za-z0-9-_]+\s*)+)([\s\S]*)$/.exec(trimmed)
+  if (!run) return null
+  const names = [...run[1].matchAll(SKILL_TOKEN)].map((m) => m[1].toLowerCase())
+  if (!names.length) return null
+  return { names, rest: (run[2] ?? '').trim() }
+}

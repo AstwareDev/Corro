@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { buildSystemPrompt, type PromptOptions } from '../agent/prompt.js'
 import { runAgent, streamAgent, type AgentEvent, type RunResult } from '../agent/run.js'
-import { parseSkillCommand, readSkillBody, SkillNotFound } from '../agent/skills/loader.js'
+import { parseSkillCommands, readSkillBody, SkillNotFound } from '../agent/skills/loader.js'
 import { selectTools, workspaceRoot } from '../agent/tools/index.js'
 import { resolveInside } from '../agent/tools/fs/workspace.js'
 import { toolSpecs } from '../agent/tools/specs.js'
@@ -123,19 +123,33 @@ function attachmentContent(req: ChatRequest, workspace: string, baseText: string
   return [{ type: 'text', text }, ...parts]
 }
 
-function slashSkill(text: string): { name: string; stripped: string; body: string } | null {
-  const cmd = parseSkillCommand(text)
+function slashSkill(text: string): { names: string[]; stripped: string; body: string } | null {
+  const cmd = parseSkillCommands(text)
   if (!cmd) return null
-  try {
-    const { meta, body } = readSkillBody(cmd.name)
-    const stripped =
-      cmd.rest ||
-      `(The user invoked /${meta.name} with no further text; apply that skill to the conversation context so far.)`
-    return { name: meta.name, stripped, body }
-  } catch (err) {
-    if (err instanceof SkillNotFound) return null
-    throw err
+  const seen = new Set<string>()
+  const loaded: Array<{ meta: { name: string }; body: string }> = []
+  const unknown: string[] = []
+  for (const name of cmd.names) {
+    if (seen.has(name)) continue
+    seen.add(name)
+    try {
+      loaded.push(readSkillBody(name))
+    } catch (err) {
+      if (err instanceof SkillNotFound) {
+        unknown.push(`/${name}`)
+        continue
+      }
+      throw err
+    }
   }
+  if (!loaded.length) return null
+  const names = loaded.map((l) => l.meta.name)
+  const body = loaded.map((l) => `<skill name="${l.meta.name}">\n${l.body.trim()}\n</skill>`).join('\n')
+  const rest =
+    cmd.rest ||
+    `(The user invoked ${names.map((n) => `/${n}`).join(', ')} with no further text; apply those skills to the conversation context so far.)`
+  const stripped = unknown.length && cmd.rest ? `${unknown.join(' ')} ${cmd.rest}`.trim() : unknown.length ? unknown.join(' ') : rest
+  return { names, stripped, body }
 }
 
 function resolve(req: ChatRequest): Resolved {
@@ -159,7 +173,7 @@ function resolve(req: ChatRequest): Resolved {
   const now = new Date().toISOString()
 
   // The persisted turn keeps the user's original text. The model-bound copy
-  // strips a leading /skill trigger and carries the send time, so the system
+  // strips leading /skill triggers and carries the send time, so the system
   // prompt itself stays free of per-turn clocks and remains cacheable.
   let skillContext: string | undefined
   const bound: ModelMessage[] = turn.map((m) => ({ role: m.role, content: m.content }) as ModelMessage)
@@ -169,8 +183,8 @@ function resolve(req: ChatRequest): Resolved {
     const invoked = slashSkill(last.content)
     if (invoked) {
       skillContext =
-        `<skill name="${invoked.name}">\n${invoked.body.trim()}\n</skill>\n` +
-        'The user invoked this skill for this turn. Follow it; it only overrides default behaviour where it speaks.'
+        `${invoked.body.trim()}\n` +
+        'The user invoked these skills for this turn. Follow them; they only override default behaviour where they speak.'
       last.content = invoked.stripped
     }
     if (req.message !== undefined) last.content = withSentAt(last.content, now)

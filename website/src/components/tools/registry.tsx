@@ -45,12 +45,12 @@ export function SkillIcon({
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
-        stroke="#1a1a1a"
+        stroke="currentColor"
       >
         <path d="M11 10c3-4 8-6 13-5.8C34 4.5 41 12 41 22l.5 2.5 4 5-4 2L41 37l-2.5 3-5.5 1.5-1 4H13L11 33" />
         <circle cx={13} cy={21.5} r={10.5} fill="#dcd8c8" />
         <path
-          fill="#1a1a1a"
+          fill="currentColor"
           strokeWidth={1.5}
           d="m15 14-5.5 8.5h4L12 29l5.5-8.5h-4z"
         />

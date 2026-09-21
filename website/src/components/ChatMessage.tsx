@@ -24,6 +24,7 @@ import { Markdown } from "./Markdown";
 import { MessageFooter } from "./MessageFooter";
 import { MessageHeader } from "./MessageHeader";
 import { summarizeTrace, type TraceBlock, TraceGroup } from "./TraceGroup";
+import { SkillIcon } from "./tools/registry";
 import { ToolResult } from "./tools/ToolResult";
 
 const ARTIFACT_TOOLS = new Set(["fs_write", "fs_edit"]);
@@ -47,6 +48,20 @@ function artifactsOf(blocks: MessageBlock[]): ToolCallUI[] {
 }
 
 const EASE = [0.16, 1, 0.3, 1] as const;
+
+const LEADING_SKILLS = /^((?:\/[A-Za-z0-9-_]+\s*)+)([\s\S]*)$/;
+
+function splitLeadingSkills(
+  text: string,
+): { names: string[]; rest: string } | null {
+  const match = LEADING_SKILLS.exec(text.trimStart());
+  if (!match) return null;
+  const names = [...match[1].matchAll(/\/([A-Za-z0-9-_]+)/g)].map(
+    (m) => m[1],
+  );
+  if (!names.length) return null;
+  return { names, rest: (match[2] ?? "").trimStart() };
+}
 
 type Segment =
   | { kind: "trace"; id: string; blocks: TraceBlock[] }
@@ -189,7 +204,6 @@ function AssistantMessage({
     </motion.div>
   );
 }
-
 function MessageAttachments({
   attachments,
 }: {
@@ -218,7 +232,7 @@ function MessageAttachments({
               <div className="flex size-full flex-col items-center justify-center gap-1 text-ink-muted">
                 <FileIcon size={18} />
                 {ext && (
-                  <span className="text-[9px] font-medium tracking-wide">
+                  <span className="text-caption font-medium tracking-wide">
                     {ext}
                   </span>
                 )}
@@ -325,7 +339,28 @@ function UserMessage({
         </div>
       ) : (
         <div className="corro-user-message max-w-[75%] break-words rounded-2xl bg-ink px-4 py-2 text-body leading-normal text-surface">
-          <Markdown text={message.text} />
+          {(() => {
+            const skills = splitLeadingSkills(message.text);
+            if (!skills) return <Markdown text={message.text} />;
+            return (
+              <div className="skill-body">
+                {skills.names.map((name) => (
+                  <span key={name} className="corro-skill-chip">
+                    <SkillIcon size={11} />
+                    /{name}
+                  </span>
+                ))}
+                {skills.rest ? (
+                  <>
+                    {" "}
+                    <div className="skill-rest">
+                      <Markdown text={skills.rest} />
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            );
+          })()}
         </div>
       )}
 
