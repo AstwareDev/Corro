@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { buildSystemPrompt, type PromptOptions } from '../agent/prompt.js'
 import { runAgent, streamAgent, type AgentEvent, type RunResult } from '../agent/run.js'
+import { parseSkillCommand, readSkillBody, SkillNotFound } from '../agent/skills/loader.js'
 import { selectTools, workspaceRoot } from '../agent/tools/index.js'
 import { resolveInside } from '../agent/tools/fs/workspace.js'
 import { toolSpecs } from '../agent/tools/specs.js'
@@ -14,6 +15,7 @@ import {
   createSession,
   getSession,
   saveSession,
+  withSentAt,
   type Session,
   type ToolCallRecord,
 } from '../sessions/store.js'
@@ -60,6 +62,7 @@ interface Resolved {
   session: Session | null
   turn: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
   messages: ModelMessage[]
+  skillContext?: string
 }
 
 function countTokens(model: ModelKey, text: string): number | undefined {
@@ -120,6 +123,21 @@ function attachmentContent(req: ChatRequest, workspace: string, baseText: string
   return [{ type: 'text', text }, ...parts]
 }
 
+function slashSkill(text: string): { name: string; stripped: string; body: string } | null {
+  const cmd = parseSkillCommand(text)
+  if (!cmd) return null
+  try {
+    const { meta, body } = readSkillBody(cmd.name)
+    const stripped =
+      cmd.rest ||
+      `(The user invoked /${meta.name} with no further text; apply that skill to the conversation context so far.)`
+    return { name: meta.name, stripped, body }
+  } catch (err) {
+    if (err instanceof SkillNotFound) return null
+    throw err
+  }
+}
+
 function resolve(req: ChatRequest): Resolved {
   const turn = req.message !== undefined
     ? [{ role: 'user' as const, content: req.message }]
@@ -138,17 +156,36 @@ function resolve(req: ChatRequest): Resolved {
   }
 
   const history = session ? conversation(session) : []
-  const messages: ModelMessage[] = [...history, ...turn]
+  const now = new Date().toISOString()
 
-  const lastTurnMessage = turn[turn.length - 1]
-  const baseText = req.message ?? lastTurnMessage.content
-  const content = attachmentContent(req, workspaceRoot(req.deviceId, session?.id), baseText)
-  if (content) {
-    const last = messages[messages.length - 1]
-    messages[messages.length - 1] = { ...last, content } as ModelMessage
+  // The persisted turn keeps the user's original text. The model-bound copy
+  // strips a leading /skill trigger and carries the send time, so the system
+  // prompt itself stays free of per-turn clocks and remains cacheable.
+  let skillContext: string | undefined
+  const bound: ModelMessage[] = turn.map((m) => ({ role: m.role, content: m.content }) as ModelMessage)
+
+  const last = bound[bound.length - 1]
+  if (last.role === 'user' && typeof last.content === 'string') {
+    const invoked = slashSkill(last.content)
+    if (invoked) {
+      skillContext =
+        `<skill name="${invoked.name}">\n${invoked.body.trim()}\n</skill>\n` +
+        'The user invoked this skill for this turn. Follow it; it only overrides default behaviour where it speaks.'
+      last.content = invoked.stripped
+    }
+    if (req.message !== undefined) last.content = withSentAt(last.content, now)
   }
 
-  return { session, turn, messages }
+  const messages: ModelMessage[] = [...history, ...bound]
+
+  const baseText = typeof last.content === 'string' ? last.content : (req.message ?? '')
+  const content = attachmentContent(req, workspaceRoot(req.deviceId, session?.id), baseText)
+  if (content) {
+    const tail = messages[messages.length - 1]
+    messages[messages.length - 1] = { ...tail, content } as ModelMessage
+  }
+
+  return { session, turn, messages, skillContext }
 }
 
 function persist(
@@ -194,6 +231,8 @@ function persist(
 
   const previous = session.context
   session.model = req.model
+  // Measured without turn-scoped skill bodies: read_skill results and slash
+  // invocations apply to one turn only, so the stored baseline stays index-only.
   const measured = safeMeasureContext({
     model: req.model,
     system: buildSystemPrompt({
@@ -247,7 +286,7 @@ function summary(session: Session): NonNullable<ChatOutcome['session']> {
 }
 
 export async function chat(req: ChatRequest): Promise<ChatOutcome> {
-  const { session, turn, messages } = resolve(req)
+  const { session, turn, messages, skillContext } = resolve(req)
 
   const run = await runAgent({
     abortSignal: req.abortSignal,
@@ -256,6 +295,7 @@ export async function chat(req: ChatRequest): Promise<ChatOutcome> {
     contextFloor: session?.context?.model === req.model ? session.context.used : undefined,
     tools: req.tools,
     systemExtra: req.systemExtra,
+    skillContext,
     temperature: req.temperature,
     reasoningEffort: req.reasoningEffort,
     region: req.region,
@@ -272,7 +312,7 @@ export async function chat(req: ChatRequest): Promise<ChatOutcome> {
 export type ChatEvent = AgentEvent | { type: 'session'; session: { id: string; title: string } }
 
 export async function* chatStream(req: ChatRequest): AsyncGenerator<ChatEvent> {
-  const { session, turn, messages } = resolve(req)
+  const { session, turn, messages, skillContext } = resolve(req)
 
   if (session) yield { type: 'session', session: { id: session.id, title: session.title } }
 
@@ -283,6 +323,7 @@ export async function* chatStream(req: ChatRequest): AsyncGenerator<ChatEvent> {
     contextFloor: session?.context?.model === req.model ? session.context.used : undefined,
     tools: req.tools,
     systemExtra: req.systemExtra,
+    skillContext,
     temperature: req.temperature,
     reasoningEffort: req.reasoningEffort,
     region: req.region,

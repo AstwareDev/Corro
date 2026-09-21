@@ -16,6 +16,7 @@ import { metaRoutes } from './routes/meta.js'
 import { modelRoutes } from './routes/models.js'
 import { promptRoutes } from './routes/prompt.js'
 import { sessionRoutes } from './routes/sessions.js'
+import { skillRoutes } from './routes/skills.js'
 import { tokenRoutes } from './routes/tokens.js'
 import { toolRoutes } from './routes/tools.js'
 import { speechRoutes } from './routes/speech.js'
@@ -50,6 +51,7 @@ app.use(express.static(fileURLToPath(new URL('../public/', import.meta.url))))
 app.use(metaRoutes)
 app.use(chatRoutes)
 app.use(sessionRoutes)
+app.use(skillRoutes)
 app.use(modelRoutes)
 app.use(toolRoutes)
 app.use(workspaceRoutes)

@@ -482,6 +482,17 @@ body {
   font-weight: 600;
 }
 
+.corro-prompt .corro-slash {
+  color: var(--corro-citation);
+  font-weight: 600;
+}
+.corro-prompt a {
+  color: var(--corro-citation);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--corro-citation) 45%, transparent);
+  text-underline-offset: 2px;
+}
+
 .corro-prompt p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: var(--corro-text-muted);

@@ -31,7 +31,10 @@ import {
   type InstagramProfile,
   InstagramProfileCard,
 } from "./Instagram";
-import { presentTool } from "./registry";
+import {
+  presentTool,
+  SkillIcon,
+} from "./registry";
 import {
   ShopCategories,
   type ShopCategory,
@@ -741,6 +744,22 @@ function SiteMap({ site, urls }: { site?: string; urls: string[] }) {
   );
 }
 
+function SkillLoaded({ name }: { name: string }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-raised px-3 py-2.5">
+      <SkillIcon size={18} className="shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-medium text-ink">
+          /{name}
+        </div>
+        <div className="text-[11px] text-ink-muted">
+          Skill instructions loaded into context for this turn
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ToolResult({
   call,
   sessionId,
@@ -1115,6 +1134,13 @@ export function ToolResult({
         urls={out.urls as string[]}
       />
     );
+  }
+
+  if (
+    call.name === "read_skill" &&
+    typeof out?.name === "string"
+  ) {
+    return <SkillLoaded name={out.name} />;
   }
 
   return <RawJson value={call.output} />;

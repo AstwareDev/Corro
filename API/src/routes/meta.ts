@@ -23,6 +23,8 @@ metaRoutes.get('/api', (_req, res) => {
       'DELETE /sessions/:id': 'forget a session',
       'GET /models': 'configured models, live properties, tokenizer status',
       'GET /models/:key': 'one model',
+      'GET /skills': 'skill index (names + one-line descriptions)',
+      'GET /skills/:name': 'one skill: full instructions, loaded just-in-time',
       'GET /tools': 'the agent toolbelt',
       'POST /tools/:name': 'run one tool directly, no model involved',
       'GET /api/instagram': 'local Instagram scraper (profile/posts/post/comments; stories unsupported)',

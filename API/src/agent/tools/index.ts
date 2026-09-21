@@ -5,6 +5,7 @@ import { currencyConvert } from './currency/index.js'
 import { createFsTools, FS_TOOL_NAMES } from './fs/index.js'
 import { createBrowserTools, BROWSER_TOOL_NAMES } from './browser/index.js'
 import { createPresentationTools, PRESENTATION_TOOL_NAMES } from './presentation/index.js'
+import { readSkill } from '../skills/readSkill.js'
 import { youtubeChannel, youtubeChannelVideos, youtubeComments, youtubeTranscript, youtubeVideo } from './youtube/index.js'
 import { instagramComments, instagramPost, instagramPosts, instagramProfile } from './instagram/index.js'
 import { istoreCategories, istoreProduct, istoreSearch } from './istore/index.js'
@@ -18,6 +19,7 @@ import { yerevanCityCategories, yerevanCityProduct, yerevanCitySearch } from './
 const SHARED = {
   calculator,
   currency_convert: currencyConvert,
+  read_skill: readSkill,
   web_search: webSearch,
   web_extract: webExtract,
   web_crawl: webCrawl,
@@ -83,6 +85,8 @@ export function selectTools(
 }
 
 export { calculator, evaluate, CalcError } from './calculator.js'
+export { readSkill } from '../skills/readSkill.js'
+export { listSkills, readSkillBody, parseSkillCommand, SkillNotFound } from '../skills/loader.js'
 export { currencyConvert, CURRENCY_TOOL_NAMES } from './currency/index.js'
 export { webSearch, webExtract, webCrawl, webMap, hasTavilyKey, TavilyError } from './tavily/index.js'
 export {

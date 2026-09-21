@@ -35,6 +35,7 @@ export interface RunInput {
   abortSignal?: AbortSignal
   tools?: string[]
   systemExtra?: string
+  skillContext?: string
   temperature?: number
   reasoningEffort?: string
   
@@ -111,7 +112,7 @@ const floored = (usage: ContextUsage | undefined, floor?: number) =>
 function prepare(input: RunInput): Prepared {
   const toolset = selectTools(input.tools, { workspace: input.workspace })
   const toolNames = Object.keys(toolset)
-  const system = buildSystemPrompt({ toolNames, extra: input.systemExtra, region: input.region })
+  const system = buildSystemPrompt({ toolNames, extra: input.systemExtra, skillContext: input.skillContext, region: input.region })
 
   const context = floored(
     safeMeasureContext({

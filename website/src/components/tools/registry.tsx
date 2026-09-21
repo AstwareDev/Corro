@@ -24,6 +24,41 @@ import type { ComponentType } from "react";
 
 export type ToolIcon = ComponentType<{ size?: number; className?: string }>;
 
+export function SkillIcon({
+  size = 13,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 50 50"
+      fill="none"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <g
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        stroke="#1a1a1a"
+      >
+        <path d="M11 10c3-4 8-6 13-5.8C34 4.5 41 12 41 22l.5 2.5 4 5-4 2L41 37l-2.5 3-5.5 1.5-1 4H13L11 33" />
+        <circle cx={13} cy={21.5} r={10.5} fill="#dcd8c8" />
+        <path
+          fill="#1a1a1a"
+          strokeWidth={1.5}
+          d="m15 14-5.5 8.5h4L12 29l5.5-8.5h-4z"
+        />
+      </g>
+    </svg>
+  );
+}
+
 function brandIcon(src: string, name: string): ToolIcon {
   return function BrandIcon({ size = 13, className }) {
     return (
@@ -386,6 +421,13 @@ const REGISTRY: Record<string, ToolPresentation> = {
     label: "Calculate",
     groupLabel: "Calculated",
     verb: "Calculated",
+  },
+  read_skill: {
+    Icon: SkillIcon,
+    ChildIcon: SkillIcon,
+    label: "Load a skill",
+    groupLabel: "Loaded skills",
+    verb: "Loaded a skill",
   },
   currency_convert: {
     Icon: ArrowLeftRight,

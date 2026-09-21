@@ -686,3 +686,25 @@ export async function fetchModels(): Promise<ModelDescription[]> {
   if (responseDevice) storeDevice(responseDevice);
   return json.data ?? [];
 }
+
+export interface SkillDescription {
+  name: string;
+  description: string;
+}
+
+let cachedSkills: Promise<SkillDescription[]> | undefined;
+
+export function fetchSkills(): Promise<SkillDescription[]> {
+  cachedSkills ??= fetch(`${API_URL}/skills`, { headers: NGROK_HEADERS })
+    .then(async (response) => {
+      if (!response.ok) return [];
+      const json = (await response.json()) as {
+        data?: SkillDescription[];
+      };
+      return (json.data ?? []).filter(
+        (s) => typeof s?.name === "string" && typeof s?.description === "string",
+      );
+    })
+    .catch(() => []);
+  return cachedSkills;
+}

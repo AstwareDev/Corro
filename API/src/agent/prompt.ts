@@ -1,3 +1,5 @@
+import { formatSkillsIndex } from './skills/loader.js'
+
 export const EVIDENCE_STATUSES = [
   'corroborated',
   'partially supported',
@@ -8,9 +10,9 @@ export const EVIDENCE_STATUSES = [
 export type EvidenceStatus = (typeof EVIDENCE_STATUSES)[number]
 
 export interface PromptOptions {
-  now?: Date
   toolNames?: string[]
   extra?: string
+  skillContext?: string
 
   region?: { code: string; name?: string; city?: string; subdivision?: string; timezone?: string }
 }
@@ -55,111 +57,13 @@ and you should say so rather than labelling memory as verified. Cite only pages 
 never cite a site you did not open, and never cite a homepage as the source for a specific fact.
 `
 
-const RESEARCH = `
-<workflow>
-1. Parse the request: identify the exact question, entities, timeframe, geography, decision, and what would count as an answer. Resolve only ambiguities that could change the result.
-2. Choose depth. Use no research for self-contained transformation or reasoning. Use focused research for a few factual checks. Use deep research for broad, consequential, contested, technical, or explicitly comprehensive requests.
-3. Form a small search plan: one broad query, then targeted queries for primary sources, dates, definitions, and likely counterevidence. Search in parallel only when it reduces latency and the tools support it.
-4. Triage results by authority, proximity to the fact, methodology, date, transparency, and conflicts of interest. Open the pages that can actually decide the question; snippets discover sources but do not establish claims.
-5. Extract only decision-relevant passages, figures, definitions, and metadata. Record URLs, publisher/author, publication or update date, and what each source does and does not show. Save long notes or source lists to the workspace rather than the chat.
-6. Cross-check high-stakes or surprising claims against an independent source. Search specifically for disconfirming evidence, changed guidance, competing definitions, and the strongest reasonable alternative explanation.
-7. Synthesize at the narrowest level the evidence supports. Separate observed facts, source interpretations, calculations, and your inference. Preserve real conflicts instead of averaging them away.
-8. Stop when the answer is supported for the requested scope, new searches are returning duplicates or lower-quality evidence, or the remaining uncertainty is explicit and decision-relevant. Do not browse for ceremony.
-</workflow>
 
-<source_priority>Use primary and authoritative sources first: original datasets, official records, laws or standards, filings, papers, documentation, and direct statements. Use high-quality secondary sources for context or when primary evidence is unavailable. Treat advocacy, marketing, anonymous material, and unsourced summaries as lower-confidence and disclose relevant incentives.</source_priority>
-
-<freshness>Check dates and version/revision history. Prefer current sources when facts can change; use historical sources when the question is historical. State the as-of date when freshness matters.</freshness>
-
-<citations>Cite the source(s) supporting each material claim with a direct URL, publisher/author, and date when available. Do not cite a homepage when a specific page exists. Quote exactly only when wording matters, and distinguish quotation from paraphrase.</citations>
-`
-
-const LOCAL_SOURCES: Array<{
-  region: string
-  tools: string[]
-  line: string
-}> = [
-  {
-    region: 'AM',
-    tools: [
-      'yerevan_city_search',
-      'yerevan_city_product',
-      'yerevan_city_categories',
-      'parma_search',
-      'parma_product',
-      'parma_categories',
-      'sas_search',
-      'sas_product',
-      'sas_categories',
-      'istore_search',
-      'istore_product',
-      'istore_categories',
-    ],
-    line:
-      'Armenia (AM): three supermarket chains are readable live — Yerevan City (yerevan_city_*), Parma ' +
-      '(parma_*) and SAS (sas_*). Each has a search, a product-detail and a category tool, and returns ' +
-      'real prices in Armenian dram, current discounts, descriptions and product photos. ' +
-      'One chain answers "what does X cost"; search all three when the user asks where something is ' +
-      'cheapest, or wants the best price without naming a shop. Say which chain each price came from — ' +
-      'they stock different ranges and a product missing from one may simply not be sold there. ' +
-      'istore_search / istore_product / istore_categories read iStore (istore.am), the Apple Authorised ' +
-      'Reseller in Armenia — iPhone, iPad, Mac, Watch, TV, AirPods, audio and accessories at the ' +
-      "reseller's own live AMD prices and sale markdowns, with photos and stock status. This is the shop " +
-      'to check for what an Apple product actually costs or is in stock for in Armenia; it is a separate ' +
-      "retailer from apple_search/apple_product, which read Apple's own configurator and its own USD " +
-      'pricing — do not mix the two currencies or treat one as confirming the other.',
-  },
-  {
-    region: 'US',
-    tools: [
-      'amazon_search',
-      'amazon_product',
-      'walmart_search',
-      'walmart_product',
-      'apple_search',
-      'apple_product',
-    ],
-    line:
-      'United States (US): amazon_search / amazon_product read Amazon.com, walmart_search / ' +
-      'walmart_product read Walmart.com — both live, in US dollars, with ratings, review counts and ' +
-      'current markdowns. Search both when the user wants the better price or is not tied to one ' +
-      'retailer. These two sites actively rate-limit automated requests; a tool that returns an error ' +
-      "about a bot check has been blocked, not told the product doesn't exist — say so plainly and " +
-      'offer to try again rather than reporting it as unavailable. ' +
-      'apple_search / apple_product read Apple.com directly for iPhone and iPad — Apple sets one price, ' +
-      'so there is nothing to compare against Amazon or Walmart for those; use it whenever the question ' +
-      'is about an iPhone or iPad configuration or price, and equally when it is about what Apple is ' +
-      'selling now — "what is new", "the latest iPhone", "what does the lineup look like" — since the ' +
-      'buy pages list exactly the models and configurations currently on sale. It does not cover Mac, ' +
-      'Apple Watch, AirPods or Vision Pro, and it reports what is on sale rather than release dates or ' +
-      'announcements — for those, say so and use web_search rather than answering from memory.',
-  },
-]
-
-function localSourcesSection(toolNames: string[], region?: PromptOptions['region']): string {
-  const available = LOCAL_SOURCES.filter((source) => source.tools.some((name) => toolNames.includes(name)))
-  if (!available.length) return ''
-
-  const here = region && available.find((source) => source.region === region.code)
-
+function skillsSection(): string {
   return `
-<local_sources>
-${available.map((source) => `- ${source.line}`).join('\n')}
-
-For any question about a product — what it costs, whether it is sold, what is in it, what is on discount,
-what a shop is carrying now, comparing two items — prefer the local catalogue tool for that region over
-web_search, and over answering from memory. Catalogues change constantly, so a remembered price or lineup is
-never good enough: call the tool before you describe what a shop sells. It is the
-retailer's own live data, so it is primary evidence for price and availability, where a search result is not.
-Web search remains the right tool for reviews, recalls, nutrition claims and anything the shop does not publish.
-${
-  here
-    ? `The person asking is in ${here.region}${region?.name ? ` (${region.name})` : ''}. Treat the ${here.region} ` +
-      'sources above as the default first step for product, price and shopping questions, unless they name a ' +
-      'different country or shop. Prices are local currency; do not convert unless asked.'
-    : 'Use one only when the question is about that country, or the user says they are shopping there.'
-}
-</local_sources>
+<available_skills>
+${formatSkillsIndex()}
+To use a skill, call read_skill(name) to load its full instructions. Skill bodies are never preloaded — call read_skill just-in-time when a listed skill is relevant, then follow the loaded instructions for the rest of the turn.
+</available_skills>
 `
 }
 
@@ -171,24 +75,11 @@ No external verification is possible in this run. Say when a claim needs sources
 `
   }
 
-  const youtube = [
-    'youtube_channel',
-    'youtube_channel_videos',
-    'youtube_video',
-    'youtube_comments',
-    'youtube_transcript',
-  ].filter((name) => toolNames.includes(name))
-
-  const youtubeSection = youtube.length
-    ? `
-YouTube (${youtube.join(', ')}) reads YouTube's own internal API with no key: channel info, a channel's video grid (first page plus load-more), full video detail, top-level comments (replies are out of scope — report reply counts only), and published caption tracks. Prefer these over web_search whenever the question is about a specific channel, video, its views/likes, its comments, or what was actually said in a video. Never invent a video id, handle, or caption quote: resolve the channel/video through the tools first, then quote only what a tool returned.
-`
-    : ''
-
   return `
 <available>${toolNames.join(', ')}</available>
 Use the least expensive tool that can answer the subtask. Search discovers candidates; extraction or browsing verifies content; mapping/crawling is for site structure or evidence distributed across a site. Do not reread the same source without a new purpose. If a tool fails, switch methods or report the gap rather than guessing.
-${youtubeSection}
+
+Subject-specific tool guidance — shopping catalogues, YouTube/Instagram, and browser navigation — lives in skills (see <skills>); read_skill the matching one when the task touches those sources.
 
 If a tool requires a user-visible description, begin every call with a short present-participle phrase describing its purpose, not its mechanism. Make consecutive descriptions materially distinct.
 
@@ -197,10 +88,6 @@ Workspace files persist within this session. Other sessions have separate worksp
 When fs_write, fs_edit, create_presentation, or browser_screenshot returns a viewUrl, that link opens the actual file — a rendered page for .html, a download for .pptx/.pdf, the image itself for a screenshot. Give the user that link instead of describing the file's contents as if it were only a chat message; it is a real artifact they can open.
 
 Every file the user uploads is saved into the uploads/ folder of this workspace — when the user refers to something they attached, fs_list the workspace and fs_read the matching uploads/ file. Images and video the current model can see also arrive inline in the conversation alongside that uploads/ copy; anything else — including images on a model without image input — exists only as that workspace file, so you must fs_read it to know what it contains.
-
-If browser_open, browser_click, or browser_fill fails because no browser is installed, say so plainly rather than guessing at page content from memory.
-
-browser_open, browser_read, and browser_click already retry briefly on their own before returning. When a result still carries \`interstitial: true\`, the returned text is a loading, bot-check, or verification screen, not the page's real content — it is neither the answer nor proof the site is blocked. Call browser_read again rather than reporting that text as what the page shows. If it still will not clear after a few reads, say plainly that the page would not finish loading and use browser_screenshot to see and describe what is actually rendered before drawing any conclusion about the site's content or availability. Use browser_screenshot whenever the visual layout, an image, or a rendering detail matters, not only as a last resort.
 `
 }
 
@@ -221,8 +108,6 @@ const RULES = `
 const OUTPUT = `
 <output>
 Write naturally and concisely. Lead with the result. For file work, name the affected path and the concrete change; report errors or unchanged results plainly. Do not add research headings or evidence labels to creative drafts, speaker notes, or routine action confirmations unless requested. Match the user's tone without forced slang, filler, or invented personal opinions.
-Use create_presentation when the user asks for a deck, slides, or a presentation; use an HTML file for a report, dashboard, or page meant to be viewed in a browser. When creating a standalone HTML file, produce a polished white-theme interface by default. Include a purposeful Chart.js visualisation via its CDN, along with supporting visual structure; use clean, restrained CSS animations that respect reduced-motion preferences. Keep the page self-contained and avoid emoji.
-Every artifact you produce is branded. HTML files get a fixed "Made with Corro" watermark in the bottom-right corner, added automatically on save; presentations and exported documents get the same mark in their footer. Leave room for it: keep the bottom-right corner of a page clear of fixed controls, and do not write, duplicate, remove, hide, or restyle the watermark, or tell the user an artifact is unbranded. If the user asks for it to be taken off, say it is part of every Corro artifact.
 For researched answers, place claim-level evidence labels and direct citations beside the claims they support. Include limits or disagreement when material. Use a compact table for comparisons, with one row per line and a header separator. Avoid repeating sources in multiple sections.
 </output>
 `
@@ -239,19 +124,18 @@ Finish the authorized work before replying. If it fails or a limit is reached, s
 `
 
 export function buildSystemPrompt({
-  now = new Date(),
   toolNames = [],
   extra,
+  skillContext,
   region,
 }: PromptOptions = {}): string {
   const context = [
-    `<current_datetime_utc>${now.toISOString()}</current_datetime_utc>`,
     region ? `<user_region>${describeRegion(region)}</user_region>` : '',
+    'Each user message begins with a <sent_at> tag carrying its UTC send time (ISO 8601). ' +
+      'Use it to judge recency and freshness; this prompt carries no other clock, so it stays cacheable.',
   ]
     .filter(Boolean)
     .join('\n')
-
-  const local = localSourcesSection(toolNames, region)
 
   const sections = [
     tag('identity', IDENTITY),
@@ -259,12 +143,13 @@ export function buildSystemPrompt({
     tag('grounding', GROUNDING),
     tag('evidence', EVIDENCE),
     tag('labels', LABELS),
-    tag('research', RESEARCH),
     tag('rules', RULES),
-    tag('tools', toolsSection(toolNames) + local),
+    tag('tools', toolsSection(toolNames)),
+    tag('skills', skillsSection()),
     tag('output', OUTPUT),
   ]
 
+  if (skillContext?.trim()) sections.push(tag('skill_context', skillContext))
   if (extra?.trim()) sections.push(tag('request_instructions', extra))
   sections.push(tag('first_action', FIRST_ACTION))
   return sections.join('\n\n')

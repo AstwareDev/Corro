@@ -228,9 +228,15 @@ export function sessionTraffic(session: Session): string[] {
   return out
 }
 
+export function withSentAt(content: string, at?: string): string {
+  const stamp = (at ?? '').trim()
+  if (!stamp) return content
+  return `<sent_at>${stamp}</sent_at>\n${content}`
+}
+
 export function conversation(session: Session): ModelMessage[] {
   return session.messages.flatMap((m): ModelMessage[] => {
-    if (m.role === 'user') return [{ role: 'user', content: m.content }]
+    if (m.role === 'user') return [{ role: 'user', content: withSentAt(m.content, m.at) }]
     if (m.role !== 'assistant') return []
     if (m.agentMessages?.length) return m.agentMessages
     const history: ModelMessage[] = []
