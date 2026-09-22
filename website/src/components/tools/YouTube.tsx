@@ -1,9 +1,9 @@
 "use client";
 
 import clsx from "clsx";
-import { Captions, Eye, MessageSquare, ThumbsUp } from "lucide-react";
-import type { CSSProperties } from "react";
-import { useState } from "react";
+import { Captions, Clock, Eye, FileText, MessageSquare, ThumbsUp } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
+import { createContext, useContext, useState } from "react";
 
 export interface YouTubeBrand {
   name: string;
@@ -486,6 +486,10 @@ export function YouTubeTranscript({
   text,
   brand,
   note,
+  title,
+  url,
+  durationText,
+  wordCount,
 }: {
   languages: YouTubeCaptionTrack[];
   picked?: YouTubeCaptionTrack;
@@ -493,13 +497,39 @@ export function YouTubeTranscript({
   text?: string;
   brand?: YouTubeBrand;
   note?: string;
+  title?: string;
+  url?: string;
+  durationText?: string;
+  wordCount?: number;
 }) {
   const [showStamps, setShowStamps] = useState(true);
   if (!languages.length) {
     return <p className="text-caption text-ink-muted">This video publishes no captions.</p>;
   }
   return (
-    <div className="space-y-2" style={accentStyle(brand)}>
+    <div className="space-y-2 rounded-xl border border-border bg-surface p-2.5" style={accentStyle(brand)}>
+      {title && (
+        <div>
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-footnote font-medium leading-snug text-ink hover:underline"
+            >
+              {title}
+            </a>
+          ) : (
+            <p className="text-footnote font-medium leading-snug text-ink">{title}</p>
+          )}
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+            {durationText && <Stat Icon={Clock} value={durationText} label="Video duration" />}
+            {wordCount !== undefined && (
+              <Stat Icon={FileText} value={`${wordCount.toLocaleString("en-US")} words`} label="Transcript words" />
+            )}
+          </div>
+        </div>
+      )}
       <p className="flex flex-wrap items-center gap-1">
         <Captions size={11} className="text-ink-muted" />
         {languages.slice(0, 10).map((l) => (
@@ -546,10 +576,126 @@ export function YouTubeTranscript({
             ))}
           </ol>
         </div>
+      ) : text ? (
+        <p className="scroll-thin max-h-72 overflow-auto rounded-xl border border-border bg-surface-raised p-2 text-caption leading-relaxed text-ink">
+          {text}
+        </p>
       ) : (
-        <p className="text-caption text-ink-muted">{note ?? text ?? "No caption text returned."}</p>
+        <p className="text-caption text-ink-muted">{note ?? "No caption text returned."}</p>
       )}
-      {note && segments?.length ? <p className="text-caption text-ink-muted">{note}</p> : null}
+      {note && (segments?.length || text) ? <p className="text-caption text-ink-muted">{note}</p> : null}
     </div>
+  );
+}
+
+// --- video clips (chat citations) ---
+
+export interface ParsedClipUrl {
+  videoId: string;
+  start: number;
+  end?: number;
+}
+
+function parseClipInt(value: string | null): number | undefined {
+  if (!value || !/^\d+$/.test(value)) return undefined;
+  const n = Number(value);
+  return Number.isSafeInteger(n) ? n : undefined;
+}
+
+/** Matches youtu.be/{id}?t={s}[&end={e}] and youtube.com/watch?v={id}[&t={s}][&end={e}]. */
+export function parseClipUrl(href: string): ParsedClipUrl | null {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.replace(/^www\./, "").replace(/^m\./, "");
+  let videoId: string | null = null;
+  if (host === "youtu.be") {
+    videoId = url.pathname.slice(1).split("/")[0] || null;
+  } else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    if (url.pathname !== "/watch") return null;
+    videoId = url.searchParams.get("v");
+  } else {
+    return null;
+  }
+  if (!videoId || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) return null;
+  const start = parseClipInt(url.searchParams.get("t"));
+  if (start === undefined) return null;
+  const end = parseClipInt(url.searchParams.get("end"));
+  if (end !== undefined && end <= start) return null;
+  return { videoId, start, end };
+}
+
+const ClipPlayerContext = createContext<{
+  open: string | null;
+  setOpen: (key: string | null) => void;
+}>({ open: null, setOpen: () => {} });
+
+export function ClipPlayerProvider({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return <ClipPlayerContext.Provider value={{ open, setOpen }}>{children}</ClipPlayerContext.Provider>;
+}
+
+export function YouTubeClip({
+  clip,
+  title,
+  children,
+}: {
+  clip: ParsedClipUrl;
+  title?: string;
+  children?: ReactNode;
+}) {
+  const { open, setOpen } = useContext(ClipPlayerContext);
+  const key = `${clip.videoId}:${clip.start}:${clip.end ?? ""}`;
+  const isOpen = open === key;
+  const range = clip.end !== undefined ? `${cueTime(clip.start)}-${cueTime(clip.end)}` : cueTime(clip.start);
+  const embedSrc =
+    `https://www.youtube-nocookie.com/embed/${clip.videoId}?start=${clip.start}` +
+    `${clip.end !== undefined ? `&end=${clip.end}` : ""}&autoplay=1&rel=0`;
+  return (
+    <span style={accentStyle(YOUTUBE_BRAND)}>
+      <button
+        type="button"
+        onClick={() => setOpen(isOpen ? null : key)}
+        title={title || undefined}
+        className={clsx(
+          "rounded-md px-1.5 py-0.5 font-mono text-caption",
+          isOpen ? "bg-[color:var(--shop-accent)] text-white" : "bg-surface-raised text-ink-muted hover:text-ink",
+        )}
+      >
+        {children ?? `▶ ${range}`}
+      </button>
+      {isOpen && (
+        <span className="mt-1.5 block overflow-hidden rounded-xl border border-border bg-black">
+          <iframe
+            key={key}
+            src={embedSrc}
+            title={`Video clip ${range}`}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+            className="aspect-video w-full"
+          />
+          <span className="flex items-center justify-between gap-2 bg-surface-raised px-2 py-1">
+            {title ? (
+              <span className="truncate text-caption text-ink-muted" title={title}>
+                {title}
+              </span>
+            ) : (
+              <span />
+            )}
+            <a
+              href={`https://youtu.be/${clip.videoId}?t=${clip.start}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-caption font-medium text-citation hover:underline"
+            >
+              Open on YouTube
+            </a>
+          </span>
+        </span>
+      )}
+    </span>
   );
 }

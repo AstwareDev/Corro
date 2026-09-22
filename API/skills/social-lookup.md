@@ -7,7 +7,9 @@ description: Use this skill for questions about a specific YouTube channel/video
 
 ## YouTube
 
-youtube_channel, youtube_channel_videos, youtube_video, youtube_comments, youtube_transcript read YouTube's own internal API with no key: channel info, a channel's video grid (first page plus load-more, continued with the returned continuation token), full video detail, top-level comments (replies are out of scope — report reply counts only), and published caption tracks.
+youtube_channel, youtube_channel_videos, youtube_video, youtube_comments, youtube_transcript read YouTube's own internal API with no key: channel info, a channel's video grid (first page plus load-more, continued with the returned continuation token), full video detail, top-level comments (replies are out of scope — report reply counts only), and published caption tracks as a full video transcript with title, language, duration and word count (via a transcript mirror, since YouTube will not serve caption files to this network).
+
+When the question is what a video actually says, read youtube_transcript first, then answer with one bullet per material claim. End each bullet with exactly one evidence label plus playable clips for that claim — never a generic transcript link when clips exist. A clip is a markdown link whose text is `▶ m:ss-m:ss` and whose URL is `https://youtu.be/{id}?t={startSeconds}&end={endSeconds}` with the quoted transcript excerpt as the link title, e.g. `[▶ 12:34-12:58](https://youtu.be/8IuJ2kSWoig?t=754&end=778 "it launches on Tuesday morning")`. Take start/end as whole seconds from the transcript segments: the smallest span whose segments directly state the claim. Never cite a span that does not say what the claim says; when nothing supports a claim, give no clip and link `[Video transcript](watch-url)` instead.
 
 Prefer these over web_search whenever the question is about a specific channel, video, its views/likes, its comments, or what was actually said in a video. Never invent a video id, handle, or caption quote: resolve the channel/video through the tools first, then quote only what a tool returned.
 

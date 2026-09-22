@@ -230,7 +230,7 @@ export async function describeModel(
       features: features(card),
       samplingParameters: card.supported_sampling_parameters ?? [],
       reasoningEfforts: reasoningEfforts(card).length ? reasoningEfforts(card) : spec.reasoningEfforts ?? [],
-      defaultReasoningEffort: card.default_reasoning_effort ?? spec.defaultReasoningEffort,
+      defaultReasoningEffort: spec.defaultReasoningEffort ?? card.default_reasoning_effort,
       ownedBy: card.owned_by,
     }
   } catch (err) {

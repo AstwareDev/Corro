@@ -348,7 +348,7 @@ export class ModelTokenizer {
     return template.render({
       messages: messages as unknown[],
       tools: opts.tools ?? null,
-      reasoning_effort: opts.reasoningEffort ?? 'high',
+      reasoning_effort: opts.reasoningEffort ?? this.model.defaultReasoningEffort ?? 'high',
       add_generation_prompt: opts.addGenerationPrompt ?? true,
     })
   }

@@ -33,7 +33,7 @@ export default function Home() {
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [model, setModel] = useState<string>("");
-  const [effort, setEffort] = useState<Effort>("high");
+  const [effort, setEffort] = useState<Effort>("max");
   const [files, setFiles] = useState<WorkspaceFile[]>([]);
   const [filesError, setFilesError] = useState<string | null>(null);
   const [filesLoading, setFilesLoading] = useState(false);

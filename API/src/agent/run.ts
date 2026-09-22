@@ -1,5 +1,6 @@
 import { stepCountIs, streamText, type ModelMessage, type LanguageModel } from 'ai'
 import { chatModel } from '../models/registry.js'
+import { MODELS } from '../tokenizer/specs.js'
 import { notBelow, safeMeasureContext, type ContextUsage } from '../context/usage.js'
 import { getTokenizer, type ChatMessage } from '../tokenizer/index.js'
 import type { ModelKey } from '../tokenizer/specs.js'
@@ -132,7 +133,10 @@ function prepare(input: RunInput): Prepared {
       const specs = toolSpecs(toolset)
       const counted = tk.countChat(
         [{ role: 'system', content: system }, ...input.messages] as ChatMessage[],
-        { tools: tk.hasTemplate && specs.length ? specs : undefined }
+        {
+          tools: tk.hasTemplate && specs.length ? specs : undefined,
+          reasoningEffort: resolveReasoningEffort(input.model, input.reasoningEffort),
+        }
       )
       preflight = {
         tokens: counted.tokens,
@@ -242,9 +246,14 @@ function disabledNotice(disabled: Set<string>): string {
   return `\n<disabled_tools>\n${[...disabled].join(', ')} failed ${TOOL_FAILURE_LIMIT} times in a row and ${disabled.size === 1 ? 'has' : 'have'} been disabled for the rest of this turn. Do not call ${disabled.size === 1 ? 'it' : 'them'} again. Finish with the tools that still work, or explain what you could not do.\n</disabled_tools>`
 }
 
+export function resolveReasoningEffort(model: ModelKey, requested?: string): string | undefined {
+  return requested ?? MODELS[model].defaultReasoningEffort
+}
+
 function reasoningProviderOptions(model: ModelKey, reasoningEffort?: string) {
-  if (!reasoningEffort) return {}
-  return { providerOptions: { [model]: { reasoningEffort } } }
+  const effort = resolveReasoningEffort(model, reasoningEffort)
+  if (!effort) return {}
+  return { providerOptions: { [model]: { reasoningEffort: effort } } }
 }
 
 export async function runAgent(input: RunInput): Promise<RunResult> {

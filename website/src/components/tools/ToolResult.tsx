@@ -1038,6 +1038,10 @@ export function ToolResult({
         text={typeof out.text === "string" ? out.text : undefined}
         brand={YOUTUBE_BRAND}
         note={typeof out.note === "string" ? out.note : undefined}
+        title={typeof out.title === "string" ? out.title : undefined}
+        url={typeof out.url === "string" ? out.url : undefined}
+        durationText={typeof out.durationText === "string" ? out.durationText : undefined}
+        wordCount={typeof out.wordCount === "number" ? out.wordCount : undefined}
       />
     );
   }

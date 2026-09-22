@@ -6,6 +6,7 @@ import { resolveAssetUrl } from "@/lib/api";
 import { convertMathBrackets } from "@/lib/math-brackets";
 import { rehypeImageFigures } from "@/lib/rehype-image-figures";
 import { rehypeWordSpans } from "@/lib/rehype-word-spans";
+import { ClipPlayerProvider, parseClipUrl, YouTubeClip } from "./tools/YouTube";
 
 const components: Components = {
   img: ({ src, alt }) => {
@@ -50,16 +51,27 @@ const components: Components = {
     <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>
   ),
   li: ({ children }) => <li className="pl-0.5">{children}</li>,
-  a: ({ children, href }) => (
-    <a
-      href={href ? resolveAssetUrl(href) : href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-citation underline underline-offset-2 hover:no-underline"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ children, href, title }) => {
+    // Timestamped YouTube links (?t=) render as playable clip chips.
+    const clip = typeof href === "string" ? parseClipUrl(href) : null;
+    if (clip) {
+      return (
+        <YouTubeClip clip={clip} title={title ?? undefined}>
+          {children}
+        </YouTubeClip>
+      );
+    }
+    return (
+      <a
+        href={href ? resolveAssetUrl(href) : href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-citation underline underline-offset-2 hover:no-underline"
+      >
+        {children}
+      </a>
+    );
+  },
   blockquote: ({ children }) => (
     <blockquote className="mb-3 border-l-2 border-border pl-3 text-ink-muted last:mb-0">
       {children}
@@ -100,7 +112,14 @@ const components: Components = {
   },
 };
 
-const remarkPlugins = [remarkGfm, remarkMath];
+const remarkPlugins: [[typeof remarkGfm], [typeof remarkMath, { singleDollarTextMath: false }]] = [
+  [remarkGfm],
+  // Single dollars stay literal text ("$4 and $20"), so prices never parse
+  // as inline math. $$…$$ display math (including \[…\] converted by
+  // convertMathBrackets) still renders via KaTeX; inline \(…\) now renders
+  // literally instead of as math.
+  [remarkMath, { singleDollarTextMath: false }],
+];
 // KaTeX's default \vec arrow is a tiny fixed glyph that reads as a smudge;
 // map it to the full-width stretchy arrow physics content expects.
 const katexOptions = { macros: { "\\vec": "\\overrightarrow" } };
@@ -129,14 +148,16 @@ export function Markdown({
   // code blocks/spans are exempt so source examples stay literal.
   const converted = convertMathBrackets(text);
   return (
-    <ReactMarkdown
-      remarkPlugins={remarkPlugins}
-      rehypePlugins={
-        animateWords ? wordAnimatedRehypePlugins : settledRehypePlugins
-      }
-      components={components}
-    >
-      {converted}
-    </ReactMarkdown>
+    <ClipPlayerProvider>
+      <ReactMarkdown
+        remarkPlugins={remarkPlugins}
+        rehypePlugins={
+          animateWords ? wordAnimatedRehypePlugins : settledRehypePlugins
+        }
+        components={components}
+      >
+        {converted}
+      </ReactMarkdown>
+    </ClipPlayerProvider>
   );
 }

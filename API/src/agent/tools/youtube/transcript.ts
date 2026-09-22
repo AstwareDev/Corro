@@ -5,25 +5,22 @@ import {
   cacheGet,
   cacheSet,
   failure,
-  getTube,
-  polite,
   resolveVideoId,
   SHOP,
   TTLS,
-  YouTubeError,
+  videoUrl,
 } from './client.js'
 
-interface CaptionTrack {
-  base_url: string
-  language_code: string
-  name?: { text?: string }
-  kind?: string
-}
-
-interface Segment {
+export interface TranscriptSegment {
   start: number
   duration: number
   text: string
+}
+
+export interface TranscriptLanguage {
+  code: string
+  name: string
+  auto: boolean
 }
 
 function decodeEntities(s: string): string {
@@ -39,58 +36,167 @@ function decodeEntities(s: string): string {
     .trim()
 }
 
-function parseSrv3(xml: string): Segment[] {
-  const out: Segment[] = []
-  const re = /<p[^>]*t="(\d+)"[^>]*d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(xml))) {
-    const text = decodeEntities(m[3].replace(/<[^>]*>/g, ' '))
-    if (!text) continue
-    out.push({ start: Number(m[1]) / 1000, duration: Number(m[2]) / 1000, text })
-  }
-  return out
+// YouTube serves empty timedtext files to datacenter IPs, so this tool reads
+// the public mirror at https://youtube-transcript.ai/transcript/{VIDEO_ID}.txt
+// (optional ?lang=CODE) instead of YouTube's own caption endpoints. The mirror
+// returns plain text with a small header (title, language, duration, word
+// count), one "[m:ss] cue" per line, and a footer — parsed below into the
+// same { segments, text } shape plus the header metadata.
+
+const EXTERNAL_TRANSCRIPT_BASE = 'https://youtube-transcript.ai/transcript'
+const EXTERNAL_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
+
+export function cueToSeconds(cue: string): number | undefined {
+  const parts = cue.split(':').map(Number)
+  if (parts.some((p) => !Number.isFinite(p) || p < 0)) return undefined
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  return undefined
 }
 
-function parseVtt(vtt: string): Segment[] {
-  const out: Segment[] = []
-  const stamp = /(\d+:)?(\d+):(\d+)\.(\d+)\s*-->\s*(\d+:)?(\d+):(\d+)\.(\d+)/
-  const blocks = vtt.split(/\n{2,}/)
-  for (const block of blocks) {
-    const lines = block.split('\n').map((l) => l.trim()).filter(Boolean)
-    if (!lines.length) continue
-    const idx = lines.findIndex((l) => stamp.test(l))
-    if (idx === -1) continue
-    const m = stamp.exec(lines[idx])
+export interface ParsedTranscript {
+  segments: TranscriptSegment[]
+  text: string
+  title?: string
+  languageCode: string
+  languageLabel: string
+  languageAuto: boolean
+  languages: TranscriptLanguage[]
+  durationText?: string
+  durationSeconds?: number
+  wordCount?: number
+}
+
+export function parseExternalTranscript(body: string): ParsedTranscript {
+  const lines = body.split('\n')
+
+  const title = /^# Transcript:\s*(.+)$/m.exec(body)?.[1]?.trim() || undefined
+
+  // e.g. "Language: en (auto-generated) · Duration: 12:19 · Words: 7204"
+  // or "Language: en · Duration: 3:27 · Words: 481"
+  const langLine = /^Language:\s*([^\n]+)$/m.exec(body)?.[1]?.trim() ?? ''
+  const langLabel = langLine.split('·')[0]?.trim() || 'en'
+  const languageAuto = /auto/i.test(langLabel)
+  const languageCode = /^([A-Za-z0-9-]+)/.exec(langLabel)?.[1] ?? langLabel
+
+  const durationText = /Duration:\s*([\d:]+)/.exec(langLine)?.[1]
+  const durationSeconds = durationText ? cueToSeconds(durationText) : undefined
+  const wordsRaw = /Words:\s*([\d,]+)/.exec(langLine)?.[1]?.replace(/,/g, '')
+  const wordCount = wordsRaw && /^\d+$/.test(wordsRaw) ? Number(wordsRaw) : undefined
+
+  const languages: TranscriptLanguage[] = []
+  const seen = new Set<string>()
+  const pushLang = (code: string, name: string, auto: boolean) => {
+    const c = code.trim()
+    if (!c) return
+    const key = `${c}|${name}|${auto}`
+    if (seen.has(key)) return
+    seen.add(key)
+    languages.push({ code: c, name: name.trim() || c, auto })
+  }
+  pushLang(languageCode, langLabel, languageAuto)
+
+  const othersLine = lines.find((l) => /^Other available languages:/i.test(l.trim()))
+  if (othersLine) {
+    const rest = othersLine.replace(/^Other available languages:/i, '')
+    for (const chunk of rest.split(',')) {
+      const c = chunk.trim()
+      if (!c) continue
+      const m = /^(.*?)\s*\(([A-Za-z0-9-]+)\)\s*(\[auto\])?/i.exec(c)
+      if (m) {
+        const name = (m[1] ?? '').trim() || m[2]
+        pushLang(m[2], name, Boolean(m[3]) || /^a-/i.test(name))
+      } else {
+        const bare = /^([A-Za-z0-9-]+)(\s*\[auto\])?$/i.exec(c)
+        if (bare) pushLang(bare[1], bare[1], Boolean(bare[2]))
+      }
+    }
+  }
+
+  const segments: TranscriptSegment[] = []
+  for (const line of lines) {
+    const m = /^\[((?:\d+:)?\d+:\d+)\]\s*(.*)$/.exec(line.trim())
     if (!m) continue
-    const toSec = (h: string | undefined, mi: string, s: string, ms: string) =>
-      (h ? Number(h.replace(':', '')) * 3600 : 0) + Number(mi) * 60 + Number(s) + Number(ms) / 1000
-    const start = toSec(m[1], m[2], m[3], m[4])
-    const end = toSec(m[5], m[6], m[7], m[8])
-    const text = decodeEntities(lines.slice(idx + 1).join(' ').replace(/<[^>]*>/g, ' '))
-    if (!text) continue
-    out.push({ start, duration: Math.max(0, end - start), text })
+    const start = cueToSeconds(m[1])
+    const text = decodeEntities(m[2].replace(/<[^>]*>/g, ' '))
+    if (start === undefined || !text) continue
+    segments.push({ start, duration: 0, text })
   }
-  return out
+  for (let i = 0; i + 1 < segments.length; i++) {
+    segments[i].duration = Math.max(0, segments[i + 1].start - segments[i].start)
+  }
+
+  let text = segments.map((s) => s.text).join(' ')
+  if (!segments.length) {
+    // No timestamped cues — salvage any non-header body text rather than nothing.
+    const salvaged = lines
+      .map((l) => l.trim())
+      .filter(
+        (l) =>
+          l &&
+          !l.startsWith('#') &&
+          !/^Source video:/i.test(l) &&
+          !/^Language:/i.test(l) &&
+          !/^Other available languages:/i.test(l) &&
+          !/^To request a specific language:/i.test(l) &&
+          !/^Interactive version/i.test(l) &&
+          !/^## Transcript/i.test(l) &&
+          l !== '---' &&
+          !/^Generated by https:\/\/youtube-transcript\.ai/i.test(l)
+      )
+      .join(' ')
+    text = decodeEntities(salvaged.replace(/<[^>]*>/g, ' '))
+    if (text) segments.push({ start: 0, duration: 0, text })
+  }
+
+  return {
+    segments,
+    text,
+    title,
+    languageCode,
+    languageLabel: langLabel,
+    languageAuto,
+    languages,
+    durationText,
+    durationSeconds,
+    wordCount,
+  }
 }
 
-function parseJson3(json: string): Segment[] {
-  try {
-    const doc = JSON.parse(json) as { events?: Array<{ tStartMs?: number; dDurationMs?: number; segs?: Array<{ utf8?: string }> }> }
-    return (doc.events ?? []).flatMap((e) => {
-      const text = decodeEntities((e.segs ?? []).map((s) => s.utf8 ?? '').join(''))
-      if (!text) return []
-      return [{ start: (e.tStartMs ?? 0) / 1000, duration: (e.dDurationMs ?? 0) / 1000, text }]
-    })
-  } catch {
-    return []
+function isExternalMiss(body: string): boolean {
+  return /no transcript (found|available)|video not found|invalid video|transcript (not found|unavailable)/i.test(body)
+}
+
+export async function fetchExternalTranscriptBody(id: string, language?: string): Promise<string | null> {
+  const lang = (language ?? '').trim()
+  const urls = lang
+    ? [`${EXTERNAL_TRANSCRIPT_BASE}/${id}.txt?lang=${encodeURIComponent(lang)}`, `${EXTERNAL_TRANSCRIPT_BASE}/${id}.txt`]
+    : [`${EXTERNAL_TRANSCRIPT_BASE}/${id}.txt`]
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'user-agent': EXTERNAL_UA, accept: 'text/plain,*/*' },
+        signal: AbortSignal.timeout(20_000),
+      })
+      if (res.status === 404) continue
+      if (!res.ok) continue
+      const body = await res.text()
+      if (!body.trim() || isExternalMiss(body)) continue
+      return body
+    } catch {
+      continue
+    }
   }
+  return null
 }
 
 export const youtubeTranscript = tool({
   description:
-    'Captions for a YouTube video — uploaded or auto-generated — as plain text and timestamped ' +
-    'segments. Lists every available language first; pass one to read it. Auto-translated tracks ' +
-    'are not requested (only tracks YouTube itself publishes for the video).',
+    'Full captions for a YouTube video as plain text plus timestamped segments, with the video ' +
+    'title, language, duration and word count. Reads the youtube-transcript.ai mirror for the ' +
+    'video id (YouTube itself will not serve caption files to this network). Always returns ' +
+    'the complete transcript — pass language only to request a specific published track.',
   inputSchema: z.object({
     description: toolDescription,
     video: z.string().min(1).max(200).describe('Video id or watch / youtu.be / shorts URL.'),
@@ -98,81 +204,63 @@ export const youtubeTranscript = tool({
       .string()
       .max(20)
       .optional()
-      .describe('Language code, e.g. "en". Defaults to English, else the first uploaded track.'),
-    timestamps: z.boolean().default(true).describe('Include per-segment start/duration. Set false for plain text only.'),
+      .describe('Language code, e.g. "de-DE". Defaults to whatever track the mirror serves.'),
   }),
-  execute: async ({ video, language, timestamps }) => {
+  execute: async ({ video, language }) => {
     try {
       const id = await resolveVideoId(video)
-      const cacheKey = `transcript:${id}:${language ?? 'auto'}:${timestamps ? 'ts' : 'plain'}`
+      const langKey = (language ?? '').trim().toLowerCase() || 'auto'
+      const cacheKey = `transcript:${id}:${langKey}`
       const cached = cacheGet<Record<string, unknown>>(cacheKey, TTLS.transcript)
       if (cached) return { ok: true as const, cached: true as const, ...cached }
 
-      await polite()
-      const tube = await getTube()
-      let info
-      try {
-        info = await tube.getInfo(id)
-      } catch (err) {
-        throw new YouTubeError(`YouTube would not open video ${id} — ${err instanceof Error ? err.message : 'unknown reason'}`)
-      }
-
-      const tracks = (info.captions?.caption_tracks ?? []) as unknown as CaptionTrack[]
-      if (!tracks.length) {
-        return { ok: true as const, source: SHOP, videoId: id, languages: [], segments: [], text: '', note: 'This video publishes no captions.' }
-      }
-      const languages = tracks.map((t) => ({
-        code: t.language_code,
-        name: t.name?.text ?? t.language_code,
-        auto: t.kind === 'asr',
-      }))
-
-      const want = (language ?? '').toLowerCase()
-      const picked =
-        (want && tracks.find((t) => t.language_code.toLowerCase() === want)) ||
-        (want && tracks.find((t) => t.language_code.toLowerCase().startsWith(want))) ||
-        tracks.find((t) => t.language_code.toLowerCase() === 'en' && t.kind !== 'asr') ||
-        tracks.find((t) => t.language_code.toLowerCase().startsWith('en')) ||
-        tracks.find((t) => t.kind !== 'asr') ||
-        tracks[0]
-      if (!picked) throw new YouTubeError('YouTube layout changed, selector PlayerCaptionsTracklist.caption_tracks not found')
-
-      let segments: Segment[] = []
-      let fetchNote: string | undefined
-      for (const fmt of ['', '&fmt=srv3', '&fmt=vtt', '&fmt=json3']) {
-        try {
-          const res = await fetch(`${picked.base_url}${fmt}`, {
-            headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36' },
-            signal: AbortSignal.timeout(20_000),
-          })
-          if (!res.ok) continue
-          const body = await res.text()
-          if (!body.trim()) continue
-          const trimmed = body.trimStart()
-          if (trimmed.startsWith('<')) segments = parseSrv3(body)
-          else if (trimmed.startsWith('WEBVTT') || body.includes('-->')) segments = parseVtt(body)
-          else if (trimmed.startsWith('{')) segments = parseJson3(body)
-          if (segments.length) break
-        } catch {
-          continue
+      const mirrorBody = await fetchExternalTranscriptBody(id, language)
+      if (!mirrorBody) {
+        return {
+          ok: true as const,
+          source: SHOP,
+          videoId: id,
+          url: videoUrl(id),
+          languages: [],
+          segments: [],
+          text: '',
+          note: 'This video has no transcript — the mirror returned nothing for this id.',
         }
       }
-      if (!segments.length) {
-        fetchNote =
-          'YouTube listed captions but would not serve the caption file from this network (empty timedtext response) — retry locally or open the video page; the track list above is still accurate.'
-        const result = { source: SHOP, videoId: id, languages, picked: { code: picked.language_code, name: picked.name?.text ?? picked.language_code, auto: picked.kind === 'asr' }, segments: [], text: '', note: fetchNote }
-        return { ok: true as const, ...result }
+
+      const parsed = parseExternalTranscript(mirrorBody)
+      if (!parsed.segments.length && !parsed.text) {
+        return {
+          ok: true as const,
+          source: SHOP,
+          videoId: id,
+          url: videoUrl(id),
+          languages: [],
+          segments: [],
+          text: '',
+          note: 'This video has no transcript — the mirror returned nothing usable for this id.',
+        }
       }
 
-      const text = segments.map((s) => s.text).join(' ')
+      const picked: TranscriptLanguage = {
+        code: parsed.languageCode,
+        name: parsed.languageLabel,
+        auto: parsed.languageAuto,
+      }
       const result = {
         source: SHOP,
         videoId: id,
-        languages,
-        picked: { code: picked.language_code, name: picked.name?.text ?? picked.language_code, auto: picked.kind === 'asr' },
-        ...(timestamps ? { segments: segments.slice(0, 500) } : {}),
-        text,
-        ...(segments.length > 500 ? { note: `Showing the first 500 of ${segments.length} segments; the plain text covers the whole video.` } : {}),
+        url: videoUrl(id),
+        ...(parsed.title ? { title: parsed.title } : {}),
+        languages: parsed.languages,
+        picked,
+        segments: parsed.segments,
+        text: parsed.text,
+        ...(parsed.durationText ? { durationText: parsed.durationText } : {}),
+        ...(parsed.durationSeconds !== undefined ? { durationSeconds: parsed.durationSeconds } : {}),
+        ...(parsed.wordCount !== undefined ? { wordCount: parsed.wordCount } : {}),
+        note: `Transcript via youtube-transcript.ai mirror (language "${parsed.languageCode}").`,
+        fallback: 'youtube-transcript.ai' as const,
       }
       cacheSet(cacheKey, result)
       return { ok: true as const, ...result }

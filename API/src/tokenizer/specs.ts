@@ -211,6 +211,8 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
     notes:
       'Unlimited and keyless, but throughput swings between fast and roughly 3-10 tokens per second. ' +
       'Use kimi-k3-fast when latency matters.',
+    reasoningEfforts: ['none', 'low', 'high', 'max'],
+    defaultReasoningEffort: 'max',
   },
   'kimi-k3-fast': {
     key: 'kimi-k3-fast',
@@ -223,6 +225,8 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
     baseUrlEnv: 'KIMI_BASE_URL',
     apiKeyEnv: 'MODAL_API_KEY',
     notes: 'The same model on a self-hosted Modal endpoint. Fast and steady, but it costs credits.',
+    reasoningEfforts: ['none', 'low', 'high', 'max'],
+    defaultReasoningEffort: 'max',
   },
   'gpt-5.6-luna': {
     key: 'gpt-5.6-luna',

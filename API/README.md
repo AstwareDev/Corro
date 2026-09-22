@@ -90,7 +90,7 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `youtube_channel_videos` | a channel's video grid with load-more |
 | `youtube_video` | one video in full: views, likes, description, tags, qualities |
 | `youtube_comments` | top-level comments with load-more (replies out of scope) |
-| `youtube_transcript` | captions as plain text + timestamped segments, every published language |
+| `youtube_transcript` | full video captions as plain text + timestamped segments, with title, language, duration and word count |
 | `fs_list`, `fs_read`, `fs_search` | list, read, and regex-search files in the session's workspace |
 | `fs_write`, `fs_edit`, `fs_rename`, `fs_delete` | create, patch, move, and remove workspace files, with revision checks against stale overwrites |
 | `browser_open`, `browser_read` | open a real page in a local browser and read its rendered, visible text |
@@ -256,7 +256,7 @@ Five tools read YouTube with no API key, via its internal Innertube API
 | `youtube_channel_videos` | a channel's video grid: id, title, thumbnail, duration, views, publish date; first page (~30) + `continuation` load-more |
 | `youtube_video` | one video in full: exact views/likes, comment count, upload date, description, tags/category, qualities/formats |
 | `youtube_comments` | top-level comments only (author, channel URL, text, likes, timestamp); `continuation` loads more; replies out of scope |
-| `youtube_transcript` | published caption tracks (uploaded or auto-generated) as plain text + timestamped segments, in every language YouTube lists |
+| `youtube_transcript` | full captions as plain text + timestamped segments, with title, language, duration and word count (youtube-transcript.ai mirror; optional `language` requests a specific published track) |
 
 ```bash
 curl -s localhost:8787/tools/youtube_channel -H 'content-type: application/json' \
@@ -272,7 +272,7 @@ curl -s localhost:8787/tools/youtube_comments -H 'content-type: application/json
   -d '{"description":"Reading top comments","video":"dQw4w9WgXcQ","maxResults":5}'
 
 curl -s localhost:8787/tools/youtube_transcript -H 'content-type: application/json' \
-  -d '{"description":"Reading captions","video":"dQw4w9WgXcQ","language":"en"}'
+  -d '{"description":"Reading captions","video":"dQw4w9WgXcQ"}'
 ```
 
 Implementation notes (`src/agent/tools/youtube/`): one shared Innertube session
@@ -287,10 +287,13 @@ Shorts-first channels that have no videos tab at all. Parsers are defensive: a r
 `{ ok: false, error: "YouTube layout changed, selector X not found" }`, never a
 crash. Comments fall back honestly — when Innertube answers with a bot-check,
 the tool says so and suggests `browser_open` on the watch page instead of
-pretending there are no comments. Caption files are fetched from the track
-`base_url` YouTube signs per session and parsed as srv3/VTT/json3; when
-YouTube serves an empty caption file to a datacenter IP, the tool still
-returns the accurate track list with a note rather than failing silently.
+pretending there are no comments. Transcripts come from a `youtube-transcript.ai` mirror for the video id
+(`https://youtube-transcript.ai/transcript/{id}.txt`, `?lang=` when a language
+is requested) because YouTube serves empty caption files to datacenter IPs.
+The tool always returns the complete transcript — title, served language,
+duration, word count, every timestamped segment and the full plain text —
+and reports an honest empty result with a note when the mirror has nothing
+for the id, rather than failing silently.
 
 Legal note: scraping YouTube without the official Data API may violate
 [YouTube's Terms of Service](https://www.youtube.com/t/terms). These tools are
@@ -333,7 +336,9 @@ order:
 its own three-step scale — `low`, `medium`, `xhigh`, default `xhigh` — shown in
 clients as Fast / Standard / Max. `gpt-5.6-luna` takes a six-step scale — `none`, `low`,
 `medium`, `high`, `xhigh`, `max`, default `medium` — and has a 1M token context
-window. `/models` always reports the live set for whichever model
+window. `kimi-k3` and `kimi-k3-fast` take a four-step scale — `none`, `low`,
+`high`, `max`, default `max` — so omitting `reasoningEffort` runs at max effort.
+`/models` always reports the live set for whichever model
 answered, so a client should read `reasoningEfforts` rather than assume one scale
 fits every model.
 
