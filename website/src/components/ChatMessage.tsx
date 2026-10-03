@@ -10,7 +10,6 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useTypewriter } from "@/hooks/useTypewriter";
 import { resolveAssetUrl } from "@/lib/api";
 import { useMotionPreference } from "@/lib/appearance";
 import { formatBytes } from "@/lib/format";
@@ -127,12 +126,7 @@ function AssistantMessage({
   );
   const lastText = [...segments].reverse().find((s) => s.kind === "text");
 
-  const { shown, complete } = useTypewriter(
-    lastText?.text ?? "",
-    typeOut,
-    lastText?.id ?? "",
-  );
-  const settled = !message.streaming && complete;
+  const settled = !message.streaming;
   const artifacts = settled ? artifactsOf(message.blocks) : [];
 
   return (
@@ -167,14 +161,14 @@ function AssistantMessage({
           ) : (
             <div
               key={segment.id}
-              className="stream-text text-prose leading-relaxed text-ink"
+              className="text-prose leading-relaxed text-ink"
             >
               <Markdown
-                text={segment === lastText ? shown : segment.text}
-                animateWords={segment === lastText && !settled}
+                text={segment.text}
+                animateWords={segment === lastText && typeOut && !motionOff}
                 streaming={Boolean(message.streaming)}
               />
-              {segment === lastText && !settled && (
+              {segment === lastText && message.streaming && (
                 <span className="caret ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] bg-current align-middle" />
               )}
             </div>

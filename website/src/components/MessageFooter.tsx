@@ -103,7 +103,7 @@ export function MessageFooter({ message }: { message: ChatMessageUI }) {
               </motion.span>
             </AnimatePresence>
           </motion.button>
-          {speechAvailable && <SpeakButton text={message.text} />}
+          {speechAvailable && <SpeakButton message={message} />}
         </>
       )}
     </div>

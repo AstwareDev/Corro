@@ -38,11 +38,7 @@ function processChildren(parent: Element | Root, inMath: boolean): void {
   for (let i = 0; i < kids.length; ) {
     const child = kids[i];
     if (child.type === "text" && !inMath && !parentIsCode) {
-      const value = child.value;
-      if (
-        value.split(/(\s+)/).filter(Boolean).length <= 1 &&
-        !/\s/.test(value)
-      ) {
+      if (!child.value || /^\s+$/.test(child.value)) {
         i++;
         continue;
       }

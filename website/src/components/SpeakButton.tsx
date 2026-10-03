@@ -7,10 +7,12 @@ import { motion } from "framer-motion";
 import { AlertTriangle, Loader2, Square, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { synthesiseSpeech } from "@/lib/api";
+import { toSpeakableText } from "@/lib/speakable";
+import type { ChatMessageUI } from "@/lib/types";
 
 type State = "idle" | "loading" | "playing" | "error";
 
-export function SpeakButton({ text }: { text: string }) {
+export function SpeakButton({ message }: { message: ChatMessageUI }) {
   const motionOff = useMotionPreference();
   const [state, setState] = useState<State>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,13 @@ export function SpeakButton({ text }: { text: string }) {
         setState("loading");
         const controller = new AbortController();
         abortRef.current = controller;
-        const blob = await synthesiseSpeech(text, controller.signal);
+        const speakable = toSpeakableText(message);
+        if (!speakable) {
+          setError("Nothing to read aloud");
+          setState("error");
+          return;
+        }
+        const blob = await synthesiseSpeech(speakable, controller.signal);
         urlRef.current = URL.createObjectURL(blob);
       }
 
