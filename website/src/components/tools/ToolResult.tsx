@@ -20,6 +20,11 @@ import type { ToolCallUI } from "@/lib/types";
 import { FileModal } from "../FileModal";
 import { Markdown } from "../Markdown";
 import { CurrencyConversion, type CurrencyResult } from "./CurrencyConversion";
+import {
+  AmeriabankRates,
+  type AmeriabankResult,
+} from "./AmeriabankRates";
+import { IdbankRates, type IdbankResult } from "./IdbankRates";
 import { Favicon } from "./Favicon";
 import {
   INSTAGRAM_BRAND,
@@ -36,6 +41,8 @@ import {
   SkillIcon,
 } from "./registry";
 import {
+  ShopBranches,
+  type ShopBranch,
   ShopCategories,
   type ShopCategory,
   type ShopProduct,
@@ -239,16 +246,12 @@ function DocBadgeIcon({
   );
 }
 
-const PdfIcon = () => (
-  <DocBadgeIcon fill="#E24C4C" accent="#F0A0A0" label="PDF" />
-);
 const DocxIcon = () => (
   <DocBadgeIcon fill="#2F5FD6" accent="#9BB4EE" label="W" />
 );
 
 const EXPORT_FORMATS = [
   { key: "markdown", label: "Markdown", Icon: MarkdownIcon },
-  { key: "pdf", label: "PDF", Icon: PdfIcon },
   { key: "docx", label: "DOCX", Icon: DocxIcon },
 ] as const;
 
@@ -257,7 +260,7 @@ function fileDownloadHref(viewUrl: string): string {
   return resolveAssetUrl(`${viewUrl}${sep}download=1`);
 }
 
-function exportHref(viewUrl: string, format: "pdf" | "docx"): string {
+function exportHref(viewUrl: string, format: "docx"): string {
   const query = viewUrl.split("?")[1] ?? "";
   const params = new URLSearchParams(query);
   params.set("format", format);
@@ -418,6 +421,8 @@ function FileResultCard({
             <img
               src={href}
               alt={path}
+              loading="lazy"
+              decoding="async"
               className="mx-auto max-h-96 rounded-lg object-contain"
             />
           ) : isHtml ? (
@@ -950,8 +955,33 @@ export function ToolResult({
     );
   }
 
+  if (
+    shop &&
+    call.name.endsWith("_stores") &&
+    Array.isArray(out?.branches)
+  ) {
+    return (
+      <ShopBranches
+        branches={out.branches as ShopBranch[]}
+        shop={shop}
+        query={typeof out.query === "string" ? out.query : undefined}
+        totalBranches={
+          typeof out.totalBranches === "number" ? out.totalBranches : undefined
+        }
+      />
+    );
+  }
+
   if (call.name === "currency_convert" && Array.isArray(out?.results)) {
     return <CurrencyConversion data={out as unknown as CurrencyResult} />;
+  }
+
+  if (call.name === "ameriabank_rates" && Array.isArray(out?.rates)) {
+    return <AmeriabankRates data={out as unknown as AmeriabankResult} />;
+  }
+
+  if (call.name === "idbank_rates" && Array.isArray(out?.boards)) {
+    return <IdbankRates data={out as unknown as IdbankResult} />;
   }
 
   if (call.name === "youtube_channel" && typeof out?.id === "string") {

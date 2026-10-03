@@ -72,6 +72,8 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | --- | --- |
 | `calculator` | exact arithmetic, no model in the loop |
 | `currency_convert` | live currency conversion, ~200 currencies including AMD and RUB |
+| `ameriabank_rates` | Ameriabank's live retail rates (ameriabank.am): cash and non-cash buy/sell vs AMD, with conversion at those rates |
+| `idbank_rates` | IDBank's live retail rates (idbank.am): cash, non-cash, card, transfer and mobile boards vs AMD, with conversion at one board's rates |
 | `web_search` | ranked results with a snippet each (Tavily) |
 | `web_extract` | full text of specific URLs, batched |
 | `web_crawl` | follow links from a page and read what they contain |
@@ -79,6 +81,7 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `yerevan_city_search`, `parma_search`, `sas_search` | search a supermarket catalogue: live AMD prices and discounts |
 | `yerevan_city_product`, `parma_product`, `sas_product` | one product in full: description, origin, photos |
 | `yerevan_city_categories`, `parma_categories`, `sas_categories` | walk a shop's category tree |
+| `yerevan_city_stores`, `parma_stores`, `sas_stores` | branch locator: address, hours, GPS; nearest-first with `nearLat` + `nearLon` |
 | `amazon_search`, `walmart_search` | search a US marketplace: live USD prices, ratings, current deals |
 | `amazon_product`, `walmart_product` | one product in full: description, brand, stock, photos |
 | `apple_search` | every current colour/storage price for an iPhone or iPad line |
@@ -93,10 +96,6 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `youtube_transcript` | full video captions as plain text + timestamped segments, with title, language, duration and word count |
 | `fs_list`, `fs_read`, `fs_search` | list, read, and regex-search files in the session's workspace |
 | `fs_write`, `fs_edit`, `fs_rename`, `fs_delete` | create, patch, move, and remove workspace files, with revision checks against stale overwrites |
-| `browser_open`, `browser_read` | open a real page in a local browser and read its rendered, visible text |
-| `browser_click`, `browser_fill` | click an element or fill and submit a form on the open page |
-| `browser_screenshot` | save a PNG of the open page into the workspace |
-| `browser_close` | close the session's browser |
 | `create_presentation` | build a real .pptx deck — title slide, bullets or text per slide, optional images — into the workspace |
 
 The web tools are Tavily. Every response is trimmed before the model sees it:
@@ -116,28 +115,20 @@ Run one without a model to see its shape:
 curl -s localhost:8787/tools/web_search -H 'content-type: application/json' -d '{"query":"EU AI Act 2025 changes","maxResults":3}'
 ```
 
-## Workspace, browser, and presentations
+## Workspace and presentations
 
 Every session gets a private workspace directory. `fs_write` (and friends) can create any file in
 it, including a self-contained `.html` report or dashboard the model builds for the user — the
 system prompt asks for a polished, white-theme page with a real chart, not a wall of text. Read
 one back as JSON with `GET /workspace/file?path=...`, or open it as an actual page — rendered
 HTML, a downloadable `.pptx`, an inline image — with `GET /workspace/view?path=...`. Tool results
-that produce a shareable file (`fs_write`, `fs_edit`, `create_presentation`, `browser_screenshot`)
+that produce a shareable file (`fs_write`, `fs_edit`, `create_presentation`)
 include a ready-made `viewUrl` for exactly that endpoint, built from `CORRO_PUBLIC_URL` (default
 `http://localhost:<PORT>`) — set it if the API is reachable at a tunnel or a different host.
 
-`browser_*` drives a real, already-installed browser via Playwright's CDP protocol — nothing is
-downloaded at install time. It launches Chrome by default; set `CORRO_BROWSER_CHANNEL=msedge` (or
-`chromium`, `chrome-beta`) to use a different installed channel, or `CORRO_BROWSER_PATH` to point
-at a specific executable. One browser is kept open per workspace across tool calls so
-`browser_open` → `browser_click` → `browser_read` act on the same page, and it is closed
-automatically after 10 minutes of no use, or on demand with `browser_close`. Only `http:` and
-`https:` pages can be opened — `file:`, `chrome:`, `javascript:`, and `data:` URLs are rejected.
-
 `create_presentation` builds an actual `.pptx` with `pptxgenjs` — a title slide plus one slide per
-entry, each with a heading and either bullets, a paragraph, or an image already in the workspace
-(handy after a `browser_screenshot`). It writes through the same revision-checked save path as
+entry, each with a heading and either bullets, a paragraph, or an image already in the workspace.
+It writes through the same revision-checked save path as
 `fs_write`, so re-running it against a stale `expectedRevision` is rejected rather than silently
 clobbering a newer version.
 
@@ -161,6 +152,45 @@ Give one `to` for a single conversion or several to compare against multiple cur
 once. Both `from` and every `to` are checked against the service's own currency list first,
 so a typo'd code comes back as a clear error rather than a confusing "no rate" failure.
 
+`ameriabank_rates` reads Ameriabank's own exchange-rates page
+([ameriabank.am/en/exchange-rates](https://ameriabank.am/en/exchange-rates)) — the bank's live
+retail board, not a mid-market average: cash (banknotes) and non-cash buy/sell rates against
+the dram for USD, EUR, RUB and the other currencies it lists, cached in memory for 15 minutes.
+Reach for it, not `currency_convert`, when the question is about Armenian bank or cash rates
+("dollar rate in Armenia", "what is the bank buying dollars at"). It returns the whole board,
+optionally narrowed to a few codes, and converts an amount at those same buy/sell rates on
+request — foreign-to-dram at buy, dram-to-foreign at sell, foreign pairs crossed through AMD
+(the same arithmetic the bank's own converter performs):
+
+```bash
+curl -s localhost:8787/tools/ameriabank_rates -H 'content-type: application/json' \
+  -d '{"description":"Checking the dollar rate","currencies":["USD","EUR"]}'
+
+curl -s localhost:8787/tools/ameriabank_rates -H 'content-type: application/json' \
+  -d '{"description":"Converting dollars to dram at cash rates","amount":100,"from":"USD","to":["AMD"],"cash":true}'
+```
+
+The page is server-rendered, so no session or postback is needed — the tool parses the rates
+table straight from the HTML. A currency the bank doesn't publish (or a leg it doesn't quote,
+e.g. cash SEK) comes back as a clear error naming what the board actually lists.
+
+`idbank_rates` reads IDBank's rates page ([idbank.am/en/rates](https://idbank.am/en/rates)) —
+Armenia's other major retail board, quoted the same way (buy/sell against the dram) but split
+across five boards: cash, non-cash, cards, transfers and mobile, each with its own currency list
+(the mobile board is the widest and also quotes gold grams as XAU). The cash board comes from
+the page itself; the other four through the same Bitrix `RATE_TYPE` post the site's own front
+end makes, with the session id read fresh from the page on every fetch so nothing goes stale.
+Each board carries the site's own "Updated at" timestamp, transfers quote buy-only (a missing
+sell comes back as a clear error, not a zero), and gold bars are out of scope — they are
+weighed bullion products, not currency.
+
+Rate questions always pair the reference converter with the caller's local boards: the system
+prompt carries a region-to-boards map (`REGION_BANK_BOARDS` in `src/agent/prompt.ts`, currently
+Armenia → `ameriabank_rates` + `idbank_rates`), so a rate question from an Armenian caller runs
+all three and answers with both the mid-market rate and what each bank actually quotes —
+including which bank is cheaper. The tool descriptions cross-reference the same way, so the
+pairing holds even when the region is unknown.
+
 ## Supermarkets
 
 Three Armenian chains are readable live, each with the same three tools — search,
@@ -168,6 +198,16 @@ product detail, category tree. Every one returns prices as a single figure the s
 actually pays plus what it was, a normalised unit price (per kilo, per litre) so the
 chains can be compared on the same basis, product photos, and a storefront URL on every
 row so a claim about a price can be checked. Prices are AMD and are never converted.
+
+Each chain also has a branch-locator tool — `yerevan_city_stores`, `parma_stores`,
+`sas_stores` — with every branch's address, opening hours and GPS coordinates, plus a
+Google Maps link per branch. Pass `nearLat` + `nearLon` to sort nearest-first with
+`distanceKm`; a `query` filters by street, district or town:
+
+```bash
+curl -s localhost:8787/tools/yerevan_city_stores -H 'content-type: application/json' \
+  -d '{"description":"Finding the nearest branches","nearLat":40.1776,"nearLon":44.5126,"maxResults":3}'
+```
 
 ```bash
 curl -s localhost:8787/tools/parma_search -H 'content-type: application/json' \
@@ -192,6 +232,12 @@ is the file to look at first when a chain redesigns.
 
 Language is `en`, `ru` or `hy` on every tool. Parma switches on a path segment
 (`/en/…`), SAS on a prefix with Armenian as the bare default, Yerevan City on the guest.
+
+Branch data comes from the same channels: Yerevan City's `Store/GetAllWeb` JSON API
+(~67 branches), Parma's `/map` page (`markersData`, 7 branches), SAS's
+`/about/our-supermarkets/` page (`shops__point` markers, 11 branches). Distances are
+haversine kilometres (`src/agent/tools/shops/geo.ts`); branch pages are cached in
+memory for 24h since they rarely change.
 
 Search always needs something to narrow by — a query, a category, or the discount shelf.
 The catalogues run to six figures and will not be listed whole.
@@ -286,7 +332,7 @@ opens the Videos tab when a channel has one and falls back to the Shorts shelf
 Shorts-first channels that have no videos tab at all. Parsers are defensive: a renamed YouTube node comes back as
 `{ ok: false, error: "YouTube layout changed, selector X not found" }`, never a
 crash. Comments fall back honestly — when Innertube answers with a bot-check,
-the tool says so and suggests `browser_open` on the watch page instead of
+the tool reports that instead of
 pretending there are no comments. Transcripts come from a `youtube-transcript.ai` mirror for the video id
 (`https://youtube-transcript.ai/transcript/{id}.txt`, `?lang=` when a language
 is requested) because YouTube serves empty caption files to datacenter IPs.
@@ -315,34 +361,33 @@ themselves to be. When the (country-level) region has local sources, the prompt 
 them as the first thing to reach for on product, price and availability questions, so
 `POST /say` from an Armenian browser answers "how much is X" from a shop's own live data
 instead of from a web search, and "where is it cheapest" by pricing it at all three.
+The same mechanism covers exchange rates: a region with local bank boards
+(`REGION_BANK_BOARDS` in `src/agent/prompt.ts` — Armenia has Ameriabank and IDBank) gets
+them named alongside `currency_convert` on every rate question, so the answer carries both
+the reference rate and what each local bank actually quotes.
 `POST /chat` takes `"region": "AM"` to override the guess, and `GET /device` reports what
 was detected and how.
 
 ## Models
 
 `kimi-k3` and `kimi-k3-fast` are the same model; they differ only in where they run.
-`gpt-5.6-luna` runs on Experiential Labs' gateway. `qwen3-max` is a separate
-model on its own endpoint. Clients see them in this
+`qwen3-max` is a separate model on its own endpoint. Clients see them in this
 order:
 
 | Key | Endpoint | Speed | Cost | Modalities |
 | --- | --- | --- | --- | --- |
 | `kimi-k3` *(default)* | `unified-nvidia-api.vercel.app` | variable — sometimes fast, sometimes ~3-10 tok/s | free, keyless, unlimited | text, image, video in → text out |
 | `kimi-k3-fast` | your Modal deployment | fast and steady | spends Modal credits | text, image, video in → text out |
-| `gpt-5.6-luna` | `api.experientiallabs.ai` (Experiential Labs) | fast | free, needs `EXPLABS_API_KEY` | text, image in → text out |
 | `qwen3-max` | `api.xkiro.com` (xKiro) | variable | free tier, needs `XKIRO_API_KEY` | text, image, video in → text out |
 
 `qwen3-max` has a 1M token context window (65K max output) and
 its own three-step scale — `low`, `medium`, `xhigh`, default `xhigh` — shown in
-clients as Fast / Standard / Max. `gpt-5.6-luna` takes a six-step scale — `none`, `low`,
-`medium`, `high`, `xhigh`, `max`, default `medium` — and has a 1M token context
-window. `kimi-k3` and `kimi-k3-fast` take a four-step scale — `none`, `low`,
+clients as Fast / Standard / Max.
+`kimi-k3` and `kimi-k3-fast` take a four-step scale — `none`, `low`,
 `high`, `max`, default `max` — so omitting `reasoningEffort` runs at max effort.
 `/models` always reports the live set for whichever model
 answered, so a client should read `reasoningEfforts` rather than assume one scale
 fits every model.
-
-Luna is free on the shared Experiential Labs key.
 
 Pick one per request with `"model": "kimi-k3-fast"`, or just ask for fast mode:
 
@@ -368,17 +413,15 @@ fixed overhead per request, Modal's 74. Both reproduce their server's
 
 ### Tokenizers
 
-Each model counts tokens with one of three kinds of tokenizer, and `/models`
+Each model counts tokens with one of two kinds of tokenizer, and `/models`
 reports which, per model, under `tokenizer`:
 
 | Kind | Used by | How it works |
 | --- | --- | --- |
 | `hf` | `kimi-k3*`, `diffusiongemma-26b` | real BPE ranks downloaded from Hugging Face by `pnpm tokenizers:prepare` |
-| `builtin` | `gpt-5.6-luna` | `o200k_base`, already inside the `tiktoken` package — nothing to download |
 | `estimated` | `qwen3-max` | xKiro publishes no vocabulary, so counts are estimated |
 
-`gpt-5.6-luna` tokenizes with plain `o200k_base`, so its counts come straight
-from the encoder. `qwen3-max` cannot be exact: the estimate is a two-term fit,
+`qwen3-max` cannot be exact: the estimate is a two-term fit,
 `tokens ≈ ratio * kimi-k3 + perChar * characters`, whose coefficients
 `pnpm tokenizers:calibrate` measures against the endpoint's own reported
 `prompt_tokens` and writes to `.cache/tokenizers/scales.json`. `pnpm tokenizers:check`
@@ -390,7 +433,7 @@ Both scripts take model keys to work on just those, which is the way to redo one
 model without re-probing every endpoint:
 
 ```bash
-pnpm tokenizers:calibrate gpt-5.6-luna qwen3-max
+pnpm tokenizers:calibrate qwen3-max
 pnpm tokenizers:check qwen3-max
 ```
 
@@ -481,6 +524,9 @@ Each concern is one place to edit:
 | `src/agent/tools/youtube/` | YouTube Innertube tools: channel, videos, video, comments, transcript |
 | `src/agent/tools/youtube/client.ts` | shared Innertube session, rate limit, in-memory cache + load-more tokens |
 | `src/agent/tools/currency/client.ts` | the exchange-rate mirror, its fallback and cache |
+| `src/agent/tools/currency/ameriabank.ts` | Ameriabank's retail board: table parsing plus buy/sell conversion |
+| `src/agent/tools/currency/idbank.ts` | IDBank's five boards: Bitrix rate-type posts, parsing, conversion |
+| `src/agent/tools/currency/legs.ts` | shared bank-board conversion: buy/sell vs AMD, foreign pairs crossed through AMD |
 | `src/http/region.ts` | where the caller is, inferred from what they already send |
 | `src/http/geoip.ts` | city/region/timezone from the caller's IP, cached |
 | `src/agent/run.ts` | the model loop, `runAgent` and `streamAgent` |
@@ -500,8 +546,7 @@ Each concern is one place to edit:
 See `.env.example`. `CORRO_DATA_DIR` overrides where sessions are written, `CORRO_DEFAULT_MODEL`
 and `CORRO_FAST_MODEL` which model each route picks, `PORT` the port. Only fast
 mode needs credentials (`KIMI_BASE_URL` + `MODAL_API_KEY`). `CORRO_PUBLIC_URL` sets the base URL
-used in `viewUrl` links; `CORRO_BROWSER_CHANNEL` and `CORRO_BROWSER_PATH` control which installed
-browser the `browser_*` tools drive (see Workspace, browser, and presentations).
+used in `viewUrl` links.
 
 ## No authentication
 

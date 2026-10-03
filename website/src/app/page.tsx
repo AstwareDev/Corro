@@ -2,15 +2,13 @@
 
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
-import { Monitor, PanelRight } from "lucide-react";
+import { PanelRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatInput } from "@/components/ChatInput";
-import { ComputerView } from "@/components/ComputerView";
 import { HeroLockup } from "@/components/HeroLockup";
 import { HistorySidebar } from "@/components/HistorySidebar";
 import { InspectorPopover } from "@/components/InspectorPopover";
 import { MessageList } from "@/components/MessageList";
-import { SidePanel } from "@/components/SidePanel";
 import { useChat } from "@/hooks/useChat";
 import {
   fetchModels,
@@ -41,14 +39,8 @@ export default function Home() {
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const [computerOpen, setComputerOpen] = useState(false);
-  const { layout, ambient, inspectorStyle } = useAppearance();
+  const { layout } = useAppearance();
   const inset = layout !== "borderless";
-
-  useEffect(() => {
-    if (layout === "studio") setInspectorOpen(true);
-    if (layout === "focus") setInspectorOpen(false);
-  }, [layout]);
 
   const {
     messages,
@@ -210,8 +202,6 @@ export default function Home() {
         inset ? "gap-2 bg-canvas p-2" : "bg-surface",
       )}
     >
-      {ambient && inset && <div aria-hidden className="aurora" />}
-
       <HistorySidebar
         activeId={sessionId}
         refreshKey={historyRefresh}
@@ -225,20 +215,6 @@ export default function Home() {
           inset && "panel-shadow rounded-panel",
         )}
       >
-        {ambient && <div aria-hidden className="panel-wash" />}
-
-        {sessionId && (
-          <button
-            type="button"
-            onClick={() => setComputerOpen(true)}
-            title="Open Corro's Computer"
-            aria-label="Open Corro's Computer"
-            className="absolute right-14 top-3 z-20 flex size-8 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
-          >
-            <Monitor size={16} />
-          </button>
-        )}
-
         <button
           type="button"
           onClick={() => setInspectorOpen((o) => !o)}
@@ -332,34 +308,15 @@ export default function Home() {
         </div>
       </main>
 
-      {inspectorStyle === "popover" ? (
-        <InspectorPopover
-          open={inspectorOpen}
-          onClose={() => setInspectorOpen(false)}
-          sources={sources}
-          files={files}
-          filesError={filesError}
-          filesLoading={filesLoading}
-          sessionId={sessionId}
-          onFilesChanged={refreshFiles}
-        />
-      ) : (
-        <SidePanel
-          open={inspectorOpen}
-          onClose={() => setInspectorOpen(false)}
-          sources={sources}
-          files={files}
-          filesError={filesError}
-          filesLoading={filesLoading}
-          sessionId={sessionId}
-          onFilesChanged={refreshFiles}
-        />
-      )}
-
-      <ComputerView
-        open={computerOpen}
+      <InspectorPopover
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        sources={sources}
+        files={files}
+        filesError={filesError}
+        filesLoading={filesLoading}
         sessionId={sessionId}
-        onClose={() => setComputerOpen(false)}
+        onFilesChanged={refreshFiles}
       />
     </div>
   );

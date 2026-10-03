@@ -4,10 +4,10 @@ import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { WorkspaceFile } from "@/lib/api";
 import type { Source } from "@/lib/sources";
-import { BrowserPanel } from "./BrowserPanel";
 import { FileModal } from "./FileModal";
 import { buildTree, FileTreeView } from "./SidePanel";
 import { Favicon } from "./tools/Favicon";
+import { WorkspaceEmptyArt } from "./WorkspaceEmptyArt";
 
 export function InspectorPopover({
   open,
@@ -30,7 +30,6 @@ export function InspectorPopover({
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<string | null>(null);
-  const [browserCount, setBrowserCount] = useState(0);
   const visibleFiles = useMemo(
     () => [...files].sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt)),
     [files],
@@ -55,10 +54,9 @@ export function InspectorPopover({
 
   if (!open) return null;
 
-  const showBrowser = browserCount > 0;
   const showFiles = visibleFiles.length > 0 || filesLoading || !!filesError;
   const showSources = sources.length > 0;
-  const nothingYet = !showBrowser && !showFiles && !showSources;
+  const nothingYet = !showFiles && !showSources;
 
   return (
     <>
@@ -67,24 +65,6 @@ export function InspectorPopover({
         aria-label="Sources and workspace"
         className="glass panel-shadow absolute right-3 top-14 z-30 max-h-[420px] w-80 overflow-y-auto rounded-panel border border-border bg-surface p-3 scroll-thin"
       >
-        {/* BrowserPanel fetches its own page count; keep it mounted (just hidden)
-            even when empty so the count keeps updating and the section can reveal itself. */}
-        <section className={showBrowser ? "space-y-2" : "hidden"}>
-          <h3 className="px-1 text-caption font-medium text-ink-muted">
-            Browser
-            <span className="ml-1 font-mono tabular-nums">{browserCount}</span>
-          </h3>
-          <BrowserPanel
-            sessionId={sessionId}
-            active={open}
-            onCount={setBrowserCount}
-          />
-        </section>
-
-        {showBrowser && (showFiles || showSources) && (
-          <div className="my-3 border-t border-border" />
-        )}
-
         {showFiles && (
           <section className="space-y-2">
             <div className="flex items-center justify-between px-1">
@@ -172,9 +152,13 @@ export function InspectorPopover({
         )}
 
         {nothingYet && (
-          <p className="px-2 py-6 text-center text-caption leading-relaxed text-ink-muted">
-            Nothing here yet. Ask Corro to browse a site or create a file.
-          </p>
+          <div className="px-2 py-4 text-center">
+            <WorkspaceEmptyArt className="mx-auto mb-3 h-auto w-full max-w-[260px]" />
+            <p className="text-caption leading-relaxed text-ink-muted">
+              Nothing here yet. Ask Corro to research something or create a
+              file.
+            </p>
+          </div>
         )}
       </div>
 

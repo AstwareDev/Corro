@@ -8,9 +8,11 @@ import {
   parsePageCount,
   parseProductCards,
   parseProductPage,
+  parseStores,
   SHOP,
   SITE,
 } from './parse.js'
+import { mapsUrl, sortByDistance, validateNear } from '../shops/geo.js'
 
 
 const SORT = {
@@ -172,4 +174,65 @@ export const parmaCategories = tool({
   },
 })
 
-export const PARMA_TOOL_NAMES = ['parma_search', 'parma_product', 'parma_categories'] as const
+export const PARMA_TOOL_NAMES = ['parma_search', 'parma_product', 'parma_categories', 'parma_stores'] as const
+
+const storesCache = new Map<string, { at: number; html: string }>()
+const STORES_TTL_MS = 24 * 60 * 60 * 1000
+
+async function fetchStoresPage(lang: (typeof SHOP_LANGUAGES)[number]): Promise<string> {
+  const cached = storesCache.get(lang)
+  if (cached && Date.now() - cached.at < STORES_TTL_MS) return cached.html
+  const html = await fetchPage(SHOP, pageUrl(lang, '/map'))
+  storesCache.set(lang, { at: Date.now(), html })
+  return html
+}
+
+export const parmaStores = tool({
+  description:
+    'Parma supermarket locations (parma.am/map) — every branch with its address and GPS coordinates. ' +
+    'Give nearLat + nearLon (the user, Corro, or any place) to get the nearest branches first with ' +
+    'distances in km; omit them to list branches, optionally filtered by street. ' +
+    'Use it for "nearest Parma" or where to shop in person.',
+  inputSchema: z.object({
+    description: toolDescription,
+    language,
+    query: z
+      .string()
+      .min(1)
+      .max(120)
+      .optional()
+      .describe('Filter branches by street or address text, e.g. "Northern Ave". Omit for all.'),
+    nearLat: z.number().min(-90).max(90).optional().describe('Latitude to measure from, e.g. 40.1776.'),
+    nearLon: z.number().min(-180).max(180).optional().describe('Longitude to measure from, e.g. 44.5126.'),
+    maxResults: z.number().int().min(1).max(50).default(10).describe('Branches to return.'),
+  }),
+  execute: async ({ language: lang, query, nearLat, nearLon, maxResults }) => {
+    const near = validateNear(nearLat, nearLon)
+    if (!near.ok) return { ok: false as const, error: near.error }
+
+    try {
+      const stores = parseStores(await fetchStoresPage(lang))
+      if (!stores.length) return { ok: false as const, error: 'Parma published no branch list on its map page' }
+
+      const q = query?.trim().toLowerCase()
+      const matching = q
+        ? stores.filter((s) => `${s.name} ${s.address}`.toLowerCase().includes(q))
+        : stores
+
+      const shaped = matching.map((s) => ({ ...s, mapsUrl: mapsUrl(s.lat, s.lon) }))
+      const branches = sortByDistance(shaped, near.near, maxResults)
+
+      return {
+        ok: true as const,
+        shop: SHOP,
+        site: `${SITE}/${lang}/map`,
+        totalBranches: stores.length,
+        ...(query ? { query } : {}),
+        ...(near.near ? { near: near.near } : {}),
+        branches,
+      }
+    } catch (err) {
+      return failure(SHOP, err)
+    }
+  },
+})

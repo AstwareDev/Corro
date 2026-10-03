@@ -18,7 +18,6 @@ import {
   wallOrLayoutError,
 } from './client.js'
 import { commentsFromMedia, mapMediaNode, mapProfile, mediaTypeOf, profileFromMeta } from './shape.js'
-import { parseHeaderFacts } from './render.js'
 
 describe('normalizeUsername', () => {
   it('accepts bare usernames and @handles', () => {
@@ -273,27 +272,5 @@ describe('open-graph fallback', () => {
   it('refuses login pages and empty tag sets instead of inventing a profile', () => {
     assert.equal(profileFromMeta({ title: 'Login • Instagram' }, 'x'), undefined)
     assert.equal(profileFromMeta({}, 'x'), undefined)
-  })
-})
-
-describe('rendered header parsing', () => {
-  const HEADER = [
-    'ashtarakkat',
-    '3,402 followers',
-    '0 following',
-    'Աշտարակ կաթ',
-    '💙Առողջ սնունդ,առողջ սերունդ 💙',
-    'Շուկայում արդեն 33 տարի',
-    'ashtarakkat.am and 2 more',
-    'Բաղադրատոմսեր',
-  ].join('\n')
-
-  it('pulls bio and counts from the rendered header text', () => {
-    const out = parseHeaderFacts({ username: 'ashtarakkat', headerText: HEADER, verified: false })
-    assert.equal(out.followers, 3402)
-    assert.equal(out.following, 0)
-    assert.ok(out.bio?.includes('33 տարի'))
-    assert.ok(!(out.bio ?? '').includes('ashtarakkat.am'))
-    assert.ok(!(out.bio ?? '').includes('Բաղադրատոմսեր'))
   })
 })

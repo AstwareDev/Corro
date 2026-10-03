@@ -1,7 +1,18 @@
 "use client";
 
 import clsx from "clsx";
-import { ChevronRight, ImageOff, Scale, Star, Tag } from "lucide-react";
+import {
+  ChevronRight,
+  Clock,
+  ImageOff,
+  MapPin,
+  Navigation,
+  Phone,
+  Scale,
+  Star,
+  Store,
+  Tag,
+} from "lucide-react";
 import type { CSSProperties } from "react";
 import { useState } from "react";
 
@@ -638,6 +649,147 @@ export function ShopCategories({
       <p className="text-caption text-ink-muted">
         {categories.length} {level === "top" ? "top-level " : ""}
         {categories.length === 1 ? "category" : "categories"}
+        {shop ? ` · ${shop.host}` : ""}
+      </p>
+    </div>
+  );
+}
+
+export interface ShopBranch {
+  name: string;
+  address: string;
+  lat: number;
+  lon: number;
+  hours?: string;
+  phone?: string;
+  inMall?: boolean;
+  image?: string;
+  mapsUrl?: string;
+  distanceKm?: number;
+}
+
+function distanceLabel(km: number | undefined): string | undefined {
+  if (km === undefined) return undefined;
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toLocaleString("en-US", { maximumFractionDigits: 1 })} km`;
+}
+
+function BranchRow({ branch }: { branch: ShopBranch }) {
+  const distance = distanceLabel(branch.distanceKm);
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-2.5">
+      <div className="flex gap-2.5">
+        {branch.image && (
+          <Shot src={branch.image} alt="" className="size-14 shrink-0" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            {branch.mapsUrl ? (
+              <a
+                href={branch.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-w-0 flex-1 text-footnote font-medium leading-snug text-ink hover:underline"
+              >
+                {branch.name}
+              </a>
+            ) : (
+              <p className="min-w-0 flex-1 text-footnote font-medium leading-snug text-ink">
+                {branch.name}
+              </p>
+            )}
+            {distance && (
+              <span className="shrink-0 rounded-md bg-[color:var(--shop-accent)] px-1.5 py-0.5 text-caption font-semibold tabular-nums leading-none text-white">
+                {distance}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 flex items-center gap-1 text-caption text-ink-muted">
+            <MapPin size={9} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{branch.address}</span>
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-caption text-ink-muted">
+            {branch.hours && (
+              <span className="flex items-center gap-1 tabular-nums">
+                <Clock size={9} className="shrink-0" />
+                {branch.hours}
+              </span>
+            )}
+            {branch.phone && (
+              <a
+                href={`tel:${branch.phone.replace(/\s/g, "")}`}
+                className="flex items-center gap-1 tabular-nums hover:underline"
+              >
+                <Phone size={9} className="shrink-0" />
+                {branch.phone}
+              </a>
+            )}
+            {branch.inMall && (
+              <span className="flex items-center gap-1">
+                <Store size={9} className="shrink-0" />
+                In a mall
+              </span>
+            )}
+            {branch.mapsUrl && (
+              <a
+                href={branch.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 font-medium text-[color:var(--shop-accent)] hover:underline"
+              >
+                <Navigation size={9} className="shrink-0" />
+                Directions
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ShopBranches({
+  branches,
+  shop,
+  query,
+  totalBranches,
+}: {
+  branches: ShopBranch[];
+  shop?: ShopBrand;
+  query?: string;
+  totalBranches?: number;
+}) {
+  if (!branches.length) {
+    return (
+      <p className="text-caption text-ink-muted">
+        No {shop?.name ?? "store"} branches matched
+        {query ? ` “${query}”` : ""}.
+      </p>
+    );
+  }
+
+  const nearestFirst = branches.some((b) => b.distanceKm !== undefined);
+  const scope = query
+    ? `matching “${query}”`
+    : nearestFirst
+      ? "nearest first"
+      : "branches";
+
+  return (
+    <div className="space-y-2" style={accentStyle(shop)}>
+      <ul className="space-y-1.5">
+        {branches.map((b, i) => (
+          <li key={`${b.lat},${b.lon},${i}`}>
+            <BranchRow branch={b} />
+          </li>
+        ))}
+      </ul>
+      <p className="text-caption text-ink-muted">
+        {totalBranches !== undefined && totalBranches > branches.length
+          ? `${branches.length} of ${totalBranches.toLocaleString()} `
+          : `${branches.length} `}
+        {scope}
         {shop ? ` · ${shop.host}` : ""}
       </p>
     </div>

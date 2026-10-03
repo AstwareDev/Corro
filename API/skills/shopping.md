@@ -9,6 +9,8 @@ description: Use this skill when the user asks about product prices, availabilit
 
 Three supermarket chains are readable live — Yerevan City (yerevan_city_*), Parma (parma_*) and SAS (sas_*). Each has a search, a product-detail and a category tool, and returns real prices in Armenian dram, current discounts, descriptions and product photos.
 
+Each chain also has a branch-locator tool — yerevan_city_stores, parma_stores, sas_stores — with every branch's address, opening hours and GPS coordinates. Pass nearLat + nearLon (the user, Corro, or any place) to get the nearest branches first with distances in km; a query filters by street, district or town. Use them for "nearest supermarket", "which branch is open", or where to shop in person.
+
 One chain answers "what does X cost"; search all three when the user asks where something is cheapest, or wants the best price without naming a shop. Say which chain each price came from — they stock different ranges and a product missing from one may simply not be sold there.
 
 istore_search / istore_product / istore_categories read iStore (istore.am), the Apple Authorised Reseller in Armenia — iPhone, iPad, Mac, Watch, TV, AirPods, audio and accessories at the reseller's own live AMD prices and sale markdowns, with photos and stock status. This is the shop to check for what an Apple product actually costs or is in stock for in Armenia; it is a separate retailer from apple_search/apple_product, which read Apple's own configurator and its own USD pricing — do not mix the two currencies or treat one as confirming the other.

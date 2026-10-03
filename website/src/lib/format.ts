@@ -53,15 +53,31 @@ export function formatBytes(bytes: number): string {
 
 
 
-export function formatRelativeTime(iso: string): string {
-  const ms = Date.now() - Date.parse(iso);
-  if (!Number.isFinite(ms) || ms < 0) return "Just now";
-  if (ms < 45 * SECOND) return "Just now";
-  if (ms < HOUR) return `${Math.round(ms / MINUTE)}m ago`;
-  if (ms < DAY) return `${Math.round(ms / HOUR)}h ago`;
-  if (ms < 7 * DAY) return `${Math.round(ms / DAY)}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+const HOUR_MS = 3_600_000;
+const DAY_MS = 86_400_000;
+
+export function formatSearchBucket(iso: string): string {
+  const time = Date.parse(iso);
+  if (!Number.isFinite(time)) return "";
+  const now = new Date();
+  const diff = now.getTime() - time;
+  if (diff < HOUR_MS) return "Past hour";
+  const startToday = new Date(now);
+  startToday.setHours(0, 0, 0, 0);
+  const startDay = new Date(time);
+  startDay.setHours(0, 0, 0, 0);
+  const dayDiff = Math.round(
+    (startToday.getTime() - startDay.getTime()) / DAY_MS,
+  );
+  if (dayDiff <= 0) return "Today";
+  if (dayDiff === 1) return "Yesterday";
+  if (diff < 7 * DAY_MS) return "Past week";
+  if (diff < 30 * DAY_MS) return "Past month";
+  const date = new Date(time);
+  return date.toLocaleDateString(
+    undefined,
+    date.getFullYear() === now.getFullYear()
+      ? { month: "short", day: "numeric" }
+      : { month: "short", day: "numeric", year: "numeric" },
+  );
 }

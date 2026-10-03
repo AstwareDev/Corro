@@ -11,7 +11,7 @@ const slideSchema = z.object({
   title: z.string().max(200).optional().describe('Slide heading. Omit for an image-only or divider slide.'),
   bullets: z.array(z.string().max(500)).max(12).optional().describe('Bullet points, in order.'),
   text: z.string().max(2000).optional().describe('A paragraph of body text, instead of or in addition to bullets.'),
-  imagePath: z.string().optional().describe('Workspace-relative path to an image already in the workspace, e.g. from browser_screenshot.'),
+  imagePath: z.string().optional().describe('Workspace-relative path to an image already in the workspace.'),
   notes: z.string().max(2000).optional().describe('Speaker notes, not shown on the slide itself.'),
 })
 
@@ -37,7 +37,7 @@ export function createPresentationTools(workspace: string) {
       try {
         if (!rel.toLowerCase().endsWith('.pptx')) return { ok: false as const, error: 'path must end in .pptx' }
 
-        const PptxGenJS = (await import('pptxgenjs')).default
+        const PptxGenJS = ((await import('pptxgenjs')) as unknown as { default: new () => any }).default
         const pptx = new PptxGenJS()
         pptx.layout = 'LAYOUT_16x9'
         pptx.title = title

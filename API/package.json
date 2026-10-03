@@ -10,7 +10,7 @@
     "tokenizers:calibrate": "tsx src/tokenizer/calibrate.ts",
     "tokenizers:check": "tsx src/tokenizer/check.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/agent/tools/calculator.test.ts src/agent/tools/fs/workspace.test.ts src/agent/run.test.ts src/agent/branding.test.ts src/routes/workspace.test.ts src/agent/tools/presentation/index.test.ts src/agent/tools/browser/index.test.ts src/export/markdownDocx.test.ts src/agent/tools/instagram/instagram.test.ts src/agent/skills/skills.test.ts"
+    "test": "tsx --test src/agent/tools/calculator.test.ts src/agent/tools/currency/ameriabank.test.ts src/agent/tools/currency/idbank.test.ts src/agent/prompt.test.ts src/agent/tools/fs/workspace.test.ts src/agent/run.test.ts src/agent/branding.test.ts src/routes/workspace.test.ts src/agent/tools/presentation/index.test.ts src/export/markdownDocx.test.ts src/agent/tools/instagram/instagram.test.ts src/agent/skills/skills.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -24,7 +24,6 @@
   },
   "type": "module",
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.42",
     "@ai-sdk/openai-compatible": "^3.0.30",
     "@huggingface/jinja": "^0.5.9",
     "ai": "^7.0.66",
@@ -33,10 +32,9 @@
     "express": "^5.2.1",
     "marked": "^18.0.11",
     "multer": "^2.3.0",
-    "playwright-core": "^1.63.0",
     "pptxgenjs": "^4.0.1",
     "tiktoken": "^1.0.22",
-    "ws": "^8.21.3",
+    "tsx": "^4.23.12",
     "youtubei.js": "18.0.0",
     "zod": "^4.4.3"
   },
@@ -44,9 +42,7 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
     "@types/node": "^26.2.0",
-    "@types/ws": "^8.18.1",
     "jszip": "^3.10.1",
-    "tsx": "^4.23.12",
     "typescript": "^7.0.2"
   }
 }

@@ -58,7 +58,26 @@ never cite a site you did not open, and never cite a homepage as the source for 
 `
 
 
+const REGION_BANK_BOARDS: Record<string, { place: string; tools: string[] }> = {
+  AM: { place: 'Armenia', tools: ['ameriabank_rates', 'idbank_rates'] },
+}
+
+function localBanksNote(toolNames: string[], region?: PromptOptions['region']): string {
+  if (!region) return ''
+  const entry = REGION_BANK_BOARDS[region.code.toUpperCase()]
+  if (!entry) return ''
+  const available = entry.tools.filter((name) => toolNames.includes(name))
+  if (!available.length) return ''
+  return (
+    `The caller is in ${entry.place} (${region.code.toUpperCase()}), which has local bank rate boards: ` +
+    `${available.join(', ')}. For any exchange-rate question, call them alongside currency_convert — the ` +
+    `converter gives the reference rate, the boards give what local banks actually buy and sell at. ` +
+    `Do not answer a rate question from the converter alone while these boards are available.`
+  )
+}
+
 function skillsSection(): string {
+
   return `
 <available_skills>
 ${formatSkillsIndex()}
@@ -67,7 +86,7 @@ To use a skill, call read_skill(name) to load its full instructions. Skill bodie
 `
 }
 
-function toolsSection(toolNames: string[]): string {
+function toolsSection(toolNames: string[], region?: PromptOptions['region']): string {
   if (!toolNames.length) {
     return `
 <available>none</available>
@@ -77,15 +96,15 @@ No external verification is possible in this run. Say when a claim needs sources
 
   return `
 <available>${toolNames.join(', ')}</available>
-Use the least expensive tool that can answer the subtask. Search discovers candidates; extraction or browsing verifies content; mapping/crawling is for site structure or evidence distributed across a site. Do not reread the same source without a new purpose. If a tool fails, switch methods or report the gap rather than guessing.
-
-Subject-specific tool guidance — shopping catalogues, YouTube/Instagram, and browser navigation — lives in skills (see <skills>); read_skill the matching one when the task touches those sources.
+Use the least expensive tool that can answer the subtask. Search discovers candidates; extraction verifies content; mapping/crawling is for site structure or evidence distributed across a site. Do not reread the same source without a new purpose. If a tool fails, switch methods or report the gap rather than guessing.
+${localBanksNote(toolNames, region)}
+Subject-specific tool guidance — shopping catalogues and YouTube/Instagram — lives in skills (see <skills>); read_skill the matching one when the task touches those sources.
 
 If a tool requires a user-visible description, begin every call with a short present-participle phrase describing its purpose, not its mechanism. Make consecutive descriptions materially distinct.
 
 Workspace files persist within this session. Other sessions have separate workspaces. List before assuming a file exists; save compact evidence notes, drafts, and source indexes there when material is long. Do not delete user data unless explicitly asked.
 
-When fs_write, fs_edit, create_presentation, or browser_screenshot returns a viewUrl, that link opens the actual file — a rendered page for .html, a download for .pptx/.pdf, the image itself for a screenshot. Give the user that link instead of describing the file's contents as if it were only a chat message; it is a real artifact they can open.
+When fs_write, fs_edit, or create_presentation returns a viewUrl, that link opens the actual file — a rendered page for .html, a download for .pptx/.pdf. Give the user that link instead of describing the file's contents as if it were only a chat message; it is a real artifact they can open.
 
 Every file the user uploads is saved into the uploads/ folder of this workspace — when the user refers to something they attached, fs_list the workspace and fs_read the matching uploads/ file. Images and video the current model can see also arrive inline in the conversation alongside that uploads/ copy; anything else — including images on a model without image input — exists only as that workspace file, so you must fs_read it to know what it contains.
 `
@@ -108,8 +127,31 @@ const RULES = `
 const OUTPUT = `
 <output>
 Write naturally and concisely. Lead with the result. For file work, name the affected path and the concrete change; report errors or unchanged results plainly. Do not add research headings or evidence labels to creative drafts, speaker notes, or routine action confirmations unless requested. Match the user's tone without forced slang, filler, or invented personal opinions.
-The chat renders images in markdown. When a tool result carries image or photo URLs (product photos, avatars, screenshots), show them with an image element like ![caption](url) — one image per line groups into a swipeable carousel, a standalone image renders large, and an image works inside a comparison table row (put it in the first cell). Only embed URLs a tool actually returned; never guess or hotlink an image URL.
+The chat renders images in markdown. When a tool result carries image or photo URLs (product photos, avatars), show them with an image element like ![caption](url) — one image per line groups into a swipeable carousel, a standalone image renders large, and an image works inside a comparison table row (put it in the first cell). Only embed URLs a tool actually returned; never guess or hotlink an image URL.
 For researched answers, place claim-level evidence labels and direct citations beside the claims they support. Include limits or disagreement when material. Use a compact table for comparisons, with one row per line and a header separator. Avoid repeating sources in multiple sections.
+
+Charts: when the user asks for a chart, graph, trend, or comparison — or when a visual clearly beats prose — emit a fenced \`\`\`chart block containing valid JSON only (no comments, no trailing commas). Keep plain markdown tables for simple lookups. Always include a title, axis labels with units, and only data the user provided or that a tool retrieved; never invent numbers. After the chart, add one short sentence of takeaway.
+
+Line example:
+\`\`\`chart
+{"type": "line", "title": "Revenue by month", "x": {"key": "month", "label": "Month"}, "y": {"label": "Revenue (USD)", "format": "currency", "min": 0}, "series": [{"key": "revenue", "name": "Revenue"}], "data": [{"month": "Jan", "revenue": 12000}, {"month": "Feb", "revenue": 18500}, {"month": "Mar", "revenue": 17400}]}
+\`\`\`
+
+Bar example:
+\`\`\`chart
+{"type": "bar", "title": "Signups by plan", "x": {"key": "plan", "label": "Plan"}, "y": {"label": "Signups", "format": "number", "min": 0}, "series": [{"key": "signups", "name": "Signups"}], "data": [{"plan": "Free", "signups": 1240}, {"plan": "Pro", "signups": 860}, {"plan": "Team", "signups": 310}]}
+\`\`\`
+Supported types are line, bar, scatter, area, and pie. Optional fields: subtitle, x.scale (category | linear | time | log), y.scale (linear | log), y.format (currency | percent | number | compact), y.max, series[].color (hex), series[].name, stacked (bar/area), table.show, table.defaultView (chart | table). Scatter uses numeric x and y pairs per series; pie uses one series plus one category key.
+
+UI blocks: when a designed component beats prose, emit one of these short fenced blocks. Use a block only when it beats prose. Never repeat the same data in both a block and a table or paragraph. Do not narrate the block's contents in the text before or after it. One short sentence of context at most. Maximum two UI blocks per reply unless the user asks for more.
+
+Maps: when the user asks where something is, asks for a nearby store or place, or needs a location or directions, emit one \`\`\`map block. One map per reply. Use the full address or place name from a tool result or from the user. Use coordinates only if they came from a tool result. Never invent addresses or coordinates. If the location is uncertain, say so in text and render no map. Do not repeat the address in the surrounding text. One short sentence of context at most.
+
+\`\`\`map
+SAS Supermarket, Marshal Baghramyan Ave 85, Yerevan
+zoom=15 | label=SAS Supermarket
+\`\`\`
+Line 1 is a place name, an address, or "lat,lng". Line 2 is optional and holds key=value pairs separated by " | " (zoom, label). Nothing else.
 </output>
 `
 
@@ -145,7 +187,7 @@ export function buildSystemPrompt({
     tag('evidence', EVIDENCE),
     tag('labels', LABELS),
     tag('rules', RULES),
-    tag('tools', toolsSection(toolNames)),
+    tag('tools', toolsSection(toolNames, region)),
     tag('skills', skillsSection()),
     tag('output', OUTPUT),
   ]

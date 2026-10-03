@@ -8,7 +8,7 @@
 :root {
   color-scheme: light;
 
-  --corro-canvas: #f7f8fa;
+  --corro-canvas: #ffffff;
   --corro-bg: #ffffff;
   --corro-surface: #ffffff;
   --corro-surface-raised: #f3f5f7;
@@ -265,6 +265,23 @@ body {
   background: transparent;
 }
 
+/* Chart data tables: 6px rounded thumb, light gray, no track. */
+.chart-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--corro-border-strong) transparent;
+}
+.chart-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.chart-scroll::-webkit-scrollbar-thumb {
+  background: var(--corro-border-strong);
+  border-radius: 999px;
+}
+.chart-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -503,7 +520,8 @@ body {
   height: 0.95em;
   margin-right: 4px;
   vertical-align: -0.12em;
-  background: no-repeat center / contain
+  background:
+    no-repeat center / contain
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50' fill='none'%3E%3Cg stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 10c3-4 8-6 13-5.8C34 4.5 41 12 41 22l.5 2.5 4 5-4 2L41 37l-2.5 3-5.5 1.5-1 4H13L11 33'/%3E%3Ccircle cx='13' cy='21.5' r='10.5' fill='%23dcd8c8' stroke='none'/%3E%3Cpath fill='white' stroke='none' d='m15 14-5.5 8.5h4L12 29l5.5-8.5h-4z'/%3E%3C/g%3E%3C/svg%3E");
 }
 
@@ -544,7 +562,11 @@ body {
 .corro-prompt a {
   color: var(--corro-citation);
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--corro-citation) 45%, transparent);
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--corro-citation) 45%,
+    transparent
+  );
   text-underline-offset: 2px;
 }
 
@@ -649,20 +671,20 @@ body {
 /* Appearance preferences are shared by the workspace and its dialogs. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --corro-canvas: #141416;
-  --corro-bg: #1c1c1f;
-  --corro-surface: #202023;
-  --corro-surface-raised: #2a2a2e;
-  --corro-surface-sunken: #171719;
-  --corro-glass: rgba(31, 31, 35, 0.85);
-  --corro-glass-border: rgba(255, 255, 255, 0.07);
-  --corro-popover: #252529;
-  --corro-border: #343438;
-  --corro-border-strong: #49494f;
-  --corro-hairline: rgba(255, 255, 255, 0.08);
-  --corro-text: #f0f0f2;
-  --corro-text-muted: #aaaab3;
-  --corro-text-faint: #74747e;
+  --corro-canvas: #050506;
+  --corro-bg: #0a0a0c;
+  --corro-surface: #101014;
+  --corro-surface-raised: #1a1a20;
+  --corro-surface-sunken: #08080a;
+  --corro-glass: rgba(16, 16, 19, 0.88);
+  --corro-glass-border: rgba(255, 255, 255, 0.06);
+  --corro-popover: #141417;
+  --corro-border: #232327;
+  --corro-border-strong: #38383f;
+  --corro-hairline: rgba(255, 255, 255, 0.07);
+  --corro-text: #f5f5f7;
+  --corro-text-muted: #9d9da8;
+  --corro-text-faint: #6b6b76;
   --corro-accent: #8dabfa;
   --corro-accent-text: #a8c0ff;
   --corro-accent-soft: #28334a;
@@ -672,21 +694,21 @@ body {
   --corro-contradicted: #f59a93;
   --corro-unsourced: #b2bdc4;
   --corro-citation: #a8c0ff;
-  --corro-corroborated-bg: #183b30;
-  --corro-partial-bg: #40331d;
-  --corro-contradicted-bg: #422723;
-  --corro-unsourced-bg: #303338;
-  --corro-citation-bg: #293651;
+  --corro-corroborated-bg: #0f2e25;
+  --corro-partial-bg: #2f2515;
+  --corro-contradicted-bg: #331c18;
+  --corro-unsourced-bg: #1e2024;
+  --corro-citation-bg: #1d2740;
   --corro-ctx-system: #b49af8;
   --corro-ctx-tools: #7dd6b3;
   --corro-ctx-history: #a8c0ff;
   --corro-ctx-traffic: #79cbdc;
   --corro-ctx-input: #e6ba70;
-  --corro-shadow-panel: 0 1px 2px #0002, 0 8px 24px -12px #0006;
-  --corro-shadow-popover: 0 2px 6px #0003, 0 12px 32px -8px #0008;
-  --corro-aurora-1: rgba(92, 130, 185, 0.16);
-  --corro-aurora-2: rgba(105, 158, 199, 0.12);
-  --corro-aurora-3: rgba(87, 152, 131, 0.12);
+  --corro-shadow-panel: 0 1px 2px #000a, 0 12px 32px -12px #000c;
+  --corro-shadow-popover: 0 2px 8px #000a, 0 16px 40px -8px #000c;
+  --corro-aurora-1: rgba(92, 130, 185, 0.1);
+  --corro-aurora-2: rgba(105, 158, 199, 0.08);
+  --corro-aurora-3: rgba(87, 152, 131, 0.08);
 }
 :root[data-accent="graphite"] {
   --corro-accent: #111111;
@@ -715,30 +737,30 @@ body {
 :root[data-theme="dark"][data-accent="graphite"] {
   --corro-accent: #f1f1f1;
   --corro-accent-text: #f1f1f1;
-  --corro-accent-soft: #303030;
-  --corro-accent-border: #575757;
+  --corro-accent-soft: #1e1e21;
+  --corro-accent-border: #3a3a40;
 }
 .sidebar-new-task:hover {
-  background: #eef3f7;
+  background: var(--corro-surface-raised);
 }
 :root:not([data-theme="dark"]) .sidebar-rail-button:hover,
 :root:not([data-theme="dark"]) .sidebar-session-row:hover,
 :root:not([data-theme="dark"]) .sidebar-session-row.is-active {
-  background: #eef3f7;
+  background: var(--corro-surface-raised);
 }
 .sidebar-session-row.is-active {
   box-shadow: inset 2px 0 #c8d2da;
 }
 :root[data-theme="dark"] .sidebar-new-task:hover {
-  background: #2a2a2e;
+  background: #1a1a20;
 }
 :root[data-theme="dark"] .sidebar-rail-button:hover,
 :root[data-theme="dark"] .sidebar-session-row:hover,
 :root[data-theme="dark"] .sidebar-session-row.is-active {
-  background: #2a2a2e;
+  background: #1a1a20;
 }
 :root[data-theme="dark"] .sidebar-session-row.is-active {
-  box-shadow: inset 2px 0 #56565d;
+  box-shadow: inset 2px 0 #4a4a52;
 }
 :root[data-theme="dark"][data-accent="green"] {
   --corro-accent: #79bca1;
@@ -766,12 +788,6 @@ body {
 }
 :root {
   --corro-conversation-width: 48rem;
-}
-:root[data-layout="focus"] {
-  --corro-conversation-width: 40rem;
-}
-:root[data-layout="studio"] {
-  --corro-conversation-width: 64rem;
 }
 .corro-conversation {
   max-width: var(--corro-conversation-width);
@@ -1183,10 +1199,10 @@ body {
   --pv-line: #d7d7dd;
 }
 .preview-dark {
-  --pv-canvas: #19191c;
-  --pv-panel: #2b2b30;
-  --pv-raised: #35353c;
-  --pv-line: #565660;
+  --pv-canvas: #050506;
+  --pv-panel: #101014;
+  --pv-raised: #1a1a20;
+  --pv-line: #38383f;
 }
 .preview-system {
   --pv-canvas: #efeff2;
@@ -1305,40 +1321,6 @@ body {
 }
 .preview-borderless .preview-main {
   border-radius: 0;
-}
-.preview-focus .preview-sidebar {
-  width: 12%;
-  align-items: center;
-}
-.preview-focus .preview-nav {
-  width: 7px;
-  height: 7px;
-}
-.preview-focus .preview-conversation,
-.preview-focus .preview-composer {
-  width: 72%;
-}
-.preview-studio .preview-sidebar {
-  width: 28%;
-}
-.preview-studio .preview-conversation,
-.preview-studio .preview-composer {
-  width: 100%;
-}
-.preview-inspector {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 16%;
-  padding: 12px 5px;
-  background: var(--pv-panel);
-  border-radius: 4px;
-}
-.preview-inspector > span {
-  height: 4px;
-  width: 90%;
-  background: var(--pv-line);
-  border-radius: 2px;
 }
 .settings-live-preview {
   position: relative;
@@ -2106,5 +2088,21 @@ body {
   }
   .preview-live .preview-composer {
     min-height: 46px;
+  }
+}
+
+/* ── Maps + tables ────────────────────────────────────────────────────────
+   The ```map block reuses the chart card tokens (1px light border, 12px
+   radius, no shadow) via Tailwind classes in blocks/map.tsx. No global map
+   CSS is needed beyond the shared shimmer (.corro-skeleton) and focus ring.
+   Plain markdown tables match the chart table view. Wide tables scroll
+   horizontally inside their own container on narrow screens. */
+.ui-table-wrap table {
+  min-width: 420px;
+}
+@media (max-width: 480px) {
+  .ui-table-wrap {
+    margin-left: -4px;
+    margin-right: -4px;
   }
 }

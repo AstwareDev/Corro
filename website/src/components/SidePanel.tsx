@@ -8,7 +8,6 @@ import type { WorkspaceFile } from "@/lib/api";
 import { useAppearance, useMotionPreference } from "@/lib/appearance";
 import { FileTypeBadge } from "@/lib/fileIcons";
 import type { Source } from "@/lib/sources";
-import { BrowserPanel } from "./BrowserPanel";
 import { FileModal } from "./FileModal";
 import { Favicon } from "./tools/Favicon";
 
@@ -20,7 +19,7 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-type Tab = "sources" | "files" | "browser";
+type Tab = "sources" | "files";
 
 function Segmented({
   tab,
@@ -35,7 +34,6 @@ function Segmented({
   const items: { key: Tab; label: string }[] = [
     { key: "sources", label: "Sources" },
     { key: "files", label: "Files" },
-    { key: "browser", label: "Browser" },
   ];
 
   return (
@@ -236,7 +234,6 @@ export function SidePanel({
   const reduce = useMotionPreference();
   const { layout } = useAppearance();
   const [tab, setTab] = useState<Tab>("sources");
-  const [pageCount, setPageCount] = useState(0);
   const [preview, setPreview] = useState<string | null>(null);
   const [sort, setSort] = useState<"name" | "recent">("recent");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -304,7 +301,6 @@ export function SidePanel({
                     counts={{
                       sources: sources.length,
                       files: files.length,
-                      browser: pageCount,
                     }}
                   />
                 </div>
@@ -361,14 +357,7 @@ export function SidePanel({
                 </p>
               )}
               <div className="scroll-thin flex-1 overflow-y-auto px-1.5 pb-2">
-                <div className={tab === "browser" ? undefined : "hidden"}>
-                  <BrowserPanel
-                    sessionId={sessionId}
-                    active={open && tab === "browser"}
-                    onCount={setPageCount}
-                  />
-                </div>
-                {tab === "browser" ? null : tab === "sources" ? (
+                {tab === "sources" ? (
                   sources.length === 0 ? (
                     <Empty>Pages Corro reads will collect here.</Empty>
                   ) : (

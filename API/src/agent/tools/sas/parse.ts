@@ -210,3 +210,41 @@ export function parseCategories(html: string): SasCategory[] {
 
   return out
 }
+
+export interface SasStore {
+  address: string
+  hours?: string
+  phone?: string
+  lat: number
+  lon: number
+  image?: string
+}
+
+export function parseStores(html: string): SasStore[] {
+  const out: SasStore[] = []
+
+  for (const block of cards(html, 'class="shops__point js-map-point"')) {
+    const lat = Number(pick(block, /data-lat="([\d.]+)"/))
+    const lon = Number(pick(block, /data-lon="([\d.]+)"/))
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
+
+    const labels = [...block.matchAll(/shops__point-list-label">([^<]*)</g)].map((m) => clean(m[1]))
+    const hours = labels.find((t) => t === '24/7' || /^\d{2}:\d{2}/.test(t))
+    const address = labels.find((t) => t && t !== '8777' && t !== hours)
+    const phone = labels.includes('8777') ? '8777' : undefined
+    if (!address) continue
+
+    out.push({
+      address,
+      ...(hours ? { hours } : {}),
+      ...(phone ? { phone } : {}),
+      lat,
+      lon,
+      ...(pick(block, /shops__point-banner-img[^>]*src="([^"]+)"/)
+        ? { image: absolute(pick(block, /shops__point-banner-img[^>]*src="([^"]+)"/)) as string }
+        : {}),
+    })
+  }
+
+  return out
+}

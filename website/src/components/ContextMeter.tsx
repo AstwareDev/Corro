@@ -1,10 +1,9 @@
 "use client";
 
-import { useMotionPreference } from "@/lib/appearance";
-
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { useMotionPreference } from "@/lib/appearance";
 import {
   type ContextUsage,
   DISPLAY_CONTEXT_MAX,
@@ -85,7 +84,7 @@ function Donut({
             stroke={seg.color}
             strokeWidth={stroke}
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            initial={motionOff ? false : false}
+            initial={false}
             animate={{
               strokeDasharray: `${length} ${circumference - length}`,
               strokeDashoffset: dashOffset,

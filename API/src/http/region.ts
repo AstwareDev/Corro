@@ -91,7 +91,6 @@ export async function resolveRegion(req: Request): Promise<RegionContext | undef
   }
 
   const geo = await lookupGeo(req)
-  console.log('[region] geoip lookup result', { geo })
   if (geo) {
     const base = named(geo.countryCode, 'geoip')
     return logged({ ...base, city: geo.city, subdivision: geo.subdivision, timezone: geo.timezone }, debug)
@@ -108,8 +107,7 @@ export async function resolveRegion(req: Request): Promise<RegionContext | undef
 
 
 
-function logged(region: RegionContext | undefined, signals: Record<string, string | undefined>): RegionContext | undefined {
-  console.log('[region] resolved', { region, signals })
+function logged(region: RegionContext | undefined, _signals: Record<string, string | undefined>): RegionContext | undefined {
   return region
 }
 

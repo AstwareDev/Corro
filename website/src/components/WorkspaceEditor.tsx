@@ -279,6 +279,8 @@ export function WorkspaceEditor({
                 <img
                   src={workspaceViewUrl(path, sessionId)}
                   alt={path}
+                  loading="lazy"
+                  decoding="async"
                   className="max-h-full max-w-full rounded-lg object-contain"
                 />
               </div>

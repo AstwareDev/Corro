@@ -34,12 +34,6 @@ export function clientIp(req: Request): string | undefined {
   const first = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]
   const candidate = (first?.trim() || req.socket.remoteAddress || '').replace(/^::ffff:/, '')
   const resolved = candidate && isPublic(candidate) ? candidate : undefined
-  console.log('[geoip] client ip', {
-    'x-forwarded-for': forwarded,
-    'socket.remoteAddress': req.socket.remoteAddress,
-    candidate,
-    resolved,
-  })
   return resolved
 }
 
@@ -48,7 +42,6 @@ async function fetchGeo(ip: string): Promise<GeoLocation | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(2000) })
     if (!res.ok) {
-      console.log('[geoip] ip-api http error', { ip, url, status: res.status })
       return null
     }
     const data = (await res.json()) as {
@@ -58,7 +51,6 @@ async function fetchGeo(ip: string): Promise<GeoLocation | null> {
       city?: string
       timezone?: string
     }
-    console.log('[geoip] ip-api response', { ip, url, data })
     if (data.status !== 'success' || !data.countryCode) return null
     return {
       ip,
@@ -67,8 +59,7 @@ async function fetchGeo(ip: string): Promise<GeoLocation | null> {
       subdivision: data.regionName || undefined,
       timezone: data.timezone || undefined,
     }
-  } catch (err) {
-    console.log('[geoip] ip-api fetch failed', { ip, url, err: err instanceof Error ? err.message : err })
+  } catch {
     return null
   }
 }
@@ -81,13 +72,11 @@ async function fetchGeo(ip: string): Promise<GeoLocation | null> {
 export async function lookupGeo(req: Request): Promise<GeoLocation | undefined> {
   const ip = clientIp(req)
   if (!ip) {
-    console.log('[geoip] no usable ip, skipping lookup')
     return undefined
   }
 
   const cached = cache.get(ip)
   if (cached && cached.expires > Date.now()) {
-    console.log('[geoip] cache hit', { ip, value: cached.value })
     return cached.value ?? undefined
   }
 

@@ -24,7 +24,6 @@ import {
   wallOrLayoutError,
 } from './client.js'
 import { mapMediaNode, mapProfile, META_FALLBACK_NOTE, profileFromMeta, timelineFromUser } from './shape.js'
-import { renderProfileHeader } from './render.js'
 
 async function loadProfile(username: string) {
   const url = profileUrl(username)
@@ -77,21 +76,8 @@ export const instagramProfile = tool({
 
       const loaded = await loadProfile(username)
       if (loaded.kind === 'meta') {
-        // Degraded path: header facts from Open Graph tags. Bio comes from
-        // the headless-render fallback when a local browser is available.
-        const rendered = await renderProfileHeader(profileUrl(username)).catch(() => undefined)
-        const prof = {
-          ...loaded.profile,
-          ...(rendered?.bio ? { bio: rendered.bio } : {}),
-          ...(rendered?.avatar ? { avatar: rendered.avatar } : {}),
-          ...(rendered?.verified ? { verified: true as const } : {}),
-          ...(rendered?.followers !== undefined && loaded.profile.followers === undefined
-            ? { followers: rendered.followers, followerText: String(rendered.followers) }
-            : {}),
-          ...(rendered?.following !== undefined && loaded.profile.following === undefined
-            ? { following: rendered.following }
-            : {}),
-        }
+        // Degraded path: header facts from Open Graph tags only.
+        const prof = { ...loaded.profile }
         const result = {
           source: SHOP,
           site: SITE,

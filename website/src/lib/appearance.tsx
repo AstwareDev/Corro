@@ -10,13 +10,13 @@ import {
   useState,
 } from "react";
 
-export type Layout = "inset" | "borderless" | "focus" | "studio";
+export type Layout = "inset" | "borderless";
 export type Theme = "light" | "dark" | "system";
 export type Accent = "graphite" | "blue" | "green" | "amber" | "rose";
 export type TextSize = "small" | "default" | "large";
 export type AmbientPalette = "sky" | "ice" | "mint" | "sand";
 
-export type InspectorStyle = "sidebar" | "popover";
+export type InspectorStyle = "popover";
 
 export interface Appearance {
   layout: Layout;
@@ -33,12 +33,12 @@ export interface Appearance {
 
 const STORAGE_KEY = "corro_appearance";
 const DEFAULTS: Appearance = {
-  layout: "inset",
-  inspectorStyle: "sidebar",
-  ambient: true,
+  layout: "borderless",
+  inspectorStyle: "popover",
+  ambient: false,
   ambientPalette: "sky",
   ambientIntensity: 60,
-  theme: "system",
+  theme: "light",
   accent: "graphite",
   textSize: "default",
   reducedMotion: false,
@@ -63,13 +63,13 @@ function read(): Appearance {
     const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}");
     if (!parsed || typeof parsed !== "object") return DEFAULTS;
     return {
-      layout: ["inset", "borderless", "focus", "studio"].includes(parsed.layout)
+      layout: ["inset", "borderless"].includes(parsed.layout)
         ? parsed.layout
         : DEFAULTS.layout,
-      inspectorStyle: ["sidebar", "popover"].includes(parsed.inspectorStyle)
-        ? parsed.inspectorStyle
-        : DEFAULTS.inspectorStyle,
-      ambient: parsed.ambient !== false,
+      // Compact panel (popover) is now the only inspector style.
+      inspectorStyle: "popover",
+      // Ambient background removed — always off for stored prefs too.
+      ambient: false,
       ambientPalette: ["sky", "ice", "mint", "sand"].includes(
         parsed.ambientPalette,
       )
@@ -87,7 +87,8 @@ function read(): Appearance {
       textSize: ["small", "default", "large"].includes(parsed.textSize)
         ? parsed.textSize
         : DEFAULTS.textSize,
-      reducedMotion: parsed.reducedMotion === true,
+      // Reduce-motion setting removed — always off (OS-level still respected).
+      reducedMotion: false,
       language: ["en", "hy", "fr", "de", "es", "ja", "pt", "ko"].includes(
         parsed.language,
       )
@@ -146,7 +147,19 @@ export function AppearanceProvider({
   }, [appearance]);
 
   const updateAppearance = useCallback((patch: Partial<Appearance>) => {
-    setAppearance((previous) => ({ ...previous, ...patch }));
+    setAppearance((previous) => ({
+      ...previous,
+      ...patch,
+      // Locked-in renovations: compact popover only, no ambient, no app-level
+      // reduced-motion. Layout is Inset / Edge-to-Edge only.
+      inspectorStyle: "popover",
+      ambient: false,
+      reducedMotion: false,
+      layout:
+        patch.layout === "inset" || patch.layout === "borderless"
+          ? patch.layout
+          : previous.layout,
+    }));
   }, []);
 
   const value = useMemo<AppearanceValue>(

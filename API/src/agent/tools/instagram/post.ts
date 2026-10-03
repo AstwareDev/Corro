@@ -4,7 +4,6 @@ import { toolDescription } from '../description.js'
 import {
   cacheGet,
   cacheSet,
-  extractLdJsonBlocks,
   extractStateBlobs,
   failure,
   fetchHtml,
@@ -36,8 +35,6 @@ async function fetchMedia(shortcode: string): Promise<{ media: AnyObj; loginWall
       const html = await fetchHtml(url)
       lastHtml = html
       const blobs = extractStateBlobs(html)
-      // ld+json blocks are a fallback confirmation only; the shortcode blob is authoritative.
-      void extractLdJsonBlocks(html)
       const media = findShortcodeMedia(blobs)
       // The login prompt is usually a closable overlay — data may still be here.
       if (media) return { media, loginWall: looksLikeLoginWall(html) }

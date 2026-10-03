@@ -23,12 +23,6 @@ function clientIp(request: Request): string | undefined {
     undefined;
   const ip = candidate?.replace(/^::ffff:/, "");
   const resolved = ip && isPublic(ip) ? ip : undefined;
-  console.log("[client-region] client ip", {
-    "x-forwarded-for": forwarded,
-    "x-real-ip": request.headers.get("x-real-ip"),
-    candidate,
-    resolved,
-  });
   return resolved;
 }
 
@@ -39,7 +33,6 @@ const NO_STORE = { headers: { "Cache-Control": "private, no-store" } };
 export async function GET(request: Request) {
   const ip = clientIp(request);
   if (!ip) {
-    console.log("[client-region] no usable ip, skipping lookup");
     return Response.json({ region: null }, NO_STORE);
   }
 
@@ -50,18 +43,11 @@ export async function GET(request: Request) {
       status: string;
       countryCode?: string;
     };
-    console.log("[client-region] ip-api response", { ip, url, data });
     const country =
       data.status === "success" ? data.countryCode?.toUpperCase() : undefined;
     const region = country && COUNTRY_CODE.test(country) ? country : null;
-    console.log("[client-region] resolved", { region });
     return Response.json({ region }, NO_STORE);
-  } catch (err) {
-    console.log("[client-region] ip-api fetch failed", {
-      ip,
-      url,
-      err: err instanceof Error ? err.message : err,
-    });
+  } catch {
     return Response.json({ region: null }, NO_STORE);
   }
 }

@@ -211,12 +211,9 @@ export const youtubeComments = tool({
         if (/disabled|limited|unavailable/i.test(msg)) {
           return { ok: true as const, source: SHOP, videoId: id, comments: [], onThisPage: 0, hasMore: false, disabled: true as const, note: 'Comments are disabled or unavailable on this video.' }
         }
-        // Fallback path: comments sometimes need the rendered page when
-        // Innertube answers with a bot-check. Surface it honestly rather
-        // than pretending there are no comments.
-        throw new YouTubeError(
-          `YouTube would not return comments for ${id} — ${msg}. If this persists, open the watch page with browser_open and read them there.`
-        )
+        // Innertube sometimes answers with a bot-check. Surface it honestly
+        // rather than pretending there are no comments.
+        throw new YouTubeError(`YouTube would not return comments for ${id} — ${msg}.`)
       }
 
       const header = thread.header as unknown as { count?: unknown }

@@ -50,10 +50,7 @@ const VECTOR_LOGOS: Record<string, string> = {
 
 const FAMILY_LOGOS: Record<string, string> = {
   "qwen3-max": "/qwen-logo.svg",
-  "gpt-5.6-luna": "/openai-logo.svg",
 };
-
-const MONO_LOGOS = new Set(["gpt-5.6-luna"]);
 
 function ProviderLogo({
   family,
@@ -67,31 +64,14 @@ function ProviderLogo({
   const vector =
     (family && FAMILY_LOGOS[family]) || (ownedBy && VECTOR_LOGOS[ownedBy]);
 
-  if (vector && family && MONO_LOGOS.has(family)) {
-    return (
-      <span
-        aria-hidden
-        className={clsx("shrink-0 bg-ink", className)}
-        style={{
-          maskImage: `url(${vector})`,
-          WebkitMaskImage: `url(${vector})`,
-          maskSize: "contain",
-          WebkitMaskSize: "contain",
-          maskPosition: "center",
-          WebkitMaskPosition: "center",
-          maskRepeat: "no-repeat",
-          WebkitMaskRepeat: "no-repeat",
-        }}
-      />
-    );
-  }
-
   if (vector) {
     return (
       <img
         src={vector}
         alt=""
         aria-hidden
+        loading="lazy"
+        decoding="async"
         className={clsx("shrink-0 object-contain", className)}
       />
     );
@@ -101,6 +81,8 @@ function ProviderLogo({
       src="/kimi-logo.png"
       alt=""
       aria-hidden
+      loading="lazy"
+      decoding="async"
       className={clsx("shrink-0 rounded-[5px] object-cover", className)}
     />
   );

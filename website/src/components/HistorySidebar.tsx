@@ -3,19 +3,24 @@
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Briefcase,
+  CornerDownLeft,
+  MessageCircle,
+  MessageCirclePlus,
   MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
   Pin,
   PinOff,
-  Plus,
   Search,
   Settings,
   Trash2,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
   deleteSession,
@@ -25,7 +30,7 @@ import {
   type SessionSummary,
 } from "@/lib/api";
 import { useAppearance, useMotionPreference } from "@/lib/appearance";
-import { formatRelativeTime } from "@/lib/format";
+import { formatSearchBucket } from "@/lib/format";
 import { CorroMark } from "./CorroMark";
 import { CorroWordmark } from "./CorroWordmark";
 import { SettingsMenu } from "./SettingsMenu";
@@ -89,7 +94,7 @@ function RailButton({
   neutralHover,
   onClick,
 }: {
-  icon: typeof Plus;
+  icon: LucideIcon;
   label: string;
   shortcut?: string;
   expanded: boolean;
@@ -104,13 +109,16 @@ function RailButton({
       title={label}
       aria-label={label}
       className={clsx(
-        "sidebar-rail-button flex h-8 items-center gap-2 rounded-row text-footnote text-ink-muted transition-colors hover:text-ink",
-        expanded ? "px-2" : "w-8 justify-center",
+        "sidebar-rail-button group flex h-9 items-center gap-2 rounded-row text-footnote text-ink-muted transition-colors hover:text-ink",
+        expanded ? "px-2" : "size-9 justify-center",
         active && "bg-surface-raised text-ink",
         neutralHover && "sidebar-new-task",
       )}
     >
-      <Icon size={16} className="shrink-0" />
+      <Icon
+        size={16}
+        className="shrink-0 transition-transform duration-200 ease-out group-hover:scale-110"
+      />
       {expanded && (
         <>
           <span className="truncate">{label}</span>
@@ -260,6 +268,8 @@ function SessionMenu({
   );
 }
 
+const SEARCH_LISTBOX_ID = "corro-search-listbox";
+
 function SearchModal({
   sessions,
   onSelect,
@@ -271,16 +281,27 @@ function SearchModal({
 }) {
   const motionOff = useMotionPreference();
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const restoreRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    restoreRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setMounted(true);
+    return () => {
+      restoreRef.current?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mounted) inputRef.current?.focus();
+  }, [mounted]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -288,7 +309,63 @@ function SearchModal({
     return sessions.filter((s) => s.title.toLowerCase().includes(q));
   }, [sessions, query]);
 
-  return (
+  useEffect(() => {
+    setSelected((index) => Math.min(index, Math.max(0, filtered.length - 1)));
+  }, [filtered]);
+
+  useEffect(() => {
+    rowRefs.current[selected]?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
+
+  function open(id: string) {
+    onSelect(id);
+    onClose();
+  }
+
+  function onDialogKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      onClose();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelected((index) => Math.min(index + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelected((index) => Math.max(index - 1, 0));
+    } else if (e.key === "Enter") {
+      const session = filtered[selected];
+      if (session) {
+        e.preventDefault();
+        open(session.id);
+      }
+    } else if (e.key === "Tab") {
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusables = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled])",
+        ),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
+  if (!mounted) return null;
+
+  const activeId = filtered[selected]
+    ? `corro-search-option-${filtered[selected].id}`
+    : undefined;
+
+  return createPortal(
     <motion.div
       initial={motionOff ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -298,15 +375,17 @@ function SearchModal({
           ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
           : { duration: 0.16 }
       }
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/25 pt-[12vh] backdrop-blur-[3px]"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 px-4 pb-8 pt-[12vh] backdrop-blur-[4px]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <motion.div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Search conversations"
+        onKeyDown={onDialogKeyDown}
         initial={motionOff ? false : { opacity: 0, scale: 0.97, y: -6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: -6 }}
@@ -315,15 +394,23 @@ function SearchModal({
             ? { duration: 0, delay: 0, repeat: 0, type: "tween" }
             : { duration: 0.18, ease: EASE }
         }
-        className="popover-material flex w-full max-w-md flex-col overflow-hidden rounded-popover"
+        className="popover-material flex max-h-[min(620px,calc(100dvh-140px))] w-full max-w-[660px] flex-col overflow-hidden rounded-[16px] border border-border"
       >
-        <div className="flex items-center gap-2.5 border-b border-border px-3.5 py-3">
-          <Search size={15} className="shrink-0 text-ink-muted" />
+        <div className="flex items-center gap-3 border-b border-hairline px-5 pb-4 pt-5">
+          <Search size={18} className="shrink-0 text-ink-muted" />
           <input
             ref={inputRef}
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={SEARCH_LISTBOX_ID}
+            aria-activedescendant={activeId}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelected(0);
+            }}
             placeholder="Search conversations"
+            style={{ outline: "none" }}
             className="w-full bg-transparent text-body text-ink outline-none placeholder:text-ink-muted"
           />
           <button
@@ -332,37 +419,59 @@ function SearchModal({
             aria-label="Close search"
             className="flex size-6 shrink-0 items-center justify-center rounded-row text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
           >
-            <X size={14} />
+            <X size={15} />
           </button>
         </div>
-        <div className="scroll-thin max-h-80 overflow-y-auto p-1.5">
+        <div
+          id={SEARCH_LISTBOX_ID}
+          role="listbox"
+          aria-label="Conversations"
+          className="scroll-thin max-h-[400px] overflow-y-auto p-2"
+        >
           {filtered.length === 0 ? (
-            <p className="px-2.5 py-4 text-center text-footnote text-ink-muted">
-              No conversations found.
+            <p className="px-4 py-10 text-center text-body text-ink-muted">
+              No conversations found
             </p>
           ) : (
-            filtered.map((s) => (
+            filtered.map((s, index) => (
               <button
                 key={s.id}
-                type="button"
-                onClick={() => {
-                  onSelect(s.id);
-                  onClose();
+                ref={(node) => {
+                  rowRefs.current[index] = node;
                 }}
-                className="flex w-full items-center justify-between gap-3 rounded-row px-2.5 py-2 text-left transition-colors hover:bg-surface-raised"
+                type="button"
+                role="option"
+                id={`corro-search-option-${s.id}`}
+                aria-selected={index === selected}
+                title={s.title}
+                onMouseEnter={() => setSelected(index)}
+                onClick={() => open(s.id)}
+                className={clsx(
+                  "flex h-10 w-full items-center gap-2.5 rounded-row px-3 text-left transition-colors hover:bg-surface-raised",
+                  index === selected && "bg-surface-raised",
+                )}
               >
-                <span className="truncate text-footnote text-ink">
+                <MessageCircle size={15} className="shrink-0 text-ink-muted" />
+                <span className="min-w-0 flex-1 truncate text-body text-ink">
                   {s.title}
                 </span>
-                <span className="shrink-0 text-caption tabular-nums text-ink-muted">
-                  {formatRelativeTime(s.updatedAt)}
-                </span>
+                {index === selected ? (
+                  <CornerDownLeft
+                    size={14}
+                    className="shrink-0 text-ink-muted"
+                  />
+                ) : (
+                  <span className="shrink-0 text-caption tabular-nums text-ink-muted">
+                    {formatSearchBucket(s.updatedAt)}
+                  </span>
+                )}
               </button>
             ))
           )}
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }
 
@@ -386,7 +495,7 @@ export function HistorySidebar({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const { layout, setLayout } = useAppearance();
+  const { layout } = useAppearance();
   const narrow = useMediaQuery("(max-width: 700px)");
 
   useEffect(() => {
@@ -408,11 +517,6 @@ export function HistorySidebar({
   function toggleCollapsed() {
     setPeek(false);
     if (narrow) return;
-    if (layout === "focus") {
-      setLayout("inset");
-      setCollapsed(false);
-      return;
-    }
     setCollapsed((prev) => {
       const next = !prev;
       window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
@@ -464,7 +568,7 @@ export function HistorySidebar({
 
   const groups = useMemo(() => groupSessions(sessions), [sessions]);
   const inset = layout !== "borderless";
-  const rail = collapsed || layout === "focus" || narrow;
+  const rail = collapsed || narrow;
 
   if (!hydrated) {
     return <div className="w-12 shrink-0 min-[701px]:w-64" />;
@@ -488,7 +592,7 @@ export function HistorySidebar({
       {...peekHandlers}
       className={clsx(
         "relative shrink-0 transition-[width] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
-        rail ? "w-12" : layout === "studio" ? "w-72" : "w-64",
+        rail ? "w-12" : "w-64",
       )}
     >
       <aside
@@ -496,8 +600,8 @@ export function HistorySidebar({
           "absolute inset-y-0 left-0 z-30 flex flex-col overflow-hidden transition-[width] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
           inset
             ? "glass panel-shadow rounded-panel"
-            : "border-r border-border bg-surface-raised",
-          expanded ? (layout === "studio" ? "w-72" : "w-64") : "w-12",
+            : "border-r border-border bg-surface",
+          expanded ? "w-64" : "w-12",
         )}
       >
         <div className="flex items-center gap-1 px-2 pb-1 pt-2.5">
@@ -514,20 +618,16 @@ export function HistorySidebar({
               title={
                 narrow
                   ? "Close sidebar"
-                  : layout === "focus"
-                    ? "Exit focus layout"
-                    : rail
-                      ? "Pin sidebar open"
-                      : "Collapse sidebar"
+                  : rail
+                    ? "Pin sidebar open"
+                    : "Collapse sidebar"
               }
               aria-label={
                 narrow
                   ? "Close sidebar"
-                  : layout === "focus"
-                    ? "Exit focus layout"
-                    : rail
-                      ? "Pin sidebar open"
-                      : "Collapse sidebar"
+                  : rail
+                    ? "Pin sidebar open"
+                    : "Collapse sidebar"
               }
               className="flex size-7 shrink-0 items-center justify-center rounded-row text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
             >
@@ -542,8 +642,8 @@ export function HistorySidebar({
 
         <div className="flex flex-col gap-0.5 px-2 py-1.5">
           <RailButton
-            icon={Plus}
-            label="New task"
+            icon={MessageCirclePlus}
+            label="New Task"
             expanded={expanded}
             neutralHover
             onClick={onNewChat}
@@ -554,6 +654,11 @@ export function HistorySidebar({
             shortcut="⌘K"
             expanded={expanded}
             onClick={() => setSearchOpen(true)}
+          />
+          <RailButton
+            icon={Briefcase}
+            label="Customize"
+            expanded={expanded}
           />
         </div>
 
@@ -602,9 +707,15 @@ export function HistorySidebar({
                               type="button"
                               onClick={() => onSelect(s.id)}
                               title={s.title}
-                              className="min-w-0 flex-1 truncate text-left text-footnote text-ink"
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left text-footnote text-ink"
                             >
-                              {s.title}
+                              <MessageCircle
+                                size={14}
+                                className="shrink-0 text-ink-muted"
+                              />
+                              <span className="min-w-0 flex-1 truncate">
+                                {s.title}
+                              </span>
                             </button>
                             <SessionMenu
                               session={s}
@@ -632,7 +743,7 @@ export function HistorySidebar({
             !expanded && "flex flex-col items-center gap-1",
           )}
         >
-          {collapsed && !peek && layout !== "focus" && (
+          {collapsed && !peek && (
             <button
               type="button"
               onClick={toggleCollapsed}

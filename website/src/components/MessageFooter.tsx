@@ -1,13 +1,13 @@
 "use client";
 
-import { useMotionPreference } from "@/lib/appearance";
-
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { fetchSpeechStatus } from "@/lib/api";
+import { useMotionPreference } from "@/lib/appearance";
 import type { ChatMessageUI } from "@/lib/types";
 import { SpeakButton } from "./SpeakButton";
+import { TokenIcon, TokenSpeedIcon } from "./TokenIcons";
 
 function throughput(message: ChatMessageUI): number | undefined {
   const out = message.usage?.outputTokens;
@@ -38,19 +38,35 @@ export function MessageFooter({ message }: { message: ChatMessageUI }) {
     return () => clearTimeout(id);
   }, [copied]);
 
-  const tokens = message.usage?.outputTokens;
+  const tokens = message.usage?.totalTokens ?? message.usage?.outputTokens;
   const rate = throughput(message);
-  if (!tokens && !rate && !message.text) return null;
+  if (!tokens && rate === undefined && !message.text) return null;
 
   return (
-    <div className="flex items-center gap-3 text-caption text-ink-muted">
+    <div className="flex flex-wrap items-center gap-1.5 text-caption text-ink-muted">
       {tokens ? (
-        <span className="font-mono tabular-nums">
+        <span
+          title={`${tokens.toLocaleString()} total tokens`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-raised/70 px-2 py-[3px] font-mono tabular-nums text-ink-muted"
+        >
+          <TokenIcon
+            size={13}
+            className="shrink-0 text-ink-muted dark:text-ink-muted"
+          />
           {tokens.toLocaleString()} tok
         </span>
       ) : null}
       {rate !== undefined && (
-        <span className="font-mono tabular-nums">{rate.toFixed(1)} tok/s</span>
+        <span
+          title={`${rate.toFixed(1)} tokens per second`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-raised/70 px-2 py-[3px] font-mono tabular-nums text-ink-muted"
+        >
+          <TokenSpeedIcon
+            size={13}
+            className="shrink-0 text-ink-muted dark:text-ink-muted"
+          />
+          {rate.toFixed(1)} tok/s
+        </span>
       )}
       {message.text && (
         <>

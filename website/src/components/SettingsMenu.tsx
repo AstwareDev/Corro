@@ -17,12 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  type AmbientPalette,
-  type Layout,
-  type Theme,
-  useAppearance,
-} from "@/lib/appearance";
+import { type Layout, type Theme, useAppearance } from "@/lib/appearance";
 import { CorroMark } from "./CorroMark";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -49,36 +44,20 @@ const SECTIONS = [
 type Section = (typeof SECTIONS)[number]["id"];
 const LAYOUTS: { id: Layout; label: string; description: string }[] = [
   {
-    id: "inset",
-    label: "Inset",
-    description: "Floating panels. A little breathing room.",
-  },
-  {
     id: "borderless",
     label: "Edge to edge",
     description: "One seamless, full-height workspace.",
   },
   {
-    id: "focus",
-    label: "Focus",
-    description: "A quiet rail and a narrower reading view.",
-  },
-  {
-    id: "studio",
-    label: "Studio",
-    description: "A wider sidebar and more room for ideas.",
+    id: "inset",
+    label: "Inset",
+    description: "Floating panels. A little breathing room.",
   },
 ];
 const THEMES: { id: Theme; label: string; icon: typeof Sun }[] = [
   { id: "light", label: "Light", icon: Sun },
   { id: "dark", label: "Dark", icon: Moon },
   { id: "system", label: "System", icon: Monitor },
-];
-const AMBIENTS: { id: AmbientPalette; label: string }[] = [
-  { id: "sky", label: "Sky" },
-  { id: "ice", label: "Ice" },
-  { id: "mint", label: "Mint" },
-  { id: "sand", label: "Sand" },
 ];
 const LANGUAGES = [
   { id: "en", name: "English", native: "English", flag: "gb" },
@@ -92,7 +71,7 @@ const LANGUAGES = [
 ];
 
 function WorkspacePreview({
-  layout = "inset",
+  layout = "borderless",
   theme,
   live = false,
 }: {
@@ -100,7 +79,6 @@ function WorkspacePreview({
   theme?: Theme;
   live?: boolean;
 }) {
-  const { ambient, ambientPalette, ambientIntensity } = useAppearance();
   return (
     <div
       aria-hidden="true"
@@ -109,16 +87,7 @@ function WorkspacePreview({
         `preview-${layout}`,
         theme && `preview-${theme}`,
         live && "preview-live",
-        live && ambient && "preview-ambient",
       )}
-      data-ambient-palette={ambientPalette}
-      style={
-        live
-          ? ({
-              "--ambient-strength": ambientIntensity / 100,
-            } as React.CSSProperties)
-          : undefined
-      }
     >
       <div className="preview-sidebar">
         <span className="preview-brand">
@@ -149,51 +118,12 @@ function WorkspacePreview({
           <span className="preview-send">{live && <ArrowUp size={13} />}</span>
         </div>
       </div>
-      {layout === "studio" && (
-        <div className="preview-inspector">
-          <span />
-          <span />
-          <span />
-        </div>
-      )}
     </div>
   );
 }
 
-function Toggle({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={clsx("settings-switch", checked && "is-on")}
-    >
-      <span />
-    </button>
-  );
-}
-
 function AppearancePanel() {
-  const {
-    theme,
-    ambient,
-    ambientPalette,
-    ambientIntensity,
-    textSize,
-    reducedMotion,
-    layout,
-    updateAppearance,
-  } = useAppearance();
+  const { theme, textSize, layout, updateAppearance } = useAppearance();
   return (
     <div className="settings-appearance-grid">
       <div className="settings-live-preview">
@@ -229,61 +159,7 @@ function AppearancePanel() {
           ))}
         </div>
       </fieldset>
-      <div className="settings-row">
-        <div>
-          <h3>Ambient color</h3>
-          <p>A soft wash of color behind your workspace.</p>
-        </div>
-        <Toggle
-          checked={ambient}
-          onChange={(ambient) => updateAppearance({ ambient })}
-          label="Ambient color"
-        />
-      </div>
-      {ambient && (
-        <fieldset className="settings-ambient-controls">
-          <legend className="sr-only">Ambient appearance</legend>
-          <div className="settings-ambient-grid">
-            {AMBIENTS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                aria-label={`${label} ambient`}
-                aria-pressed={ambientPalette === id}
-                className={clsx(
-                  "ambient-sample",
-                  ambientPalette === id && "is-selected",
-                )}
-                data-ambient-palette={id}
-                onClick={() => updateAppearance({ ambientPalette: id })}
-              >
-                <span className="ambient-sample-image" />
-                <span>
-                  {label}
-                  {ambientPalette === id && <Check size={13} />}
-                </span>
-              </button>
-            ))}
-          </div>
-          <label className="ambient-intensity">
-            <span>Intensity</span>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="5"
-              value={ambientIntensity}
-              onChange={(event) =>
-                updateAppearance({
-                  ambientIntensity: Number(event.target.value),
-                })
-              }
-            />
-            <output>{ambientIntensity}%</output>
-          </label>
-        </fieldset>
-      )}
-      <div className="settings-row">
+      <div className="settings-row last">
         <div>
           <h3>Reading size</h3>
           <p>Find a comfortable size for conversations.</p>
@@ -305,31 +181,12 @@ function AppearancePanel() {
           ))}
         </fieldset>
       </div>
-      <div className="settings-row last">
-        <div>
-          <h3>Reduce motion</h3>
-          <p>Turn off movement, fades, and animated text.</p>
-        </div>
-        <div className="settings-motion-control">
-          <span className="motion-specimen" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <Toggle
-            checked={reducedMotion}
-            onChange={(reducedMotion) => updateAppearance({ reducedMotion })}
-            label="Reduce motion"
-          />
-        </div>
-      </div>
     </div>
   );
 }
 
 function LayoutPanel() {
-  const { layout, setLayout, inspectorStyle, updateAppearance } =
-    useAppearance();
+  const { layout, setLayout } = useAppearance();
   return (
     <>
       <div className="settings-layout-grid">
@@ -354,24 +211,6 @@ function LayoutPanel() {
             <span className="settings-layout-description">{description}</span>
           </button>
         ))}
-      </div>
-      <div className="settings-row last">
-        <div>
-          <h3>Compact panel</h3>
-          <p>
-            Show sources, files, and browser as a small popover instead of a
-            side panel.
-          </p>
-        </div>
-        <Toggle
-          checked={inspectorStyle === "popover"}
-          onChange={(checked) =>
-            updateAppearance({
-              inspectorStyle: checked ? "popover" : "sidebar",
-            })
-          }
-          label="Compact panel"
-        />
       </div>
       <div className="settings-note">
         <LayoutGrid size={17} />

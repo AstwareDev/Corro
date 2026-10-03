@@ -261,6 +261,8 @@ export function ChatInput({
                   <img
                     src={a.previewUrl}
                     alt={a.file.name}
+                    loading="lazy"
+                    decoding="async"
                     className="size-full object-cover"
                   />
                 ) : (

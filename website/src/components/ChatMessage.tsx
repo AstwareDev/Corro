@@ -172,6 +172,7 @@ function AssistantMessage({
               <Markdown
                 text={segment === lastText ? shown : segment.text}
                 animateWords={segment === lastText && !settled}
+                streaming={Boolean(message.streaming)}
               />
               {segment === lastText && !settled && (
                 <span className="caret ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] bg-current align-middle" />
@@ -226,6 +227,8 @@ function MessageAttachments({
               <img
                 src={resolveAssetUrl(a.viewUrl)}
                 alt={a.name}
+                loading="lazy"
+                decoding="async"
                 className="size-full object-cover"
               />
             ) : (

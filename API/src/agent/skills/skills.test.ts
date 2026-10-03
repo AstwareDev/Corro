@@ -96,7 +96,7 @@ test('slash commands parse multiple leading skills', () => {
 test('system prompt carries the skill index, never skill bodies or a clock', () => {
   assert.ok(resolveSkillsDir().endsWith('skills'))
   const prompt = buildSystemPrompt({ toolNames: [] })
-  for (const name of ['research', 'shopping', 'social-lookup', 'artifact-builder', 'browser-navigation']) {
+  for (const name of ['research', 'shopping', 'social-lookup', 'artifact-builder']) {
     assert.match(prompt, new RegExp(`<available_skills>[\\s\\S]*- ${name}:`), `index lists ${name}`)
   }
   assert.ok(prompt.includes('call read_skill(name)'))
@@ -108,15 +108,9 @@ test('system prompt carries the skill index, never skill bodies or a clock', () 
 
 test('extracted content lives only in skill bodies, not the system prompt', () => {
   const prompt = buildSystemPrompt({ toolNames: [] })
-  for (const marker of [
-    'anything the shop does not publish',
-    'published caption tracks',
-    'Made with Corro',
-    'interstitial: true',
-    'no browser is installed',
-  ]) {
+  for (const marker of ['anything the shop does not publish', 'published caption tracks', 'Made with Corro']) {
     assert.ok(!prompt.includes(marker), `system prompt should not still carry: ${marker}`)
-    const anyOf = ['shopping', 'social-lookup', 'artifact-builder', 'browser-navigation']
+    const anyOf = ['shopping', 'social-lookup', 'artifact-builder']
     const bodies = anyOf.map((n) => {
       try {
         return readSkillBody(n).body
@@ -128,9 +122,9 @@ test('extracted content lives only in skill bodies, not the system prompt', () =
   }
 })
 
-test('all five skills load through read_skill with no body leakage in errors', async () => {
+test('all four skills load through read_skill with no body leakage in errors', async () => {
   const execute = (readSkill as unknown as { execute: (input: unknown) => Promise<unknown> }).execute
-  for (const name of ['research', 'shopping', 'social-lookup', 'artifact-builder', 'browser-navigation']) {
+  for (const name of ['research', 'shopping', 'social-lookup', 'artifact-builder']) {
     const result = (await execute({ description: 'Loading a skill', name })) as { ok: boolean; name: string; content: string }
     assert.equal(result.ok, true, name)
     assert.equal(result.name, name)
@@ -139,7 +133,7 @@ test('all five skills load through read_skill with no body leakage in errors', a
   }
   const missing = (await execute({ description: 'Loading nothing', name: 'nope' })) as { ok: boolean; known: string[] }
   assert.equal(missing.ok, false)
-  for (const name of ['research', 'shopping', 'social-lookup', 'artifact-builder', 'browser-navigation']) {
+  for (const name of ['research', 'shopping', 'social-lookup', 'artifact-builder']) {
     assert.ok(missing.known.includes(name), `known lists ${name}`)
   }
 })

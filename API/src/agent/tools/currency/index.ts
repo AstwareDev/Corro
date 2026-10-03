@@ -14,7 +14,9 @@ export const currencyConvert = tool({
   description:
     'Convert an amount between currencies at the current published exchange rate — live daily rates, ' +
     'no key, no request limit, ~200 currencies including AMD and RUB. Give one `to` for a single ' +
-    'conversion or several to compare against multiple currencies at once ("100 USD in AMD and RUB").',
+    'conversion or several to compare against multiple currencies at once ("100 USD in AMD and RUB"). ' +
+    'This is a reference mid-market rate; for what local banks actually buy and sell at, also call the ' +
+    "caller's local bank boards (ameriabank_rates and idbank_rates in Armenia).",
   inputSchema: z.object({
     description: toolDescription,
     amount: z.number().positive().default(1).describe('Amount to convert. Omit to just get the rate for 1 unit.'),
@@ -63,4 +65,7 @@ export const currencyConvert = tool({
   },
 })
 
-export const CURRENCY_TOOL_NAMES = ['currency_convert'] as const
+export const CURRENCY_TOOL_NAMES = ['currency_convert', 'ameriabank_rates', 'idbank_rates'] as const
+
+export { ameriabankRates, AMERIABANK_TOOL_NAMES } from './ameriabank.js'
+export { idbankRates, IDBANK_TOOL_NAMES } from './idbank.js'

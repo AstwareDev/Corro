@@ -188,8 +188,6 @@ export interface ParmaCategory {
 
 
 
-
-
 export function parseCategories(html: string): ParmaCategory[] {
   const out: ParmaCategory[] = []
 
@@ -207,4 +205,29 @@ export function parseCategories(html: string): ParmaCategory[] {
   }
 
   return out
+}
+
+export interface ParmaStore {
+  name: string
+  address: string
+  lat: number
+  lon: number
+}
+
+export function parseStores(html: string): ParmaStore[] {
+  const match = /markersData\s*=\s*JSON\.parse\(JSON\.stringify\((\[.*?\])\)\)/.exec(html)
+  if (!match) return []
+  try {
+    const raw = JSON.parse(match[1]) as Array<{ name?: unknown; address?: unknown; lat?: unknown; lng?: unknown }>
+    return raw.flatMap((s) => {
+      const lat = Number(s.lat)
+      const lon = Number(s.lng)
+      const name = typeof s.name === 'string' ? decode(s.name).trim() : ''
+      const address = typeof s.address === 'string' ? decode(s.address).trim() : ''
+      if (!name || !Number.isFinite(lat) || !Number.isFinite(lon)) return []
+      return [{ name, address: address || name, lat, lon }]
+    })
+  } catch {
+    return []
+  }
 }

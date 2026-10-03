@@ -189,6 +189,25 @@ const INSTAGRAM: ShopBrandInfo = {
   Icon: brandIcon("/sources/instagram.svg", "Instagram"),
 };
 
+const AMERIABANK: ShopBrandInfo = {
+  id: "ameriabank",
+  name: "Ameriabank",
+  host: "ameriabank.am",
+  accent: "#00684e",
+  Icon: brandIcon("https://ameriabank.am/favicon.ico", "Ameriabank"),
+};
+
+const IDBANK: ShopBrandInfo = {
+  id: "idbank",
+  name: "IDBank",
+  host: "idbank.am",
+  accent: "#0066ee",
+  Icon: brandIcon(
+    "https://idbank.am/local/assets/favicons/favicon.ico",
+    "IDBank",
+  ),
+};
+
 export interface ToolPresentation {
   Icon: ToolIcon;
 
@@ -262,7 +281,7 @@ export function brandsOf(toolNames: string[]): ShopBrandInfo[] {
 function shopTools(
   prefix: string,
   brand: ShopBrandInfo,
-  opts: { family?: ToolFamily; categories?: boolean } = {},
+  opts: { family?: ToolFamily; categories?: boolean; stores?: boolean } = {},
 ): Record<string, ToolPresentation> {
   const family = opts.family ?? SUPERMARKETS;
   const common = { family, brand, Icon: brand.Icon };
@@ -292,13 +311,22 @@ function shopTools(
       verb: "Browsed categories",
     };
   }
+  if (opts.stores ?? false) {
+    tools[`${prefix}_stores`] = {
+      ...common,
+      ChildIcon: Compass,
+      label: `Find ${brand.name} branches`,
+      groupLabel: `Found ${brand.name} branches`,
+      verb: "Found nearby branches",
+    };
+  }
   return tools;
 }
 
 const REGISTRY: Record<string, ToolPresentation> = {
-  ...shopTools("yerevan_city", YEREVAN_CITY),
-  ...shopTools("parma", PARMA),
-  ...shopTools("sas", SAS),
+  ...shopTools("yerevan_city", YEREVAN_CITY, { stores: true }),
+  ...shopTools("parma", PARMA, { stores: true }),
+  ...shopTools("sas", SAS, { stores: true }),
   ...shopTools("amazon", AMAZON, { family: MARKETPLACES, categories: false }),
   ...shopTools("walmart", WALMART, { family: MARKETPLACES, categories: false }),
   ...shopTools("apple", APPLE, { family: MARKETPLACES, categories: false }),
@@ -436,6 +464,22 @@ const REGISTRY: Record<string, ToolPresentation> = {
     groupLabel: "Converted currency",
     verb: "Converted currency",
   },
+  ameriabank_rates: {
+    brand: AMERIABANK,
+    Icon: AMERIABANK.Icon,
+    ChildIcon: ArrowLeftRight,
+    label: "Check Ameriabank exchange rates",
+    groupLabel: "Checked Ameriabank rates",
+    verb: "Checked Ameriabank rates",
+  },
+  idbank_rates: {
+    brand: IDBANK,
+    Icon: IDBANK.Icon,
+    ChildIcon: ArrowLeftRight,
+    label: "Check IDBank exchange rates",
+    groupLabel: "Checked IDBank rates",
+    verb: "Checked IDBank rates",
+  },
   fs_list: {
     Icon: FolderTree,
     ChildIcon: FolderTree,
@@ -484,48 +528,6 @@ const REGISTRY: Record<string, ToolPresentation> = {
     label: "Search the workspace",
     groupLabel: "Searched the workspace",
     verb: "Searched the workspace",
-  },
-  browser_open: {
-    Icon: Compass,
-    ChildIcon: Compass,
-    label: "Open a browser page",
-    groupLabel: "Browsed the web",
-    verb: "Opened a page",
-  },
-  browser_read: {
-    Icon: Compass,
-    ChildIcon: Compass,
-    label: "Read a browser page",
-    groupLabel: "Browsed the web",
-    verb: "Read a page",
-  },
-  browser_click: {
-    Icon: Compass,
-    ChildIcon: Compass,
-    label: "Click in the browser",
-    groupLabel: "Browsed the web",
-    verb: "Clicked in the browser",
-  },
-  browser_fill: {
-    Icon: Compass,
-    ChildIcon: Compass,
-    label: "Fill a browser form",
-    groupLabel: "Browsed the web",
-    verb: "Filled a form",
-  },
-  browser_screenshot: {
-    Icon: Compass,
-    ChildIcon: Compass,
-    label: "Screenshot the browser",
-    groupLabel: "Browsed the web",
-    verb: "Took a screenshot",
-  },
-  browser_close: {
-    Icon: Compass,
-    ChildIcon: Compass,
-    label: "Close the browser",
-    groupLabel: "Browsed the web",
-    verb: "Closed the browser",
   },
 };
 

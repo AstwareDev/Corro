@@ -4,7 +4,6 @@ import { WorkspaceError, ensureRoot, resolveInside, workspaceRoot } from '../age
 import { getSession } from '../sessions/store.js'
 import { route } from '../http/respond.js'
 import { renderMarkdownDocx } from '../export/markdownDocx.js'
-import { renderMarkdownPdf } from '../export/markdownPdf.js'
 
 export const exportRoutes = Router()
 exportRoutes.use((_req, res, next) => {
@@ -27,13 +26,13 @@ exportRoutes.get(
   '/workspace/export',
   route(async (req, res) => {
     const rel = typeof req.query.path === 'string' ? req.query.path : ''
-    const format = req.query.format === 'docx' ? 'docx' : req.query.format === 'pdf' ? 'pdf' : undefined
+    const format = req.query.format === 'docx' ? 'docx' : undefined
     if (!rel || !rel.toLowerCase().endsWith('.md')) {
       res.status(400).json({ error: 'Provide ?path= to a .md file' })
       return
     }
     if (!format) {
-      res.status(400).json({ error: 'Provide ?format=pdf or ?format=docx' })
+      res.status(400).json({ error: 'Provide ?format=docx' })
       return
     }
 
@@ -81,17 +80,10 @@ exportRoutes.get(
       const markdown = fs.readFileSync(full, 'utf8')
       const name = baseName(rel)
 
-      if (format === 'pdf') {
-        const pdf = await renderMarkdownPdf(markdown)
-        res.setHeader('Content-Type', 'application/pdf')
-        res.setHeader('Content-Disposition', `attachment; filename="${name}.pdf"`)
-        res.send(pdf)
-      } else {
-        const docx = await renderMarkdownDocx(markdown)
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        res.setHeader('Content-Disposition', `attachment; filename="${name}.docx"`)
-        res.send(docx)
-      }
+      const docx = await renderMarkdownDocx(markdown)
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+      res.setHeader('Content-Disposition', `attachment; filename="${name}.docx"`)
+      res.send(docx)
     } catch (err) {
       console.error('Export render failed:', err)
       res.status(500).json({ error: 'Export failed' })

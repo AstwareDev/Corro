@@ -1,7 +1,6 @@
 export type TokenizerKey =
   | 'kimi-k3'
   | 'diffusiongemma-26b'
-  | 'o200k'
   | 'qwen3-max'
 
 export type SpecialsLayout =
@@ -132,21 +131,6 @@ export const SPECS: Record<TokenizerKey, TokenizerSpec> = {
 
 
 
-  o200k: {
-    kind: 'builtin',
-    key: 'o200k',
-    encoding: 'o200k_base',
-    note:
-      "OpenAI's o200k_base, shipped inside the tiktoken package — nothing to download. " +
-      'Tokenizes gpt-5.6-luna prompt text directly.',
-  },
-
-
-
-
-
-
-
   'qwen3-max': {
     kind: 'estimated',
     key: 'qwen3-max',
@@ -167,7 +151,6 @@ export const TOKENIZER_KEYS = Object.keys(SPECS) as TokenizerKey[]
 export type ModelKey =
   | 'kimi-k3'
   | 'kimi-k3-fast'
-  | 'gpt-5.6-luna'
   | 'qwen3-max'
   | 'diffusiongemma-26b'
 
@@ -228,25 +211,6 @@ export const MODELS: Record<ModelKey, ModelSpec> = {
     reasoningEfforts: ['none', 'low', 'high', 'max'],
     defaultReasoningEffort: 'max',
   },
-  'gpt-5.6-luna': {
-    key: 'gpt-5.6-luna',
-    label: 'GPT 5.6 Luna',
-    servedModelId: 'gpt-5.6-luna',
-    tokenizer: 'o200k',
-    contextLength: 1_000_000,
-    speed: 'fast',
-    free: true,
-    baseUrlEnv: 'EXPLABS_BASE_URL',
-    defaultBaseUrl: 'https://api.experientiallabs.ai/v1',
-    apiKeyEnv: 'EXPLABS_API_KEY',
-    notes:
-      "OpenAI's GPT-5.6 Luna through Experiential Labs' OpenAI-compatible gateway. Fast, text and image " +
-      'in, tool calls supported, 1M token context. Free on the shared key; token counts come straight ' +
-      'from o200k_base.',
-    reasoningEfforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max'],
-    defaultReasoningEffort: 'medium',
-    modalities: { input: ['text', 'image'], output: ['text'] },
-  },
   'qwen3-max': {
     key: 'qwen3-max',
     label: 'Qwen 3.8 Max (free)',
@@ -296,9 +260,6 @@ export const MODEL_ALIASES: Record<string, ModelKey> = {
   qwen: 'qwen3-max',
   'qwen3.8-max': 'qwen3-max',
   'qwen-max': 'qwen3-max',
-  luna: 'gpt-5.6-luna',
-  'gpt-5.6': 'gpt-5.6-luna',
-  'gpt-luna': 'gpt-5.6-luna',
 }
 
 export function resolveModel(model: string): ModelSpec {

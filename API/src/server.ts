@@ -7,8 +7,6 @@ import { MODEL_KEYS } from './models/registry.js'
 import { deviceMiddleware } from './sessions/device.js'
 import { DATA_DIR } from './sessions/store.js'
 import { logError, printBanner, requestLogger } from './lib/logger.js'
-import { attachBrowserLive } from './routes/browserLive.js'
-import { browserRoutes } from './routes/browser.js'
 import { chatRoutes } from './routes/chat.js'
 import { exportRoutes } from './routes/export.js'
 import { instagramRoutes } from './routes/instagram.js'
@@ -56,7 +54,6 @@ app.use(modelRoutes)
 app.use(toolRoutes)
 app.use(workspaceRoutes)
 app.use(exportRoutes)
-app.use(browserRoutes)
 app.use(instagramRoutes)
 app.use(uploadRoutes)
 app.use(speechRoutes)
@@ -74,8 +71,6 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: message })
 })
 
-const httpServer = app.listen(PORT, () => {
+app.listen(PORT, () => {
   printBanner({ port: PORT, models: MODEL_KEYS, tools: TOOL_NAMES, dataDir: DATA_DIR })
 })
-
-attachBrowserLive(httpServer)

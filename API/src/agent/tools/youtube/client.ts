@@ -20,7 +20,7 @@ export function failure(err: unknown) {
   }
 }
 
-// --- session (one Innertube per process, like the browser per workspace) ---
+// --- session (one Innertube per process) ---
 
 let tubePromise: Promise<Innertube> | undefined
 
@@ -256,10 +256,8 @@ export async function resolveChannelId(input: string): Promise<string> {
   const raw = input.trim()
   if (!raw) throw new YouTubeError('Give a channel id, @handle, or channel URL.')
   if (CHANNEL_ID.test(raw)) return raw
-  const channelUrl = raw.match(/youtube\.com\/(?:channel\/|c\/|user\/|@)([^/?#\s]+)/i)
   const idInUrl = raw.match(/youtube\.com\/channel\/(UC[A-Za-z0-9_-]{22})/)
   if (idInUrl) return idInUrl[1]
-  void channelUrl
   if (/^https?:\/\//i.test(raw) || raw.startsWith('@')) {
     try {
       const tube = await getTube()
