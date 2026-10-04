@@ -10,6 +10,8 @@ export interface XSpec {
   key: string;
   label?: string;
   scale?: XScale;
+  min?: number;
+  max?: number;
 }
 
 export interface YSpec {
@@ -31,6 +33,18 @@ export interface TableSpec {
   defaultView?: DefaultView;
 }
 
+export interface MarkerSpec {
+  x: string | number;
+  y: number;
+  label?: string;
+}
+
+export interface GuideSpec {
+  axis: "x" | "y";
+  value: string | number;
+  label?: string;
+}
+
 export interface ChartSpec {
   type: ChartType;
   title: string;
@@ -40,6 +54,9 @@ export interface ChartSpec {
   series: SeriesSpec[];
   data: Record<string, unknown>[];
   stacked?: boolean;
+  smooth?: boolean;
+  markers?: MarkerSpec[];
+  guides?: GuideSpec[];
   table?: TableSpec;
 }
 
@@ -55,6 +72,8 @@ const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 const MAX_SERIES = 12;
 const MAX_ROWS = 500;
+const MAX_MARKERS = 20;
+const MAX_GUIDES = 12;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -74,7 +93,20 @@ export function validateChartSpec(raw: unknown): ValidationResult {
   if (!isRecord(raw))
     return { ok: false, error: "Chart spec must be a JSON object." };
 
-  const { type, title, subtitle, x, y, series, data, stacked, table } = raw;
+  const {
+    type,
+    title,
+    subtitle,
+    x,
+    y,
+    series,
+    data,
+    stacked,
+    smooth,
+    markers: markersInput,
+    guides: guidesInput,
+    table,
+  } = raw;
 
   if (typeof type !== "string" || !CHART_TYPES.includes(type as ChartType)) {
     return {
@@ -106,6 +138,19 @@ export function validateChartSpec(raw: unknown): ValidationResult {
   const xLabel = x.label === undefined ? undefined : optString(x.label);
   if (x.label !== undefined && xLabel === undefined) {
     return { ok: false, error: "x.label must be a string." };
+  }
+  if (x.min !== undefined && !isFiniteNumber(x.min)) {
+    return { ok: false, error: "x.min must be a number." };
+  }
+  if (x.max !== undefined && !isFiniteNumber(x.max)) {
+    return { ok: false, error: "x.max must be a number." };
+  }
+  if (
+    isFiniteNumber(x.min) &&
+    isFiniteNumber(x.max) &&
+    (x.min as number) >= (x.max as number)
+  ) {
+    return { ok: false, error: "x.min must be less than x.max." };
   }
 
   let ySpec: YSpec | undefined;
@@ -230,6 +275,95 @@ export function validateChartSpec(raw: unknown): ValidationResult {
     return { ok: false, error: "stacked must be a boolean." };
   }
 
+  if (smooth !== undefined && typeof smooth !== "boolean") {
+    return { ok: false, error: "smooth must be a boolean." };
+  }
+
+  let markers: MarkerSpec[] | undefined;
+  if (markersInput !== undefined) {
+    if (!Array.isArray(markersInput)) {
+      return { ok: false, error: "markers must be an array." };
+    }
+    if (markersInput.length > MAX_MARKERS) {
+      return { ok: false, error: `Too many markers (max ${MAX_MARKERS}).` };
+    }
+    markers = [];
+    for (let i = 0; i < markersInput.length; i++) {
+      const marker = markersInput[i];
+      if (!isRecord(marker)) {
+        return { ok: false, error: `markers[${i}] must be an object.` };
+      }
+      const mx = marker.x;
+      const my = marker.y;
+      if (
+        (typeof mx !== "string" && typeof mx !== "number") ||
+        (typeof mx === "string" && !mx.trim())
+      ) {
+        return {
+          ok: false,
+          error: `markers[${i}].x must be a category or number.`,
+        };
+      }
+      if (!isFiniteNumber(my)) {
+        return { ok: false, error: `markers[${i}].y must be a number.` };
+      }
+      if (marker.label !== undefined && typeof marker.label !== "string") {
+        return { ok: false, error: `markers[${i}].label must be a string.` };
+      }
+      markers.push({
+        x: mx as string | number,
+        y: my as number,
+        ...(typeof marker.label === "string" && marker.label
+          ? { label: marker.label }
+          : {}),
+      });
+    }
+  }
+
+  let guides: GuideSpec[] | undefined;
+  if (guidesInput !== undefined) {
+    if (!Array.isArray(guidesInput)) {
+      return { ok: false, error: "guides must be an array." };
+    }
+    if (guidesInput.length > MAX_GUIDES) {
+      return { ok: false, error: `Too many guides (max ${MAX_GUIDES}).` };
+    }
+    guides = [];
+    for (let i = 0; i < guidesInput.length; i++) {
+      const guide = guidesInput[i];
+      if (!isRecord(guide)) {
+        return { ok: false, error: `guides[${i}] must be an object.` };
+      }
+      if (guide.axis !== "x" && guide.axis !== "y") {
+        return { ok: false, error: `guides[${i}].axis must be "x" or "y".` };
+      }
+      const value = guide.value;
+      if (guide.axis === "y") {
+        if (!isFiniteNumber(value)) {
+          return { ok: false, error: `guides[${i}].value must be a number.` };
+        }
+      } else if (
+        (typeof value !== "string" && typeof value !== "number") ||
+        (typeof value === "string" && !value.trim())
+      ) {
+        return {
+          ok: false,
+          error: `guides[${i}].value must be a category or number.`,
+        };
+      }
+      if (guide.label !== undefined && typeof guide.label !== "string") {
+        return { ok: false, error: `guides[${i}].label must be a string.` };
+      }
+      guides.push({
+        axis: guide.axis,
+        value: value as string | number,
+        ...(typeof guide.label === "string" && guide.label
+          ? { label: guide.label }
+          : {}),
+      });
+    }
+  }
+
   let tableSpec: TableSpec | undefined;
   if (table !== undefined) {
     if (!isRecord(table))
@@ -265,11 +399,16 @@ export function validateChartSpec(raw: unknown): ValidationResult {
         key: xKey,
         ...(xLabel ? { label: xLabel } : {}),
         scale: xScale as XScale,
+        ...(isFiniteNumber(x.min) ? { min: x.min } : {}),
+        ...(isFiniteNumber(x.max) ? { max: x.max } : {}),
       },
       ...(ySpec ? { y: ySpec } : {}),
       series: cleanSeries,
       data: data as Record<string, unknown>[],
       ...(typeof stacked === "boolean" ? { stacked } : {}),
+      ...(typeof smooth === "boolean" ? { smooth } : {}),
+      ...(markers ? { markers } : {}),
+      ...(guides ? { guides } : {}),
       ...(tableSpec ? { table: tableSpec } : {}),
     },
   };

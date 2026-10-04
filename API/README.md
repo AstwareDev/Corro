@@ -40,6 +40,15 @@ curl -N -X POST "localhost:8787/say?session=ses_..." -d "and who else was nomina
 | `DELETE` | `/sessions/:id` | forget |
 | `GET` | `/device` | which device the server thinks you are |
 | `GET` | `/models`, `/models/:key` | live model cards + tokenizer status |
+| `GET` | `/skills`, `/skills/:name` | skill index, and one skill body |
+| `POST` | `/suggestions` | follow-up chips for a finished turn |
+| `GET` | `/speech` | whether speech is set up, with voice id and char limit |
+| `POST` | `/speak` | text in, `audio/mpeg` out |
+| `POST` | `/uploads` | attach a file to a session workspace |
+| `GET` | `/workspace` | list the session workspace files |
+| `PUT` | `/workspace/file` | save a workspace file, with revision checks |
+| `GET` | `/workspace/export` | a workspace Markdown file as Markdown or DOCX |
+| `GET` | `/api/instagram/*` | REST mirror of the Instagram tools: profile, posts, post, comments, reels |
 | `GET` | `/tools`, `POST /tools/:name` | the toolbelt, and running one tool with no model |
 | `GET` | `/prompt` | the system prompt as the agent receives it |
 | `GET` | `/workspace/view` | a workspace file served as itself — a rendered page, an image, a download — instead of JSON |
@@ -71,6 +80,7 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | Name | What it does |
 | --- | --- |
 | `calculator` | exact arithmetic, no model in the loop |
+| `read_skill` | load a skill pack into context for the turn |
 | `currency_convert` | live currency conversion, ~200 currencies including AMD and RUB |
 | `ameriabank_rates` | Ameriabank's live retail rates (ameriabank.am): cash and non-cash buy/sell vs AMD, with conversion at those rates |
 | `idbank_rates` | IDBank's live retail rates (idbank.am): cash, non-cash, card, transfer and mobile boards vs AMD, with conversion at one board's rates |
@@ -94,6 +104,10 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `youtube_video` | one video in full: views, likes, description, tags, qualities |
 | `youtube_comments` | top-level comments with load-more (replies out of scope) |
 | `youtube_transcript` | full video captions as plain text + timestamped segments, with title, language, duration and word count |
+| `instagram_profile` | an Instagram profile with bio, followers and posts |
+| `instagram_posts` | a profile's post grid with load-more |
+| `instagram_post` | one post in full with caption and counts |
+| `instagram_comments` | comments on a post |
 | `fs_list`, `fs_read`, `fs_search` | list, read, and regex-search files in the session's workspace |
 | `fs_write`, `fs_edit`, `fs_rename`, `fs_delete` | create, patch, move, and remove workspace files, with revision checks against stale overwrites |
 | `create_presentation` | build a real .pptx deck — title slide, bullets or text per slide, optional images — into the workspace |
@@ -367,6 +381,37 @@ them named alongside `currency_convert` on every rate question, so the answer ca
 the reference rate and what each local bank actually quotes.
 `POST /chat` takes `"region": "AM"` to override the guess, and `GET /device` reports what
 was detected and how.
+
+## Instagram
+
+Four tools read Instagram with no login, the same way the YouTube tools read
+YouTube: public pages only, through the endpoints Instagram's own web client
+uses. `instagram_profile` returns bio, follower counts and recent posts,
+`instagram_posts` pages through the grid, `instagram_post` reads one post in
+full, and `instagram_comments` reads its comments. The same tools are also
+served as plain REST under `/api/instagram/*` (profile, posts, post, comments,
+reels), which is what the website cards call. Stories are out of scope.
+
+## Speech
+
+Read-aloud runs on ElevenLabs. Any `ELEVENLABS_*_KEY` in the environment joins
+a pooled rotation like the Tavily keys, and a key the service rejects is
+skipped while the request retries on the next one. `GET /speech` reports
+whether any key is set, plus the active voice id and the 4500-character
+limit. `POST /speak` takes `{ "text" }` and returns `audio/mpeg`.
+
+Voices fall back automatically: `ELEVENLABS_VOICE_ID` is tried first, then the
+built-in voices in turn, so a voice id the current plan refuses (a 402 or 404)
+never fails the request outright. The website cleans messages into speakable
+text before sending them (charts become short summaries, currency codes become
+words), but the endpoint also accepts raw Markdown and strips the formatting
+itself.
+
+## Suggestions
+
+`POST /suggestions` takes the last user message plus the finished assistant
+reply and returns a few follow-up chips, drafted by a small model. The website
+shows them under each finished task.
 
 ## Models
 

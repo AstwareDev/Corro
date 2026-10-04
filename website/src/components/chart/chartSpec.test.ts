@@ -90,6 +90,64 @@ describe("chart spec validation", () => {
     });
     expect(r.ok).toBe(false);
   });
+
+  it("accepts x bounds, smooth curves, markers and guides", () => {
+    const r = validateChartSpec({
+      ...BASE,
+      x: { key: "month", label: "Month", scale: "linear", min: 0, max: 12 },
+      smooth: true,
+      markers: [{ x: 3, y: 15000, label: "A" }],
+      guides: [{ axis: "y", value: 15000, label: "Target" }],
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.spec.x.min).toBe(0);
+      expect(r.spec.x.max).toBe(12);
+      expect(r.spec.smooth).toBe(true);
+      expect(r.spec.markers).toHaveLength(1);
+      expect(r.spec.guides).toHaveLength(1);
+    }
+  });
+
+  it("rejects x.min >= x.max", () => {
+    const r = validateChartSpec({
+      ...BASE,
+      x: { key: "month", min: 12, max: 12 },
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects malformed markers", () => {
+    expect(
+      validateChartSpec({ ...BASE, markers: [{ x: 1 }] }).ok,
+    ).toBe(false);
+    expect(
+      validateChartSpec({ ...BASE, markers: [{ x: "", y: 1 }] }).ok,
+    ).toBe(false);
+    expect(
+      validateChartSpec({ ...BASE, markers: [{ x: 1, y: "high" }] }).ok,
+    ).toBe(false);
+  });
+
+  it("rejects malformed guides", () => {
+    expect(
+      validateChartSpec({ ...BASE, guides: [{ axis: "z", value: 1 }] }).ok,
+    ).toBe(false);
+    expect(
+      validateChartSpec({ ...BASE, guides: [{ axis: "y", value: "high" }] })
+        .ok,
+    ).toBe(false);
+  });
+
+  it("caps markers and guides", () => {
+    const markers = Array.from({ length: 21 }, (_, i) => ({ x: i, y: i }));
+    expect(validateChartSpec({ ...BASE, markers }).ok).toBe(false);
+    const guides = Array.from({ length: 13 }, () => ({
+      axis: "y",
+      value: 1,
+    }));
+    expect(validateChartSpec({ ...BASE, guides }).ok).toBe(false);
+  });
 });
 
 describe("streaming partial-JSON classification", () => {

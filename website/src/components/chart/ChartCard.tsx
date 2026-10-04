@@ -6,9 +6,11 @@ import {
   Copy,
   Download,
   ImageDown,
+  Maximize2,
   Table2,
 } from "lucide-react";
 import { memo, useMemo, useRef, useState } from "react";
+import { ChartModal } from "./ChartModal";
 import { ChartTable } from "./ChartTable";
 import { ChartLegend, ChartView } from "./ChartView";
 import { classifyChartBlock, describeChartSummary } from "./chartSpec";
@@ -57,6 +59,7 @@ function ChartCardInner({
   );
   const [view, setView] = useState<"chart" | "table" | null>(null);
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
 
   if (status.kind === "skeleton") return <ChartSkeleton />;
@@ -135,10 +138,11 @@ function ChartCardInner({
   }
 
   return (
-    <section
-      aria-label={`Chart: ${spec.title}`}
-      className="group my-1 w-full rounded-xl border border-border bg-surface p-4"
-    >
+    <>
+      <section
+        aria-label={`Chart: ${spec.title}`}
+        className="group my-1 w-full rounded-xl border border-border bg-surface p-4"
+      >
       <p className="sr-only">{summary}</p>
       <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -177,6 +181,15 @@ function ChartCardInner({
               <ImageDown size={13} />
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            title="Expand chart"
+            aria-label="Expand chart"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
+          >
+            <Maximize2 size={13} />
+          </button>
           {showTable && (
             <div
               role="tablist"
@@ -234,6 +247,14 @@ function ChartCardInner({
         )}
       </div>
     </section>
+      {expanded && (
+        <ChartModal
+          spec={spec}
+          view={activeView}
+          onClose={() => setExpanded(false)}
+        />
+      )}
+    </>
   );
 }
 

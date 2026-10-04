@@ -89,7 +89,7 @@ Anything you leave unset simply shows as unreachable in `/models`.
 - **Live progress.** Plain text while it works, or a JSON and SSE mode with `text`, `reasoning`, `tool-call`, `tool-result` and `usage` events.
 - **Saved tasks.** Each task is stored on the server with its messages, tool calls and running totals. Rename, pin, search, delete and continue any task later.
 - **Follow-up suggestions.** A small model drafts next-step chips under each finished task.
-- **Read aloud** on any message, and a **context meter** showing what fills the context window.
+- **Read aloud** on any message: the reply is first turned into clean speakable text (charts become short spoken summaries, currency codes become words) and then voiced through ElevenLabs. A **context meter** shows what fills the context window.
 
 ### The toolbelt
 
@@ -109,16 +109,16 @@ Anything you leave unset simply shows as unreachable in `/models`.
 
 Skills are task-specific instruction packs. They stay out of the system prompt until a task needs them, which keeps the agent fast and focused. They load through `read_skill` or a slash command.
 
-- `research`: investigations across many sources
+- `research`: in-depth investigations across many sources, with source evaluation and a fixed synthesis format
 - `shopping`: picks the right retailer tool for the region and never mixes currencies
-- `social-lookup`: deep dives into YouTube and Instagram
-- `artifact-builder`: presentations, dashboards and HTML reports
+- `social-lookup`: lookups of specific YouTube videos and Instagram posts, page by page, without inventing IDs
+- `artifact-builder`: presentations, dashboards and standalone HTML reports
 
 ### The website
 
 - Light, dark and system themes, adjustable layout and reading size
 - 8 languages: English, Հայերեն, Français, Deutsch, Español, 日本語, Português, 한국어
-- Rich results shown inline: charts (with table and CSV view), maps, products, YouTube clips, rate tables and math
+- Rich results shown inline: charts (line, bar, scatter, area and pie, with smooth curves, labeled points, reference lines, table and CSV view), maps, products, YouTube clips, rate tables and math
 - File uploads, a workspace viewer, search across tasks (⌘K), and export to Markdown or DOCX
 
 | | |
@@ -151,6 +151,10 @@ Token counts use a fitted tokenizer for each model: exact where the ranks are pu
 | `GET` | `/sessions`, `/sessions/:id` | List and inspect tasks |
 | `PATCH`, `DELETE` | `/sessions/:id` | Rename or delete a task |
 | `GET` | `/models`, `/models/:key` | Model cards and tokenizer status |
+| `GET` | `/skills`, `/skills/:name` | Skill index and one skill body |
+| `POST` | `/suggestions` | Follow-up chips for a finished turn |
+| `GET` | `/speech` | Whether speech is configured, with voice and char limit |
+| `POST` | `/speak` | Text in, spoken audio out |
 | `GET`, `POST` | `/tools`, `/tools/:name` | List the tools, or run one without a model |
 | `GET` | `/prompt` | The system prompt exactly as the agent sees it |
 | `POST` | `/tokens` | Count tokens, optionally including prompt and tools |

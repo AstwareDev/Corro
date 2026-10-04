@@ -49,6 +49,14 @@ const PIE = `Share of feedback:
 
 Takeaway: pricing is the top topic.`;
 
+const PPF = `Production possibility frontier:
+
+\`\`\`chart
+{"type": "line", "title": "Guns vs grain", "x": {"key": "grain", "label": "Grain (tons)", "scale": "linear", "min": 0}, "y": {"label": "Drones", "format": "number", "min": 0}, "smooth": true, "series": [{"key": "frontier", "name": "Frontier"}], "markers": [{"x": 20, "y": 98, "label": "A"}, {"x": 60, "y": 80, "label": "B"}, {"x": 40, "y": 50, "label": "D"}], "guides": [{"axis": "y", "value": 60, "label": "Order"}], "data": [{"grain": 0, "frontier": 100}, {"grain": 20, "frontier": 98}, {"grain": 40, "frontier": 92}, {"grain": 60, "frontier": 80}, {"grain": 80, "frontier": 60}, {"grain": 100, "frontier": 0}]}
+\`\`\`
+
+Takeaway: A and B are efficient, D wastes capacity.`;
+
 const INVALID = `Broken spec falls back to code:
 
 \`\`\`chart
@@ -67,6 +75,11 @@ export const CHART_DEMOS: ChartDemo[] = [
   { name: "scatter", markdown: SCATTER, note: "Numeric x/y scatter" },
   { name: "area", markdown: AREA, note: "Stacked area with compact numbers" },
   { name: "pie", markdown: PIE, note: "Single-series pie" },
+  {
+    name: "ppf",
+    markdown: PPF,
+    note: "Smooth numeric-axis frontier with markers and a guide",
+  },
   {
     name: "invalid JSON",
     markdown: INVALID,

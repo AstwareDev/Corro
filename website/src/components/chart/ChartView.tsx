@@ -12,6 +12,8 @@ import {
   LineChart,
   Pie,
   PieChart,
+  ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -153,6 +155,130 @@ function valueDomain(spec: ChartSpec): [number | string, number | string] {
   return [spec.y?.min ?? "auto", spec.y?.max ?? "auto"];
 }
 
+function xDomain(spec: ChartSpec): [number | string, number | string] {
+  return [spec.x.min ?? "auto", spec.x.max ?? "auto"];
+}
+
+function isNumericX(spec: ChartSpec): boolean {
+  if (spec.x.scale !== "linear" && spec.x.scale !== "log") return false;
+  return spec.data.every(
+    (row) =>
+      typeof row[spec.x.key] === "number" && Number.isFinite(row[spec.x.key]),
+  );
+}
+
+function labelProps(): { fontSize: number; fill: string } {
+  return { fontSize: 12, fill: TICK };
+}
+
+const MARKER_LABEL_POSITIONS = ["top", "bottom", "right", "left"] as const;
+
+export type MarkerLabelPosition = (typeof MARKER_LABEL_POSITIONS)[number];
+
+export function markerLabelPosition(index: number): MarkerLabelPosition {
+  return MARKER_LABEL_POSITIONS[index % MARKER_LABEL_POSITIONS.length];
+}
+
+export function guideLabelPosition(
+  axis: "x" | "y",
+): "insideBottomLeft" | "insideTopRight" {
+  return axis === "x" ? "insideBottomLeft" : "insideTopRight";
+}
+
+function hasLabeledOverlays(spec: ChartSpec): boolean {
+  return (
+    (spec.markers ?? []).some((m) => Boolean(m.label)) ||
+    (spec.guides ?? []).some((g) => Boolean(g.label))
+  );
+}
+
+function chartMargins(spec: ChartSpec): {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+} {
+  if (!hasLabeledOverlays(spec)) return { top: 8, right: 8, bottom: 4, left: 0 };
+  return { top: 20, right: 16, bottom: 4, left: 0 };
+}
+
+function PlotXAxis({ spec }: { spec: ChartSpec }) {
+  if (isNumericX(spec)) {
+    return (
+      <XAxis
+        type="number"
+        dataKey={spec.x.key}
+        tick={tickProps()}
+        tickLine={false}
+        axisLine={{ stroke: TEXT, strokeOpacity: 0.18 }}
+        domain={xDomain(spec)}
+        scale={spec.x.scale === "log" ? "log" : "auto"}
+        tickCount={6}
+        tickFormatter={(v: number) => tickText(v)}
+      />
+    );
+  }
+  return (
+    <XAxis
+      dataKey={spec.x.key}
+      tick={tickProps()}
+      tickLine={false}
+      interval={0}
+      padding={{ left: 0, right: 0 }}
+      axisLine={{ stroke: TEXT, strokeOpacity: 0.18 }}
+    />
+  );
+}
+
+function ChartOverlays({ spec }: { spec: ChartSpec }) {
+  return (
+    <>
+      {(spec.guides ?? []).map((g, i) => (
+        <ReferenceLine
+          // biome-ignore lint/suspicious/noArrayIndexKey: spec order is stable, never reordered
+          key={`guide-${i}`}
+          {...(g.axis === "x" ? { x: g.value } : { y: g.value })}
+          stroke={TICK}
+          strokeOpacity={0.7}
+          strokeDasharray="4 4"
+          ifOverflow="extendDomain"
+          label={
+            g.label
+              ? {
+                  ...labelProps(),
+                  position: guideLabelPosition(g.axis),
+                  value: g.label,
+                }
+              : undefined
+          }
+        />
+      ))}
+      {(spec.markers ?? []).map((m, i) => (
+        <ReferenceDot
+          // biome-ignore lint/suspicious/noArrayIndexKey: spec order is stable, never reordered
+          key={`marker-${i}`}
+          x={m.x}
+          y={m.y}
+          r={4}
+          fill={seriesColor(spec, 0)}
+          stroke="var(--corro-surface)"
+          strokeWidth={1.5}
+          ifOverflow="extendDomain"
+          label={
+            m.label
+              ? {
+                  ...labelProps(),
+                  position: markerLabelPosition(i),
+                  value: m.label,
+                }
+              : undefined
+          }
+        />
+      ))}
+    </>
+  );
+}
+
 export function ChartView({
   spec,
   height = 260,
@@ -176,27 +302,29 @@ export function ChartView({
     }));
   }, [spec]);
 
+  const plotData = useMemo(() => {
+    if (!isNumericX(spec)) return spec.data;
+    return spec.data
+      .slice()
+      .sort((a, b) => Number(a[spec.x.key]) - Number(b[spec.x.key]));
+  }, [spec]);
+
+  const curve = spec.smooth === true ? "monotone" : "linear";
+
   const chartBody = (() => {
     switch (spec.type) {
       case "line":
         return (
           <LineChart
-            data={spec.data}
-            margin={{ top: 8, right: 8, bottom: 4, left: 0 }}
+            data={plotData}
+            margin={chartMargins(spec)}
           >
             <CartesianGrid
               stroke={TEXT}
               strokeOpacity={0.08}
               vertical={false}
             />
-            <XAxis
-              dataKey={spec.x.key}
-              tick={tickProps()}
-              tickLine={false}
-              interval={0}
-              padding={{ left: 0, right: 0 }}
-              axisLine={{ stroke: TEXT, strokeOpacity: 0.18 }}
-            />
+            <PlotXAxis spec={spec} />
             <YAxis
               tick={tickProps()}
               tickLine={false}
@@ -207,12 +335,13 @@ export function ChartView({
               tickFormatter={(v: number) => tickText(v, format)}
             />
             <Tooltip content={<ChartTooltip format={format} />} />
+            <ChartOverlays spec={spec} />
             {spec.series.map((s, i) => {
               const c = seriesColor(spec, i);
               return (
                 <Line
                   key={s.key}
-                  type="linear"
+                  type={curve}
                   dataKey={s.key}
                   name={s.name ?? s.key}
                   stroke={c}
@@ -229,7 +358,7 @@ export function ChartView({
         return (
           <BarChart
             data={spec.data}
-            margin={{ top: 8, right: 8, bottom: 4, left: 0 }}
+            margin={chartMargins(spec)}
             barCategoryGap="65%"
             barGap={2}
           >
@@ -258,6 +387,7 @@ export function ChartView({
               content={<ChartTooltip format={format} />}
               cursor={{ fill: "var(--corro-surface-raised)" }}
             />
+            <ChartOverlays spec={spec} />
             {spec.series.map((s, i) => (
               <Bar
                 key={s.key}
@@ -275,21 +405,15 @@ export function ChartView({
       case "area":
         return (
           <AreaChart
-            data={spec.data}
-            margin={{ top: 8, right: 8, bottom: 4, left: 0 }}
+            data={plotData}
+            margin={chartMargins(spec)}
           >
             <CartesianGrid
               stroke={TEXT}
               strokeOpacity={0.08}
               vertical={false}
             />
-            <XAxis
-              dataKey={spec.x.key}
-              tick={tickProps()}
-              tickLine={false}
-              interval={0}
-              axisLine={{ stroke: TEXT, strokeOpacity: 0.18 }}
-            />
+            <PlotXAxis spec={spec} />
             <YAxis
               tick={tickProps()}
               tickLine={false}
@@ -300,10 +424,11 @@ export function ChartView({
               tickFormatter={(v: number) => tickText(v, format)}
             />
             <Tooltip content={<ChartTooltip format={format} />} />
+            <ChartOverlays spec={spec} />
             {spec.series.map((s, i) => (
               <Area
                 key={s.key}
-                type="linear"
+                type={curve}
                 dataKey={s.key}
                 name={s.name ?? s.key}
                 stroke={seriesColor(spec, i)}
@@ -324,7 +449,7 @@ export function ChartView({
           return seriesColor(spec, i < 0 ? 0 : i);
         };
         return (
-          <ScatterChart margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+          <ScatterChart margin={chartMargins(spec)}>
             <CartesianGrid stroke={TEXT} strokeOpacity={0.08} />
             <XAxis
               type="number"
@@ -333,7 +458,7 @@ export function ChartView({
               tickLine={false}
               axisLine={{ stroke: TEXT, strokeOpacity: 0.18 }}
               name={spec.x.label ?? spec.x.key}
-              domain={["auto", "auto"]}
+              domain={xDomain(spec)}
               tickCount={6}
               tickFormatter={(v: number) => tickText(v, format)}
             />
@@ -352,6 +477,7 @@ export function ChartView({
               cursor={{ stroke: TEXT, strokeOpacity: 0.25 }}
               content={<ScatterTip format={format} colorOf={colorOf} />}
             />
+            <ChartOverlays spec={spec} />
             {groups.map((g) => (
               <Scatter
                 key={g.key}
