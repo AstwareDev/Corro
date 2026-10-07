@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="Branding/social/github-social-1280x640-dark.png">
-  <img src="Branding/social/github-social-1280x640.png" alt="Corro: assign a task, get verified answers" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="Branding/social/github-social-1280x640.png">
+  <img src="Branding/social/github-social-1280x640-dark.png" alt="Corro: assign a task, get verified answers" width="100%">
 </picture>
 
 # Corro
