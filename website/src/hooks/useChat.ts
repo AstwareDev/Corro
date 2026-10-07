@@ -70,7 +70,7 @@ export function useChat() {
   const send = useCallback(
     async (
       text: string,
-      opts: { model?: string; reasoningEffort?: string },
+      opts: { model?: string; reasoningEffort?: string; tools?: string[] },
       attachments?: MessageAttachment[],
     ) => {
       const trimmed = text.trim();
@@ -108,6 +108,7 @@ export function useChat() {
           session: sessionId,
           model: opts.model,
           reasoningEffort: opts.reasoningEffort,
+          tools: opts.tools,
           attachments: attachments?.map(({ path, kind, mime }) => ({
             path,
             kind,
@@ -287,6 +288,15 @@ export function useChat() {
             setContext(event.context);
           } else if (event.type === "usage") {
             if (event.context) setContext(event.context);
+            const serverUsage = (
+              event as { usage?: { server?: ChatMessageUI["usage"] } }
+            ).usage?.server;
+            if (serverUsage) {
+              patchLast((m) => ({
+                ...m,
+                usage: { ...m.usage, ...serverUsage },
+              }));
+            }
           } else if (event.type === "done") {
             ended = true;
             const now = Date.now();
@@ -375,7 +385,7 @@ export function useChat() {
     (
       id: string,
       text: string,
-      opts: { model?: string; reasoningEffort?: string },
+      opts: { model?: string; reasoningEffort?: string; tools?: string[] },
     ) => {
       if (isStreaming) return;
       const index = messages.findIndex((m) => m.id === id);
@@ -404,7 +414,33 @@ export function useChat() {
       .filter((m) => m.role === "user" || m.role === "assistant")
       .map((m) => {
         const createdAt = Date.parse(m.at) || Date.now();
+        const startedAt = m.timings?.startedAt
+          ? Date.parse(m.timings.startedAt) || createdAt
+          : createdAt;
+        const firstTokenAt = m.timings?.firstTokenAt
+          ? Date.parse(m.timings.firstTokenAt) || undefined
+          : undefined;
+        const completedAt = m.timings?.completedAt
+          ? Date.parse(m.timings.completedAt) || createdAt
+          : createdAt;
         const blocks: MessageBlock[] = [];
+        // Restore saved Thoughts first (they were produced before text/tools
+        // during streaming). Reasoning lives only in the UI/session — the
+        // backend never includes it in the model history.
+        if (m.role === "assistant" && m.reasoning) {
+          const reasoningEnded =
+            typeof m.reasoningDurationMs === "number" &&
+            Number.isFinite(m.reasoningDurationMs)
+              ? startedAt + Math.max(0, m.reasoningDurationMs)
+              : (firstTokenAt ?? completedAt);
+          blocks.push({
+            kind: "reasoning",
+            id: uid(),
+            text: m.reasoning,
+            startedAt,
+            endedAt: reasoningEnded,
+          });
+        }
         if (m.toolCalls?.length) {
           blocks.push({
             kind: "tools",
@@ -429,7 +465,10 @@ export function useChat() {
           text: m.content,
           blocks,
           createdAt,
-          completedAt: createdAt,
+          ...(m.role === "assistant" && firstTokenAt !== undefined
+            ? { firstTokenAt }
+            : {}),
+          completedAt,
           usage: m.usage,
         };
       });

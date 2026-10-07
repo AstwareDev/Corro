@@ -15,6 +15,7 @@ import {
 } from "react";
 import { Markdown } from "tiptap-markdown";
 import { fetchSkills, type SkillDescription } from "@/lib/api";
+import { useCustomization } from "@/lib/customize";
 
 export interface PromptEditorHandle {
   getMarkdown: () => string;
@@ -175,6 +176,7 @@ export function PromptEditor({
   const [slash, setSlash] = useState<string | null>(null);
   const [used, setUsed] = useState<string[]>([]);
   const [selected, setSelected] = useState(0);
+  const { disabledSkills } = useCustomization();
 
   useEffect(() => {
     let cancelled = false;
@@ -191,6 +193,7 @@ export function PromptEditor({
       ? []
       : skills.filter(
           (s) =>
+            !disabledSkills.includes(s.name) &&
             !used.includes(s.name.toLowerCase()) &&
             s.name.toLowerCase().startsWith(slash.toLowerCase()),
         );

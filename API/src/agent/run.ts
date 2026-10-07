@@ -1,4 +1,4 @@
-import { stepCountIs, streamText, type ModelMessage, type LanguageModel } from 'ai'
+import { type LanguageModel, type ModelMessage } from 'ai'
 import { chatModel } from '../models/registry.js'
 import { MODELS } from '../tokenizer/specs.js'
 import { notBelow, safeMeasureContext, type ContextUsage } from '../context/usage.js'
@@ -8,6 +8,12 @@ import { buildSystemPrompt, type PromptOptions } from './prompt.js'
 import { selectTools } from './tools/index.js'
 import { toolSpecs } from './tools/specs.js'
 import { completionIssue, executionReminder, executionSummary, type ExecutionRecord } from './completion.js'
+import {
+  isFailedToolOutput,
+  resilientStep,
+  type RetryConfig,
+  type StepOutcome,
+} from './resilient.js'
 
 export const TOOL_FAILURE_LIMIT = 5
 export const MAX_AGENT_STEPS = 40
@@ -39,6 +45,7 @@ export interface RunInput {
   skillContext?: string
   temperature?: number
   reasoningEffort?: string
+  retry?: Partial<RetryConfig>
   
   region?: PromptOptions['region']
   
@@ -67,6 +74,12 @@ export interface RunResult {
   steps: RunStep[]
   responseMessages: ModelMessage[]
   completion: 'complete' | 'unverified'
+  // Reasoning ("Thoughts") is surfaced live as `reasoning` events and stored
+  // on the session for re-display after refresh. It is never added to
+  // responseMessages, so it is never sent back to the model.
+  reasoningText: string
+  reasoningDurationMs?: number
+  timings: { startedAt: number; firstTokenAt?: number; completedAt: number }
   usage: {
     server: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
     preflight?: {
@@ -76,7 +89,7 @@ export interface RunResult {
       toolsIncluded: boolean
     }
     firstStepDelta?: number
-    
+
     peakInputTokens?: number
   }
   context?: ContextUsage
@@ -96,6 +109,7 @@ export type AgentEvent =
   
   
   | { type: 'context'; context: ContextUsage }
+  | { type: 'status'; message: string }
   | { type: 'done'; result: RunResult }
   | { type: 'error'; error: string }
 
@@ -167,6 +181,12 @@ function assemble(
       usage?: { inputTokens?: number }
     }>
     usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+    reasoningText: string
+    reasoningStartedAt?: number
+    reasoningEndedAt?: number
+    startedAt: number
+    firstTokenAt?: number
+    completedAt: number
   }
 ): RunResult {
   const steps: RunStep[] = raw.steps.map((s) => ({
@@ -181,9 +201,8 @@ function assemble(
       ? prepared.preflight.tokens - firstStepInput
       : undefined
 
-  
-  
-  
+
+
   const peakInputTokens = raw.steps.reduce<number | undefined>((peak, s) => {
     const n = s.usage?.inputTokens
     if (typeof n !== 'number') return peak
@@ -202,6 +221,11 @@ function assemble(
     input.contextFloor
   )
 
+  const reasoningDurationMs =
+    raw.reasoningStartedAt !== undefined && raw.reasoningEndedAt !== undefined
+      ? Math.max(0, raw.reasoningEndedAt - raw.reasoningStartedAt)
+      : undefined
+
   return {
     model: input.model,
     text: raw.text,
@@ -209,6 +233,13 @@ function assemble(
     steps,
     responseMessages: raw.responseMessages,
     completion: raw.completion,
+    reasoningText: raw.reasoningText,
+    ...(reasoningDurationMs === undefined ? {} : { reasoningDurationMs }),
+    timings: {
+      startedAt: raw.startedAt,
+      ...(raw.firstTokenAt === undefined ? {} : { firstTokenAt: raw.firstTokenAt }),
+      completedAt: raw.completedAt,
+    },
     usage: {
       server: {
         inputTokens: raw.usage.inputTokens,
@@ -233,12 +264,6 @@ export function trafficOf(steps: RunStep[]): string[] {
     for (const result of step.toolResults) out.push(JSON.stringify(result.output ?? ''))
   }
   return out
-}
-
-function toolFailed(output: unknown): boolean {
-  if (output === null || typeof output !== 'object') return false
-  const out = output as Record<string, unknown>
-  return out.ok === false || out.error !== undefined
 }
 
 function disabledNotice(disabled: Set<string>): string {
@@ -282,6 +307,13 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
   const failures = new Map<string, number>()
   const disabled = new Set<string>()
   const startedAt = Date.now()
+  let firstTokenAt: number | undefined
+  let reasoningText = ''
+  let reasoningStartedAt: number | undefined
+  let reasoningEndedAt: number | undefined
+  const markFirstToken = () => {
+    if (firstTokenAt === undefined) firstTokenAt = Date.now()
+  }
   try {
     for (let step = 0; ; step++) {
       input.abortSignal?.throwIfAborted()
@@ -291,101 +323,127 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
         break
       }
       const active = Object.fromEntries(Object.entries(prepared.toolset).filter(([name]) => !disabled.has(name)))
-      const stream = streamText({
+      const stepStream = resilientStep({
         model: input.languageModel ?? chatModel(input.model),
         system: prepared.system + '\n\n' + executionReminder(calls) + disabledNotice(disabled)
           + (repair ? `\n<completion_check>\n${repair}\nYour draft was withheld. Complete only the work the user authorized, then report the actual result; otherwise explain the limitation honestly.\n</completion_check>` : ''),
         messages: [...input.messages, ...responseMessages],
-        ...(Object.keys(active).length ? { tools: active as never } : {}),
-        stopWhen: stepCountIs(1),
+        tools: Object.keys(active).length ? active as Record<string, unknown> : undefined,
+        temperature: input.temperature,
+        extraArgs: reasoningProviderOptions(input.model, input.reasoningEffort),
         abortSignal: input.abortSignal,
-        ...(input.temperature === undefined ? {} : { temperature: input.temperature }),
-        ...reasoningProviderOptions(input.model, input.reasoningEffort),
+        retry: input.retry,
       })
       const inputs = new Map<string, { name: string; input: unknown }>()
       const results: RunStep['toolResults'] = []
-    for await (const part of stream.fullStream) {
-      
-      
-      
-      const p = part as {
-        type: string
-        text?: string
-        toolName?: string
-        toolCallId?: string
-        id?: string
-        delta?: string
-        input?: unknown
-        output?: unknown
-        error?: unknown
+      let outcome: StepOutcome | undefined
+      for (;;) {
+        const next = await stepStream.next()
+        if (next.done) {
+          outcome = next.value
+          break
+        }
+        const item = next.value
+        if (item.kind === 'status') {
+          yield { type: 'status', message: item.message }
+          continue
+        }
+        const part = item.part
+        const p = part as {
+          type: string
+          text?: string
+          toolName?: string
+          toolCallId?: string
+          id?: string
+          delta?: string
+          input?: unknown
+          output?: unknown
+          error?: unknown
+        }
+        if (p.type === 'reasoning-delta' && p.text) {
+          markFirstToken()
+          const now = Date.now()
+          if (reasoningStartedAt === undefined) reasoningStartedAt = now
+          reasoningEndedAt = now
+          reasoningText += p.text
+          yield { type: 'reasoning', text: p.text }
+        } else if (p.type === 'tool-input-start' && p.id) {
+          markFirstToken()
+          yield { type: 'tool-input-start', id: p.id, name: p.toolName ?? 'unknown' }
+        } else if (p.type === 'tool-input-delta' && p.id && p.delta) {
+          markFirstToken()
+          yield { type: 'tool-input-delta', id: p.id, delta: p.delta }
+        } else if (p.type === 'tool-call') {
+          markFirstToken()
+          inputs.set(p.toolCallId ?? p.id ?? '', { name: p.toolName ?? 'unknown', input: p.input })
+          yield {
+            type: 'tool-call',
+            id: p.toolCallId ?? p.id,
+            name: p.toolName ?? 'unknown',
+            input: p.input,
+          }
+        } else if (p.type === 'tool-result' || p.type === 'tool-error') {
+          markFirstToken()
+          const id = p.toolCallId ?? p.id ?? ''
+          const output = p.type === 'tool-error'
+            ? { ok: false, error: errorMessage(p.error) }
+            : p.output
+          const name = p.toolName ?? 'unknown'
+          results.push({ toolCallId: id, toolName: name, output })
+          calls.push({ toolCallId: id, toolName: name, input: inputs.get(id)?.input, output })
+          if (isFailedToolOutput(output)) {
+            const count = (failures.get(name) ?? 0) + 1
+            failures.set(name, count)
+            if (count >= TOOL_FAILURE_LIMIT) disabled.add(name)
+          } else {
+            failures.set(name, 0)
+          }
+          yield {
+            type: 'tool-result',
+            id: p.toolCallId ?? p.id,
+            name: p.toolName ?? 'unknown',
+            output,
+          }
+          const context = floored(
+            safeMeasureContext({
+              model: input.model,
+              system: prepared.system,
+              messages: input.messages,
+              tools: toolSpecs(prepared.toolset),
+              toolTraffic: calls.map((c) => JSON.stringify(c)),
+            }),
+            input.contextFloor
+          )
+          if (context) yield { type: 'context', context }
+        } else if (p.type === 'error') {
+          throw new Error(errorMessage(p.error))
+        }
       }
-      if (p.type === 'reasoning-delta' && p.text) {
-        yield { type: 'reasoning', text: p.text }
-      } else if (p.type === 'tool-input-start' && p.id) {
-        yield { type: 'tool-input-start', id: p.id, name: p.toolName ?? 'unknown' }
-      } else if (p.type === 'tool-input-delta' && p.id && p.delta) {
-        yield { type: 'tool-input-delta', id: p.id, delta: p.delta }
-      } else if (p.type === 'tool-call') {
-        inputs.set(p.toolCallId ?? p.id ?? '', { name: p.toolName ?? 'unknown', input: p.input })
-        yield {
-          type: 'tool-call',
-          id: p.toolCallId ?? p.id,
-          name: p.toolName ?? 'unknown',
-          input: p.input,
-        }
-      } else if (p.type === 'tool-result' || p.type === 'tool-error') {
-        const id = p.toolCallId ?? p.id ?? ''
-        const output = p.type === 'tool-error'
-          ? { ok: false, error: errorMessage(p.error) }
-          : p.output
-        const name = p.toolName ?? 'unknown'
-        results.push({ toolCallId: id, toolName: name, output })
-        calls.push({ toolCallId: id, toolName: name, input: inputs.get(id)?.input, output })
-        if (toolFailed(output)) {
-          const count = (failures.get(name) ?? 0) + 1
-          failures.set(name, count)
-          if (count >= TOOL_FAILURE_LIMIT) disabled.add(name)
-        } else {
-          failures.set(name, 0)
-        }
-        yield {
-          type: 'tool-result',
-          id: p.toolCallId ?? p.id,
-          name: p.toolName ?? 'unknown',
-          output,
-        }
-        const context = floored(
-          safeMeasureContext({
-            model: input.model,
-            system: prepared.system,
-            messages: input.messages,
-            tools: toolSpecs(prepared.toolset),
-            toolTraffic: calls.map((c) => JSON.stringify(c)),
-          }),
-          input.contextFloor
-        )
-        if (context) yield { type: 'context', context }
-      } else if (p.type === 'error') {
-        throw new Error(errorMessage(p.error))
-      }
-    }
-      const response = await stream.response
-      const draft = await stream.text
-      const stepUsage = await stream.totalUsage
+      if (!outcome) throw new Error('Step ended without a result')
+      const stepOutcome: StepOutcome = outcome
+      const stepUsage = stepOutcome.usage
       for (const key of ['inputTokens', 'outputTokens', 'totalTokens'] as const) {
         const n = stepUsage[key]
         if (typeof n === 'number' && Number.isFinite(n)) usage[key] = (usage[key] ?? 0) + n
       }
       steps.push({ text: '', toolCalls: [...inputs].map(([toolCallId, c]) => ({ toolCallId, toolName: c.name, input: c.input })), toolResults: results, usage: stepUsage })
-      for (const message of response.messages) {
+      for (const message of stepOutcome.responseMessages) {
         if (message.role === 'tool') responseMessages.push(message)
         else if (message.role === 'assistant' && Array.isArray(message.content)) {
           const content = message.content.filter((p) => p.type === 'tool-call')
           if (content.length) responseMessages.push({ role: 'assistant', content })
         }
       }
+      if (stepOutcome.gaveUp) {
+        completion = 'unverified'
+        finishReason = 'error'
+        const partial = stepOutcome.text ? stepOutcome.text + '\n\n' : ''
+        finalText = partial + executionSummary(calls, `The model connection kept failing: ${stepOutcome.error ?? 'unknown error'} Completed tool calls were kept.`)
+        break
+      }
+      const draft = stepOutcome.text
       if (inputs.size) continue
-      finishReason = await stream.finishReason
+      finishReason = stepOutcome.finishReason
       repair = completionIssue(draft, input.messages, calls)
       if (repair) {
         rejected++
@@ -406,9 +464,13 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
       finalText += `\n\nDisabled after ${TOOL_FAILURE_LIMIT} consecutive failures: ${[...disabled].map((n) => `\`${n}\``).join(', ')}.`
     }
     responseMessages.push({ role: 'assistant', content: finalText })
+    markFirstToken()
     yield { type: 'text', text: finalText }
+    const completedAt = Date.now()
     const result = assemble(input, prepared, {
       text: finalText, finishReason, steps, usage, responseMessages, completion,
+      reasoningText, reasoningStartedAt, reasoningEndedAt,
+      startedAt, firstTokenAt, completedAt,
     })
     yield { type: 'done', result }
   } catch (err) {
@@ -422,10 +484,13 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
     }
     const text = executionSummary(calls, input.abortSignal?.aborted ? 'The task was stopped before completion.' : `The run failed: ${error}`)
     responseMessages.push({ role: 'assistant', content: text })
+    markFirstToken()
     yield { type: 'error', error }
     yield { type: 'text', text }
     yield { type: 'done', result: assemble(input, prepared, {
       text, finishReason: input.abortSignal?.aborted ? 'aborted' : 'error', steps, usage, responseMessages, completion: 'unverified',
+      reasoningText, reasoningStartedAt, reasoningEndedAt,
+      startedAt, firstTokenAt, completedAt: Date.now(),
     }) }
   }
 }

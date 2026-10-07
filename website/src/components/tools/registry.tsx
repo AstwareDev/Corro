@@ -1,4 +1,5 @@
 import {
+  AppWindow,
   ArrowLeftRight,
   Calculator,
   Compass,
@@ -449,6 +450,13 @@ const REGISTRY: Record<string, ToolPresentation> = {
     label: "Calculate",
     groupLabel: "Calculated",
     verb: "Calculated",
+  },
+  show_widget: {
+    Icon: AppWindow,
+    ChildIcon: AppWindow,
+    label: "Render a visual",
+    groupLabel: "Rendered visuals",
+    verb: "Rendered a visual",
   },
   read_skill: {
     Icon: SkillIcon,

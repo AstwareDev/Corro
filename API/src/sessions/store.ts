@@ -29,6 +29,20 @@ export interface StoredMessage {
   toolCalls?: ToolCallRecord[]
   agentMessages?: ModelMessage[]
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+  // The model selected for this turn, so the UI can show which model
+  // produced each response even after a refresh.
+  model?: string
+  // Reasoning ("Thoughts") is stored for re-display after refresh. It is
+  // deliberately excluded from conversation() so it is never sent to the model.
+  reasoning?: string
+  reasoningDurationMs?: number
+  timings?: {
+    startedAt?: string
+    firstTokenAt?: string
+    completedAt?: string
+    reasoningStartedAt?: string
+    reasoningEndedAt?: string
+  }
 }
 
 export interface SessionTotals {
@@ -203,6 +217,9 @@ export function appendMessage(
     ...(message.toolCalls?.length ? { toolCalls: message.toolCalls } : {}),
     ...(message.agentMessages?.length ? { agentMessages: message.agentMessages } : {}),
     ...(message.usage ? { usage: message.usage } : {}),
+    ...(message.reasoning ? { reasoning: message.reasoning } : {}),
+    ...(message.reasoningDurationMs === undefined ? {} : { reasoningDurationMs: message.reasoningDurationMs }),
+    ...(message.timings ? { timings: message.timings } : {}),
   }
   session.messages.push(stored)
   if (session.title === 'Untitled' && stored.role === 'user') {
@@ -235,6 +252,8 @@ export function withSentAt(content: string, at?: string): string {
 }
 
 export function conversation(session: Session): ModelMessage[] {
+  // Note: m.reasoning / m.timings are intentionally ignored here — Thoughts
+  // are stored for UI re-display only and are never sent back to the model.
   return session.messages.flatMap((m): ModelMessage[] => {
     if (m.role === 'user') return [{ role: 'user', content: withSentAt(m.content, m.at) }]
     if (m.role !== 'assistant') return []

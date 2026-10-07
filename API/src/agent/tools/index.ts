@@ -12,6 +12,7 @@ import { parmaCategories, parmaProduct, parmaSearch, parmaStores } from './parma
 import { sasCategories, sasProduct, sasSearch, sasStores } from './sas/index.js'
 import { webCrawl, webExtract, webMap, webSearch } from './tavily/index.js'
 import { walmartProduct, walmartSearch } from './walmart/index.js'
+import { showWidget } from './widget.js'
 import { yerevanCityCategories, yerevanCityProduct, yerevanCitySearch, yerevanCityStores } from './yerevan-city/index.js'
 
 
@@ -55,6 +56,7 @@ const SHARED = {
   instagram_posts: instagramPosts,
   instagram_post: instagramPost,
   instagram_comments: instagramComments,
+  show_widget: showWidget,
 } as const
 
 export type SharedToolName = keyof typeof SHARED
@@ -88,6 +90,7 @@ export function selectTools(
 }
 
 export { calculator, evaluate, CalcError } from './calculator.js'
+export { showWidget } from './widget.js'
 export { readSkill } from '../skills/readSkill.js'
 export { listSkills, readSkillBody, parseSkillCommand, parseSkillCommands, SkillNotFound } from '../skills/loader.js'
 export { currencyConvert, ameriabankRates, idbankRates, CURRENCY_TOOL_NAMES } from './currency/index.js'

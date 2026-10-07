@@ -1,4 +1,5 @@
 import { formatSkillsIndex } from './skills/loader.js'
+import { WIDGET_GUIDE } from './widgets.js'
 
 export const EVIDENCE_STATUSES = [
   'corroborated',
@@ -142,6 +143,7 @@ Bar example:
 {"type": "bar", "title": "Signups by plan", "x": {"key": "plan", "label": "Plan"}, "y": {"label": "Signups", "format": "number", "min": 0}, "series": [{"key": "signups", "name": "Signups"}], "data": [{"plan": "Free", "signups": 1240}, {"plan": "Pro", "signups": 860}, {"plan": "Team", "signups": 310}]}
 \`\`\`
 Supported types are line, bar, scatter, area, and pie. Optional fields: subtitle, x.scale (category | linear | time | log), x.min, x.max, y.scale (linear | log), y.format (currency | percent | number | compact), y.min, y.max, series[].color (hex), series[].name, stacked (bar/area), smooth (line/area draws a curve instead of straight segments), markers (labeled points, e.g. [{"x": 20, "y": 98, "label": "A"}]), guides (dashed reference lines, e.g. [{"axis": "y", "value": 60, "label": "Target"}]), table.show, table.defaultView (chart | table). Scatter uses numeric x and y pairs per series; pie uses one series plus one category key. For function-style curves such as a production possibility frontier, use type line with a linear x scale, x.min 0, y.min 0, smooth true, and markers for the labeled points.
+${WIDGET_GUIDE}
 
 UI blocks: when a designed component beats prose, emit one of these short fenced blocks. Use a block only when it beats prose. Never repeat the same data in both a block and a table or paragraph. Do not narrate the block's contents in the text before or after it. One short sentence of context at most. Maximum two UI blocks per reply unless the user asks for more.
 

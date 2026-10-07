@@ -13,11 +13,12 @@ import { useEffect, useRef, useState } from "react";
 import { resolveAssetUrl } from "@/lib/api";
 import { useMotionPreference } from "@/lib/appearance";
 import { formatBytes } from "@/lib/format";
-import type {
-  ChatMessageUI,
-  MessageAttachment,
-  MessageBlock,
-  ToolCallUI,
+import {
+  type ChatMessageUI,
+  type MessageAttachment,
+  type MessageBlock,
+  peekWidgetTitle,
+  type ToolCallUI,
 } from "@/lib/types";
 import { Markdown } from "./Markdown";
 import { MessageFooter } from "./MessageFooter";
@@ -25,6 +26,7 @@ import { MessageHeader } from "./MessageHeader";
 import { summarizeTrace, type TraceBlock, TraceGroup } from "./TraceGroup";
 import { SkillIcon } from "./tools/registry";
 import { ToolResult } from "./tools/ToolResult";
+import { Widget } from "./tools/Widget";
 
 const ARTIFACT_TOOLS = new Set(["fs_write", "fs_edit"]);
 
@@ -64,7 +66,16 @@ function splitLeadingSkills(
 
 type Segment =
   | { kind: "trace"; id: string; blocks: TraceBlock[] }
-  | { kind: "text"; id: string; text: string };
+  | { kind: "text"; id: string; text: string }
+  | { kind: "widget"; id: string; call: ToolCallUI };
+
+function pushTrace(segments: Segment[], id: string, calls: ToolCallUI[]) {
+  if (!calls.length) return;
+  const block: TraceBlock = { kind: "tools", id, calls };
+  const last = segments[segments.length - 1];
+  if (last?.kind === "trace") last.blocks.push(block);
+  else segments.push({ kind: "trace", id, blocks: [block] });
+}
 
 function toSegments(blocks: MessageBlock[]): Segment[] {
   const segments: Segment[] = [];
@@ -74,12 +85,45 @@ function toSegments(blocks: MessageBlock[]): Segment[] {
       segments.push({ kind: "text", id: block.id, text: block.text });
       continue;
     }
-    const last = segments[segments.length - 1];
-    if (last?.kind === "trace") last.blocks.push(block);
-    else segments.push({ kind: "trace", id: block.id, blocks: [block] });
+    if (block.kind !== "tools") {
+      const last = segments[segments.length - 1];
+      if (last?.kind === "trace") last.blocks.push(block);
+      else segments.push({ kind: "trace", id: block.id, blocks: [block] });
+      continue;
+    }
+    let rest: ToolCallUI[] = [];
+    let part = 0;
+    const flush = () => {
+      if (!rest.length) return;
+      pushTrace(segments, part ? `${block.id}:${part}` : block.id, rest);
+      rest = [];
+      part++;
+    };
+    for (const call of block.calls) {
+      if (call.name === "show_widget") {
+        flush();
+        segments.push({ kind: "widget", id: call.localId, call });
+      } else {
+        rest.push(call);
+      }
+    }
+    flush();
   }
 
   return segments;
+}
+
+function widgetTitle(call: ToolCallUI): string {
+  const input = call.input as
+    | { title?: unknown; widget_code?: unknown }
+    | undefined;
+  if (typeof input?.title === "string" && input.title) return input.title;
+  return peekWidgetTitle(call.partial) ?? "Interactive visual";
+}
+
+function widgetCode(call: ToolCallUI): string | undefined {
+  const input = call.input as { widget_code?: unknown } | undefined;
+  return typeof input?.widget_code === "string" ? input.widget_code : undefined;
 }
 
 export function ChatMessage({
@@ -157,6 +201,12 @@ function AssistantMessage({
               streaming={Boolean(message.streaming)}
               open={traceOpen}
               sessionId={sessionId}
+            />
+          ) : segment.kind === "widget" ? (
+            <Widget
+              key={segment.id}
+              code={widgetCode(segment.call)}
+              title={widgetTitle(segment.call)}
             />
           ) : (
             <div

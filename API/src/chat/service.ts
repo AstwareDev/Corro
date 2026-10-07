@@ -232,6 +232,16 @@ function persist(
     toolCalls,
     agentMessages: run.responseMessages,
     usage: run.usage.server,
+    // Thoughts are saved on the session for re-display after refresh but are
+    // never included in conversation() / agentMessages, so they never reach
+    // the model on later turns.
+    ...(run.reasoningText ? { reasoning: run.reasoningText } : {}),
+    ...(run.reasoningDurationMs === undefined ? {} : { reasoningDurationMs: run.reasoningDurationMs }),
+    timings: {
+      startedAt: new Date(run.timings.startedAt).toISOString(),
+      firstTokenAt: new Date(run.timings.firstTokenAt ?? run.timings.completedAt).toISOString(),
+      completedAt: new Date(run.timings.completedAt).toISOString(),
+    },
   })
 
   addTotals(session, {

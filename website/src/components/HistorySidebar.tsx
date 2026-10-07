@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -497,6 +498,8 @@ export function HistorySidebar({
   const [searchOpen, setSearchOpen] = useState(false);
   const { layout } = useAppearance();
   const narrow = useMediaQuery("(max-width: 700px)");
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -659,6 +662,8 @@ export function HistorySidebar({
             icon={Briefcase}
             label="Customize"
             expanded={expanded}
+            active={pathname.startsWith("/customize")}
+            onClick={() => router.push("/customize")}
           />
         </div>
 

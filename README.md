@@ -103,6 +103,7 @@ Anything you leave unset simply shows as unreachable in `/models`.
 | Video and social | YouTube channels, videos, comments and transcripts; Instagram profiles, posts and comments |
 | Files | List, read, search, write, edit, rename and delete inside a private workspace, with checks against overwriting stale versions |
 | Slides | `create_presentation` builds a real `.pptx` deck |
+| Visuals | `show_widget` renders interactive visuals (charts, diagrams, small calculators) inline in the chat |
 | Skills | `read_skill` loads instruction packs only when needed |
 
 ### Skills
@@ -118,7 +119,8 @@ Skills are task-specific instruction packs. They stay out of the system prompt u
 
 - Light, dark and system themes, adjustable layout and reading size
 - 8 languages: English, Հայերեն, Français, Deutsch, Español, 日本語, Português, 한국어
-- Rich results shown inline: charts (line, bar, scatter, area and pie, with smooth curves, labeled points, reference lines, table and CSV view), maps, products, YouTube clips, rate tables and math
+- Rich results shown inline: charts (line, bar, scatter, area and pie, with smooth curves, labeled points, reference lines, table and CSV view), interactive widgets with sliders and live plots, maps, products, YouTube clips, rate tables and math
+- A Customize page with its own URL: MCP servers (yours and discoverable), skills and tools, each clickable through to a detail view with toggles
 - File uploads, a workspace viewer, search across tasks (⌘K), and export to Markdown or DOCX
 
 | | |

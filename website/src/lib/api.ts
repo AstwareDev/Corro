@@ -445,6 +445,15 @@ export interface StoredMessage {
   tokens?: number;
   toolCalls?: StoredToolCall[];
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
+  // Reasoning ("Thoughts") is stored for re-display after refresh. It is never
+  // sent back to the model.
+  reasoning?: string;
+  reasoningDurationMs?: number;
+  timings?: {
+    startedAt?: string;
+    firstTokenAt?: string;
+    completedAt?: string;
+  };
 }
 
 export interface SessionDetail extends SessionSummary {
@@ -592,6 +601,11 @@ export interface SkillDescription {
   description: string;
 }
 
+export interface ToolDescription {
+  name: string;
+  description: string;
+}
+
 let cachedSkills: Promise<SkillDescription[]> | undefined;
 
 export function fetchSkills(): Promise<SkillDescription[]> {
@@ -607,4 +621,36 @@ export function fetchSkills(): Promise<SkillDescription[]> {
     })
     .catch(() => []);
   return cachedSkills;
+}
+
+let cachedTools: Promise<ToolDescription[]> | undefined;
+
+export function fetchTools(): Promise<ToolDescription[]> {
+  cachedTools ??= fetch(`${API_URL}/tools`, { headers: NGROK_HEADERS })
+    .then(async (response) => {
+      if (!response.ok) return [];
+      const json = (await response.json()) as {
+        data?: ToolDescription[];
+      };
+      return (json.data ?? []).filter(
+        (t) => typeof t?.name === "string" && typeof t?.description === "string",
+      );
+    })
+    .catch(() => []);
+  return cachedTools;
+}
+
+export interface SkillBody {
+  name: string;
+  description: string;
+  content: string;
+}
+
+export async function fetchSkill(name: string): Promise<SkillBody> {
+  const response = await fetch(
+    `${API_URL}/skills/${encodeURIComponent(name)}`,
+    { headers: NGROK_HEADERS },
+  );
+  if (!response.ok) throw new Error(`Skill not found: ${name}`);
+  return (await response.json()) as SkillBody;
 }

@@ -48,4 +48,12 @@ describe('UI blocks section', () => {
     assert.ok(!prompt.includes('"button"'))
     assert.ok(!prompt.includes('Never invent prices'))
   })
+
+  it('documents show_widget with rules and a worked example', () => {
+    const prompt = buildSystemPrompt({ toolNames: [] })
+    assert.ok(prompt.includes('show_widget'), 'missing show_widget')
+    assert.ok(prompt.includes('sendPrompt'), 'missing sendPrompt')
+    assert.ok(prompt.includes('viewBox'), 'missing worked example')
+    assert.ok(prompt.includes('Exponential growth explorer'), 'missing example title')
+  })
 })

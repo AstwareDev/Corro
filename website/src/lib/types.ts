@@ -133,6 +133,17 @@ export function peekDescription(partial: string): string | undefined {
   }
 }
 
+export function peekWidgetTitle(partial?: string): string | undefined {
+  if (!partial) return undefined;
+  const match = /"title"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(partial);
+  if (!match) return undefined;
+  try {
+    return JSON.parse(`"${match[1]}"`) as string;
+  } catch {
+    return match[1];
+  }
+}
+
 export type MessageBlock =
   | {
       kind: "reasoning";

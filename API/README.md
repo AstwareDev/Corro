@@ -111,6 +111,7 @@ budget before generation), `text`, `reasoning`, `tool-call`, `tool-result`,
 | `fs_list`, `fs_read`, `fs_search` | list, read, and regex-search files in the session's workspace |
 | `fs_write`, `fs_edit`, `fs_rename`, `fs_delete` | create, patch, move, and remove workspace files, with revision checks against stale overwrites |
 | `create_presentation` | build a real .pptx deck — title slide, bullets or text per slide, optional images — into the workspace |
+| `show_widget` | render an interactive visual inline in the chat from an HTML fragment; the handler just replies "Rendered." |
 
 The web tools are Tavily. Every response is trimmed before the model sees it:
 tracking parameters stripped from URLs, markup and image links removed, results
