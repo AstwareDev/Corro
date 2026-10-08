@@ -112,6 +112,10 @@ export interface ToolCallUI {
   status: ToolCallStatus;
   startedAt: number;
   endedAt?: number;
+  /** Agent step this call belongs to (from start-step/finish-step). Used to
+   *  group tool calls by step and show a live step counter. Keyed by
+   *  toolCallId (localId), never by index, so parallel calls never overwrite. */
+  step?: number;
 
   description?: string;
 
@@ -142,6 +146,73 @@ export function peekWidgetTitle(partial?: string): string | undefined {
   } catch {
     return match[1];
   }
+}
+
+function peekStringField(partial: string, field: string): string | undefined {
+  // Never JSON.parse the partial object itself (it is incomplete). Only
+  // decode a single string value via regex, mirroring peekDescription.
+  const re = new RegExp(`"${field}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)`);
+  const match = re.exec(partial);
+  if (!match) return undefined;
+  try {
+    return JSON.parse(`"${match[1]}"`) as string;
+  } catch {
+    return match[1];
+  }
+}
+
+function peekFirstUrl(partial: string): string | undefined {
+  const single = peekStringField(partial, "url");
+  if (single) return single;
+  const match = /"urls"\s*:\s*\[\s*"((?:[^"\\]|\\.)*)/.exec(partial);
+  if (!match) return undefined;
+  try {
+    return JSON.parse(`"${match[1]}"`) as string;
+  } catch {
+    return match[1];
+  }
+}
+
+/** Early header for live rows: query/URL/title as soon as it streams. */
+export function peekLiveInput(
+  input: unknown,
+  partial?: string,
+): string | undefined {
+  const record =
+    input !== null && typeof input === "object"
+      ? (input as Record<string, unknown>)
+      : undefined;
+  if (typeof record?.query === "string" && record.query) return record.query;
+  if (typeof record?.title === "string" && record.title) return record.title;
+  if (typeof record?.path === "string" && record.path) return record.path;
+  if (typeof record?.url === "string" && record.url) return record.url;
+  if (Array.isArray(record?.urls) && typeof record.urls[0] === "string")
+    return record.urls[0] as string;
+  if (!partial) return undefined;
+  return (
+    peekStringField(partial, "query") ??
+    peekStringField(partial, "title") ??
+    peekStringField(partial, "path") ??
+    peekFirstUrl(partial)
+  );
+}
+
+/** Live header while a run is in progress, e.g. "Searching: <query>". */
+export function liveStepLabel(call: ToolCallUI): string {
+  const detail = peekLiveInput(call.input, call.partial);
+  if (call.name === "web_search")
+    return detail ? `Searching: ${detail}` : "Searching";
+  if (
+    call.name === "web_extract" ||
+    call.name === "web_crawl" ||
+    call.name === "web_map"
+  )
+    return detail ? `Reading: ${detail}` : "Reading";
+  if (call.name === "show_widget")
+    return detail ? `Writing widget: ${detail}` : "Writing widget";
+  if (call.description) return call.description;
+  if (detail) return `${humanizeToolName(call.name)}: ${detail}`;
+  return humanizeToolName(call.name);
 }
 
 export type MessageBlock =
@@ -178,6 +249,10 @@ export interface ChatMessageUI {
   firstTokenAt?: number;
   completedAt?: number;
   model?: string;
+  /** Live agent step (1-indexed) while streaming. Set from start-step events
+   *  so the header can show "Step N" before the run finishes. Cleared on
+   *  done; the settled summary uses Thought-for/steps instead. */
+  liveStep?: number;
   usage?: {
     inputTokens?: number;
     outputTokens?: number;

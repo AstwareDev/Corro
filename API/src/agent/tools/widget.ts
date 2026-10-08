@@ -7,14 +7,14 @@ const CODE_MAX = 20000
 
 export const showWidget = tool({
   description:
-    'Render an interactive visual inline in the chat. Call this (not a chart block, not prose) for sliders, live calculation, diagrams, and small interactive tools.',
+    'Render an interactive visual inline in the chat. Call this (not a chart block, not prose) for sliders, live calculation, diagrams, and small interactive tools — including quantitative visuals such as price or revenue over time and supply-demand shifts.',
   inputSchema: z.object({
     description: toolDescription,
     title: z
       .string()
       .min(1)
       .max(TITLE_MAX)
-      .describe('Short title shown above the visual, e.g. "Exponential growth explorer"'),
+      .describe('Short title shown above the visual, e.g. "H100 price vs supply" rather than "Untitled"'),
     widget_code: z
       .string()
       .min(1)

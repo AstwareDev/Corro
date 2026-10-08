@@ -232,6 +232,11 @@ function persist(
     toolCalls,
     agentMessages: run.responseMessages,
     usage: run.usage.server,
+    // User-selected model/effort for this turn. Saved so the UI restores the
+    // last used selection per session. Only submitting writes; the agent never
+    // overwrites these with an internal switch (run.model == req.model).
+    model: req.model,
+    ...(req.reasoningEffort ? { reasoningEffort: req.reasoningEffort } : {}),
     // Thoughts are saved on the session for re-display after refresh but are
     // never included in conversation() / agentMessages, so they never reach
     // the model on later turns.
@@ -255,6 +260,9 @@ function persist(
 
   const previous = session.context
   session.model = req.model
+  // Last user-selected effort for this session. Only set when the request
+  // carries one (submitting); selector changes alone never reach here.
+  if (req.reasoningEffort) session.reasoningEffort = req.reasoningEffort
   // Measured without turn-scoped skill bodies: read_skill results and slash
   // invocations apply to one turn only, so the stored baseline stays index-only.
   const measured = safeMeasureContext({

@@ -132,3 +132,21 @@ test('honest partial reports and content removals are not mistaken for file dele
   assert.ok(completionIssue('I verified it by reading the file back.', messages, []))
   assert.equal(completionIssue('I verified it by reading the file back.', messages, [call, { toolCallId: 'b', toolName: 'fs_read', input: {}, output: { ok: true, path: 'draft.md' } }]), undefined)
 })
+
+test('a promised visual with no widget call and no chart block is flagged', () => {
+  const ask = [{ role: 'user' as const, content: 'Use visuals such as widgets and charts for quantitative data' }]
+  const searches = [
+    { toolCallId: 's1', toolName: 'web_search', input: { query: 'NVIDIA revenue' }, output: { ok: true } },
+  ]
+  // Screenshot case: promise sentence, nothing delivered.
+  assert.ok(completionIssue('Here is the interactive supply-demand diagram showing the shift:', ask, searches))
+  // Stored-run case: diagram section header with an empty section.
+  assert.ok(completionIssue('## Supply and demand diagram\n\nReady. What do you need help with?', ask, searches))
+  // Delivered via widget: no issue.
+  const widget = { toolCallId: 'w1', toolName: 'show_widget', input: { title: 'Shift' }, output: 'Rendered.' }
+  assert.equal(completionIssue('Here is the interactive supply-demand diagram showing the shift:', ask, [...searches, widget]), undefined)
+  // Delivered via chart block: no issue.
+  assert.equal(completionIssue('Here is the trend:\n```chart\n{"type": "line"}\n```', ask, searches), undefined)
+  // Ordinary prose with no promise: no issue.
+  assert.equal(completionIssue('Revenue grew from $4.3b to $35.6b over seven quarters.', ask, searches), undefined)
+})

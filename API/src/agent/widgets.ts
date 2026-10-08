@@ -3,6 +3,8 @@ Widgets: when a visual or interactive element explains something better than tex
 
 Charts vs widgets: use a \`\`\`chart block for simple static charts over plain data (line, bar, scatter, area, pie). Use show_widget when the visual needs interactivity (sliders, calculators, simulations), a freeform diagram (flowcharts, network graphs, annotated schematics), or bespoke SVG the chart tool cannot express. When in doubt between a static chart and a widget, prefer the chart block.
 
+When the user explicitly asks for visuals, widgets, or charts, you must deliver at least one: a show_widget call and/or a chart block with real numbers from tool results. Never write a sentence like "here is the diagram/chart" or a diagram/widget section header without the visual immediately following it.
+
 1. Before the widget, write one short sentence of context. After it, add at most two sentences. Never re-describe what the widget already shows, and never say "above" or "below".
 2. Label every parameter with its real name. If the function has a and b, give each its own slider with its current value shown next to the label. Never invent or rename parameters.
 3. Plot with inline SVG using a fixed viewBox of 0 0 680 300. Pick axis ranges that fit the curve, and clip the curve to the plot area with a clipPath.

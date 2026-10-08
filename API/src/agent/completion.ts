@@ -29,9 +29,26 @@ export function confirmedChange(call: ExecutionRecord): boolean {
 const completed = /(?:^\s*(?:saved|updated|edited|created|deleted|renamed)\b|\b(?:(?:i|we)(?:['’]ve| have)?\s+(?:(?:just|actually|already|successfully|now)\s+)*(?:saved|rewrote|rewritten|updated|edited|changed|created|deleted|removed|renamed|moved|written)|(?:file|document|presentation|draft|it)\s+(?:is|has been|was)\s+(?:now\s+)?(?:saved|updated|changed|rewritten|deleted|renamed)|done\b))/i
 const fileName = /[\w-]+(?:\/[\w .-]+)*\.(?:md|txt|csv|json|html|css|js|ts|tsx|py|docx|pptx|xlsx)\b/gi
 
+// A sentence promising a visual ("here is the diagram/chart/..."), or a
+// section header that exists only to hold one. Headers are limited to
+// diagram/widget (words almost never used except to promise a visual);
+// chart/graph/plot headers are left alone because prose about methodology
+// (e.g. "## Price chart methodology") is legitimate.
+const visualPromise = /\b(?:here\s+(?:is|are)|below)\b[^.\n]{0,120}?\b(diagram|chart|widget|visual|graph|plot)\b/i
+const visualHeader = /^#{1,4}\s+.*\b(diagram|widget)\b.*$/im
+
 export function completionIssue(text: string, messages: ModelMessage[], calls: ExecutionRecord[]): string | undefined {
   const latest = messages.findLast((m) => m.role === 'user')
   const request = typeof latest?.content === 'string' ? latest.content : ''
+  // Visual check runs on the raw draft: fence stripping below would remove
+  // chart blocks, which are exactly one of the two acceptable artifacts.
+  // Root cause of the empty-diagram run: the draft headlined a visual with
+  // neither a show_widget call nor a chart block, and nothing flagged it.
+  const deliveredVisual =
+    calls.some((c) => c.toolName === 'show_widget') || /```chart[\s\S]*?```/.test(text)
+  if (!deliveredVisual && (visualPromise.test(text) || visualHeader.test(text))) {
+    return 'The draft promises or headlines a visual (diagram/chart/widget) but this turn has neither a show_widget call nor a chart block. Call show_widget and/or emit the chart block with real numbers from tool results, then report; or remove the promising sentence/header and deliver the text answer as-is.'
+  }
   text = text.replace(/```[\s\S]*?```/g, '').replace(/^>.*$/gm, '')
   const fileContext = /\b(file|document|presentation|draft|workspace|slides?)\b/i.test(request + ' ' + text)
     || fileName.test(request + ' ' + text)

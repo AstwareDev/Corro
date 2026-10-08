@@ -100,10 +100,14 @@ export type AgentEvent =
   | { type: 'start'; model: ModelKey; tools: string[]; context?: ContextUsage }
   | { type: 'text'; text: string }
   | { type: 'reasoning'; text: string }
-  
-  
+  // Live step boundaries so the UI can group tool calls by step and show a
+  // live step counter. Forwarded from the SDK's start-step/finish-step parts
+  // (one agent step == one stopWhen stepCountIs(1) call) without buffering.
+  | { type: 'start-step'; step: number }
+  | { type: 'finish-step'; step: number }
   | { type: 'tool-input-start'; id: string; name: string }
   | { type: 'tool-input-delta'; id: string; delta: string }
+  | { type: 'tool-input-end'; id: string }
   | { type: 'tool-call'; id?: string; name: string; input: unknown }
   | { type: 'tool-result'; id?: string; name: string; output: unknown }
   
@@ -323,6 +327,12 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
         break
       }
       const active = Object.fromEntries(Object.entries(prepared.toolset).filter(([name]) => !disabled.has(name)))
+      // Agent-level step boundary: one iteration == one LLM step
+      // (resilientStep uses stopWhen stepCountIs(1)). Emitted live so the UI
+      // can group tool calls by step and show a live step counter. Nothing
+      // between here and the browser buffers: openSse disables buffering and
+      // the /chat route forwards each event with sse.send immediately.
+      yield { type: 'start-step', step }
       const stepStream = resilientStep({
         model: input.languageModel ?? chatModel(input.model),
         system: prepared.system + '\n\n' + executionReminder(calls) + disabledNotice(disabled)
@@ -373,6 +383,17 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
         } else if (p.type === 'tool-input-delta' && p.id && p.delta) {
           markFirstToken()
           yield { type: 'tool-input-delta', id: p.id, delta: p.delta }
+        } else if (p.type === 'tool-input-end' && (p.id ?? p.toolCallId)) {
+          // Input JSON is complete; tool-call with the parsed input follows.
+          // Forwarded live (not buffered) so the UI can flip the row from
+          // input-streaming to input-available without waiting for execution.
+          markFirstToken()
+          yield { type: 'tool-input-end', id: (p.id ?? p.toolCallId) as string }
+        } else if (p.type === 'start-step' || p.type === 'finish-step') {
+          // SDK-level step parts for this single-step call. The agent-level
+          // start-step/finish-step above is the grouping signal for the UI;
+          // these are intentionally not forwarded to avoid double-counting.
+          continue
         } else if (p.type === 'tool-call') {
           markFirstToken()
           inputs.set(p.toolCallId ?? p.id ?? '', { name: p.toolName ?? 'unknown', input: p.input })
@@ -427,6 +448,7 @@ export async function* streamAgent(input: RunInput): AsyncGenerator<AgentEvent> 
         if (typeof n === 'number' && Number.isFinite(n)) usage[key] = (usage[key] ?? 0) + n
       }
       steps.push({ text: '', toolCalls: [...inputs].map(([toolCallId, c]) => ({ toolCallId, toolName: c.name, input: c.input })), toolResults: results, usage: stepUsage })
+      yield { type: 'finish-step', step }
       for (const message of stepOutcome.responseMessages) {
         if (message.role === 'tool') responseMessages.push(message)
         else if (message.role === 'assistant' && Array.isArray(message.content)) {

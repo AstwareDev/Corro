@@ -83,17 +83,74 @@ function clampHeight(value: number): number {
   return Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.round(value)));
 }
 
+/** Extract a partial widget_code prefix from streamed raw JSON without
+ *  JSON.parse on the partial object (the SDK already exposes deltas; the
+ *  object is incomplete). Only decodes the single string prefix. */
+function peekPartialCode(partial?: string): string | undefined {
+  if (!partial) return undefined;
+  const match = /"widget_code"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(partial);
+  if (!match) return undefined;
+  const raw = match[1];
+  // The prefix may end mid-escape (trailing backslash or partial \u); trim
+  // the incomplete tail before decoding so we never throw on partial input.
+  for (let end = raw.length; end >= 0; end--) {
+    const slice = raw.slice(0, end);
+    if (/\\$/.test(slice)) continue;
+    if (/\\u[0-9a-fA-F]{0,3}$/.test(slice)) continue;
+    try {
+      const decoded = JSON.parse(`"${slice}"`) as string;
+      if (decoded) return decoded;
+      return undefined;
+    } catch {
+      // Incomplete prefix — try a shorter slice.
+    }
+  }
+  return undefined;
+}
+
+/** Strip scripts for progressive streaming preview so partial JS never runs. */
+function stripScripts(code: string): string {
+  return code
+    .replace(/<script[\s\S]*?(<\/script>|$)/gi, "")
+    .replace(/ on\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/ on\w+\s*=\s*'[^']*'/gi, "");
+}
+
 export function Widget({
   code,
   title,
+  partial,
+  status,
 }: {
   code: string | undefined;
   title: string;
+  /** Raw streamed JSON prefix while input is still streaming. */
+  partial?: string;
+  /** Tool call state: pending=input-streaming, running=input-available,
+   *  done=output-available, error=output-error. */
+  status?: "pending" | "running" | "done" | "error";
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(START_HEIGHT);
   const [error, setError] = useState<string | null>(null);
-  const doc = useMemo(() => (code ? documentFor(code) : null), [code]);
+  // Root cause note: widgets previously rendered only once full input
+  // arrived (output-available) with scripts always enabled, so a run that
+  // streamed large widget_code showed only a skeleton live and the iframe
+  // reloaded with partial JS once enabled. Now markup streams progressively
+  // (scripts stripped, sandbox without allow-scripts) and scripts run only
+  // once input is available (sandbox allow-scripts at that point). The iframe
+  // element itself is stable (keyed by toolCallId, same ref) — only srcDoc
+  // updates, never a remount — and batched deltas (rAF in useChat) keep long
+  // inputs from freezing the page.
+  const streaming = status === "pending";
+  const previewCode = !code ? peekPartialCode(partial) : undefined;
+  const displayCode =
+    code ?? (previewCode ? stripScripts(previewCode) : undefined);
+  const scriptsReady = !streaming && !!code;
+  const doc = useMemo(
+    () => (displayCode ? documentFor(displayCode) : null),
+    [displayCode],
+  );
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -133,7 +190,11 @@ export function Widget({
   }
 
   return (
-    <section aria-label={title} className="w-full">
+    <section
+      aria-label={title}
+      aria-live={streaming ? "polite" : undefined}
+      className="w-full"
+    >
       <h4 className="mb-1 text-[15px] font-medium text-ink">{title}</h4>
       {error && (
         <p
@@ -143,15 +204,20 @@ export function Widget({
           {error}
         </p>
       )}
+      {/* Stable element: srcDoc updates without remounting (same key/ref).
+          Page-level CSP frame-src 'self' permits srcDoc; inner meta CSP
+          allows unsafe-inline + cdnjs. Scripts enabled only once input is
+          available, so partial markup never executes. */}
       <iframe
         ref={frame}
         title={title}
-        sandbox="allow-scripts"
+        sandbox={scriptsReady ? "allow-scripts" : ""}
         srcDoc={doc}
         style={{ height }}
         className="w-full rounded-xl border border-border bg-surface"
         scrolling="no"
       />
+      {streaming && <span className="sr-only">Building visual…</span>}
     </section>
   );
 }

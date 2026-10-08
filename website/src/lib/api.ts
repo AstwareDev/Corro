@@ -46,8 +46,11 @@ export type SseEvent =
   | { type: "session"; id: string; title: string }
   | { type: "text"; text: string }
   | { type: "reasoning"; text: string }
+  | { type: "start-step"; step: number }
+  | { type: "finish-step"; step: number }
   | { type: "tool-input-start"; id: string; name: string }
   | { type: "tool-input-delta"; id: string; delta: string }
+  | { type: "tool-input-end"; id: string }
   | { type: "tool-call"; id?: string; name: string; input: unknown }
   | { type: "tool-result"; id?: string; name: string; output: unknown }
   | { type: "context"; context: ContextUsage }
@@ -167,6 +170,12 @@ export async function* streamChat(
         id: data.id as string,
         delta: data.delta as string,
       };
+    } else if (event === "tool-input-end") {
+      yield { type: "tool-input-end", id: data.id as string };
+    } else if (event === "start-step") {
+      yield { type: "start-step", step: data.step as number };
+    } else if (event === "finish-step") {
+      yield { type: "finish-step", step: data.step as number };
     } else if (event === "tool-call") {
       yield {
         type: "tool-call",
@@ -292,7 +301,8 @@ export async function uploadAttachment(
   );
   if (!response.ok) throw await workspaceError(response, "Upload failed");
   const result = (await response.json()) as UploadResult & { ok: boolean };
-  const resolvedSession = result.sessionId ?? result.session ?? sessionId ?? undefined;
+  const resolvedSession =
+    result.sessionId ?? result.session ?? sessionId ?? undefined;
   notifyWorkspaceChanged(resolvedSession);
   return result;
 }
@@ -424,6 +434,7 @@ export interface SessionSummary {
   title: string;
   pinned?: boolean;
   model: string;
+  reasoningEffort?: string;
   createdAt: string;
   updatedAt: string;
   messageCount: number;
@@ -445,6 +456,8 @@ export interface StoredMessage {
   tokens?: number;
   toolCalls?: StoredToolCall[];
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
+  model?: string;
+  reasoningEffort?: string;
   // Reasoning ("Thoughts") is stored for re-display after refresh. It is never
   // sent back to the model.
   reasoning?: string;
@@ -616,7 +629,8 @@ export function fetchSkills(): Promise<SkillDescription[]> {
         data?: SkillDescription[];
       };
       return (json.data ?? []).filter(
-        (s) => typeof s?.name === "string" && typeof s?.description === "string",
+        (s) =>
+          typeof s?.name === "string" && typeof s?.description === "string",
       );
     })
     .catch(() => []);
@@ -633,7 +647,8 @@ export function fetchTools(): Promise<ToolDescription[]> {
         data?: ToolDescription[];
       };
       return (json.data ?? []).filter(
-        (t) => typeof t?.name === "string" && typeof t?.description === "string",
+        (t) =>
+          typeof t?.name === "string" && typeof t?.description === "string",
       );
     })
     .catch(() => []);

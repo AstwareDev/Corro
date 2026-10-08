@@ -101,6 +101,44 @@ export function useChat() {
       abortRef.current = controller;
       let activeSession = sessionId;
       let ended = false;
+      // Live step tracking for this run. start-step events carry the 0-based
+      // agent step; tool calls are tagged so the UI can group by step and
+      // show "Step N" live. Keyed by toolCallId (localId), never by index.
+      let liveStep = 0;
+      // Batch large streaming tool-input deltas per animation frame so long
+      // inputs (e.g. 20k widget_code) do not freeze the page with a render
+      // per chunk. Flushes as a single setMessages per frame.
+      const deltaBuffer = new Map<string, string>();
+      let deltaRaf = 0;
+      const flushDeltas = () => {
+        deltaRaf = 0;
+        if (!deltaBuffer.size) return;
+        const batch = new Map(deltaBuffer);
+        deltaBuffer.clear();
+        patchLast((m) => {
+          let blocks = m.blocks;
+          for (const [id, delta] of batch) {
+            blocks = patchCall(blocks, id, (call) => {
+              const partial = (call.partial ?? "") + delta;
+              return {
+                ...call,
+                partial,
+                description: peekDescription(partial) ?? call.description,
+              };
+            });
+          }
+          return { ...m, blocks };
+        });
+      };
+      const queueDelta = (id: string, delta: string) => {
+        deltaBuffer.set(id, (deltaBuffer.get(id) ?? "") + delta);
+        if (deltaRaf) return;
+        const schedule =
+          typeof requestAnimationFrame === "function"
+            ? requestAnimationFrame
+            : (fn: () => void) => setTimeout(fn, 16) as unknown as number;
+        deltaRaf = schedule(() => flushDeltas()) as unknown as number;
+      };
 
       try {
         for await (const event of streamChat({
@@ -172,6 +210,7 @@ export function useChat() {
                 input: undefined,
                 status: "pending",
                 startedAt: now,
+                step: liveStep,
                 partial: "",
               };
               const last = blocks[blocks.length - 1];
@@ -187,19 +226,44 @@ export function useChat() {
               return { ...m, blocks, firstTokenAt: m.firstTokenAt ?? now };
             });
           } else if (event.type === "tool-input-delta") {
+            queueDelta(event.id, event.delta);
+          } else if (event.type === "tool-input-end") {
+            // Input JSON complete; the parsed tool-call follows. Flush any
+            // buffered deltas now so the row flips to input-available without
+            // waiting for the next animation frame.
+            if (deltaRaf) {
+              if (typeof cancelAnimationFrame === "function") {
+                try {
+                  cancelAnimationFrame(deltaRaf);
+                } catch {}
+              }
+              flushDeltas();
+            }
+          } else if (event.type === "start-step") {
+            liveStep = event.step + 1;
+            patchLast((m) => {
+              const blocks = m.blocks.slice();
+              const last = blocks[blocks.length - 1];
+              // Start a new tools group for this step so the UI groups calls
+              // by step. Empty groups render nothing until calls arrive.
+              if (last?.kind === "tools" && last.calls.length) {
+                blocks.push({ kind: "tools", id: uid(), calls: [] });
+              } else if (!last || last.kind !== "tools") {
+                blocks.push({ kind: "tools", id: uid(), calls: [] });
+              }
+              return { ...m, blocks, liveStep };
+            });
+          } else if (event.type === "finish-step") {
+            liveStep = Math.max(liveStep, event.step + 1);
             patchLast((m) => ({
               ...m,
-              blocks: patchCall(m.blocks, event.id, (call) => {
-                const partial = (call.partial ?? "") + event.delta;
-                return {
-                  ...call,
-                  partial,
-                  description: peekDescription(partial) ?? call.description,
-                };
-              }),
+              liveStep: Math.max(m.liveStep ?? 0, event.step + 1),
             }));
           } else if (event.type === "tool-call") {
             const now = Date.now();
+            // Apply any buffered deltas first so clearing partial below does
+            // not get re-populated by a stale flush.
+            if (deltaBuffer.size) flushDeltas();
             const described = event.input as { description?: unknown } | null;
             const description =
               typeof described?.description === "string"
@@ -234,6 +298,7 @@ export function useChat() {
                 input: event.input,
                 status: "running",
                 startedAt: now,
+                step: liveStep || undefined,
                 description,
               };
               const last = blocks[blocks.length - 1];
@@ -299,6 +364,7 @@ export function useChat() {
             }
           } else if (event.type === "done") {
             ended = true;
+            if (deltaBuffer.size) flushDeltas();
             const now = Date.now();
             const usage = (
               event as { usage?: { server?: ChatMessageUI["usage"] } }
@@ -308,10 +374,12 @@ export function useChat() {
               blocks: closeReasoning(m.blocks, now),
               streaming: false,
               completedAt: now,
+              liveStep: undefined,
               usage: usage?.server ?? m.usage,
             }));
           } else if (event.type === "error") {
             ended = true;
+            if (deltaBuffer.size) flushDeltas();
             const now = Date.now();
             patchLast((m) => ({
               ...m,

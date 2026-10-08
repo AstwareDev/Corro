@@ -21,7 +21,10 @@ function widgetCall(
   };
 }
 
-function assistant(blocks: ChatMessageUI["blocks"], streaming = false): ChatMessageUI {
+function assistant(
+  blocks: ChatMessageUI["blocks"],
+  streaming = false,
+): ChatMessageUI {
   return {
     id: "m1",
     role: "assistant",
@@ -70,8 +73,8 @@ describe("show_widget body placement", () => {
     expect(second).toBeGreaterThan(growth);
   });
 
-  it("shows a titled placeholder while arguments stream", () => {
-    const html = renderToStaticMarkup(
+  it("streams markup progressively without scripts, then enables on complete", () => {
+    const streamingHtml = renderToStaticMarkup(
       <ChatMessage
         message={assistant(
           [
@@ -82,8 +85,8 @@ describe("show_widget body placement", () => {
                 widgetCall(
                   "w1",
                   undefined,
-                  "running",
-                  '{"description":"Rendering visualizer", "title":"Growth explorer", "widget_code":"<div',
+                  "pending",
+                  '{"description":"Rendering visualizer", "title":"Growth explorer", "widget_code":"<div>hi',
                 ),
               ],
             },
@@ -93,8 +96,32 @@ describe("show_widget body placement", () => {
         sessionId={null}
       />,
     );
-    expect(html).not.toContain("<iframe");
-    expect(html).toContain("Growth explorer");
+    // Markup appears while streaming (not just a skeleton), but scripts stay
+    // disabled until input is available.
+    expect(streamingHtml).toContain("<iframe");
+    expect(streamingHtml).toContain("Growth explorer");
+    expect(streamingHtml).not.toContain('sandbox="allow-scripts"');
+    // Complete state enables scripts for interactivity.
+    const doneHtml = renderToStaticMarkup(
+      <ChatMessage
+        message={assistant([
+          {
+            kind: "tools",
+            id: "b1",
+            calls: [
+              widgetCall("w1", {
+                description: "Rendering visualizer",
+                title: "Growth",
+                widget_code: "<div>hi<script>window.x=1</script></div>",
+              }),
+            ],
+          },
+        ])}
+        sessionId={null}
+      />,
+    );
+    expect(doneHtml).toContain("<iframe");
+    expect(doneHtml).toContain('sandbox="allow-scripts"');
   });
 
   it("sandboxes with CSP, dark mode vars, prompt bridge and resize", () => {

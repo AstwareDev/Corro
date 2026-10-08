@@ -117,8 +117,9 @@ export function createFsTools(root: string) {
     inputSchema: z.object({
       description: toolDescription,
       path: z.string().min(1).describe('Workspace-relative path. Parent folders are created.'),
-      content: z.string().max(MAX_WRITE_BYTES).describe('The full file contents.'),
       expectedRevision: z.string().nullable().optional().describe('Revision from fs_read when replacing a file; null requires a new file. Prevents overwriting newer edits.'),
+      // Large content last so the path header streams before the body.
+      content: z.string().max(MAX_WRITE_BYTES).describe('The full file contents.'),
     }),
     execute: async ({ path: rel, content, expectedRevision }) => {
       try {
@@ -148,10 +149,11 @@ export function createFsTools(root: string) {
     inputSchema: z.object({
       description: toolDescription,
       path: z.string().min(1).describe('Workspace-relative path.'),
-      oldText: z.string().min(1).describe('Exact text to replace, including indentation.'),
-      newText: z.string().describe('Replacement text. Empty string deletes the old text.'),
       replaceAll: z.boolean().optional().describe('Replace every occurrence instead of requiring one.'),
       expectedRevision: z.string().optional().describe('Revision from fs_read, to reject stale edits.'),
+      // Large text fields last so the path header streams before the body.
+      oldText: z.string().min(1).describe('Exact text to replace, including indentation.'),
+      newText: z.string().describe('Replacement text. Empty string deletes the old text.'),
     }),
     execute: async ({ path: rel, oldText, newText, replaceAll, expectedRevision }) => {
       try {

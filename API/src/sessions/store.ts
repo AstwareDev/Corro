@@ -32,6 +32,10 @@ export interface StoredMessage {
   // The model selected for this turn, so the UI can show which model
   // produced each response even after a refresh.
   model?: string
+  // The effort level selected for this turn. Saved per message and as the
+  // session default so the selector can restore the last used values.
+  // Only submitting saves; changing the selector alone never writes.
+  reasoningEffort?: string
   // Reasoning ("Thoughts") is stored for re-display after refresh. It is
   // deliberately excluded from conversation() so it is never sent to the model.
   reasoning?: string
@@ -62,6 +66,11 @@ export interface Session {
   titlePinned?: boolean
   pinned?: boolean
   model: ModelKey
+  // Last user-selected effort for this session. Saved only on submit (via
+  // /chat persist), never on selector change alone. The UI restores this on
+  // load/refresh/switch, falling back to the app default if missing/invalid.
+  // Internal model switches during a run never overwrite the user selection.
+  reasoningEffort?: string
   createdAt: string
   updatedAt: string
   messages: StoredMessage[]
@@ -74,6 +83,7 @@ export interface SessionSummary {
   title: string
   pinned?: boolean
   model: ModelKey
+  reasoningEffort?: string
   createdAt: string
   updatedAt: string
   messageCount: number
@@ -180,6 +190,7 @@ export function listSessions(deviceId: string): SessionSummary[] {
       title: s.title,
       pinned: s.pinned,
       model: s.model,
+      ...(s.reasoningEffort ? { reasoningEffort: s.reasoningEffort } : {}),
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
       messageCount: s.messages.length,
@@ -217,6 +228,8 @@ export function appendMessage(
     ...(message.toolCalls?.length ? { toolCalls: message.toolCalls } : {}),
     ...(message.agentMessages?.length ? { agentMessages: message.agentMessages } : {}),
     ...(message.usage ? { usage: message.usage } : {}),
+    ...(message.model ? { model: message.model } : {}),
+    ...(message.reasoningEffort ? { reasoningEffort: message.reasoningEffort } : {}),
     ...(message.reasoning ? { reasoning: message.reasoning } : {}),
     ...(message.reasoningDurationMs === undefined ? {} : { reasoningDurationMs: message.reasoningDurationMs }),
     ...(message.timings ? { timings: message.timings } : {}),

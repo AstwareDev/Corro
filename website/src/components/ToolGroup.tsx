@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useElapsed } from "@/hooks/useElapsed";
 import { useMotionPreference } from "@/lib/appearance";
 import { formatBytes, formatDuration } from "@/lib/format";
-import { humanizeToolName, type ToolCallUI } from "@/lib/types";
+import { humanizeToolName, peekLiveInput, type ToolCallUI } from "@/lib/types";
 import { FileModal } from "./FileModal";
 import { BrandStack, brandsOf, presentTool, runKey } from "./tools/registry";
 import { ToolResult } from "./tools/ToolResult";
@@ -40,8 +40,26 @@ function StatusIcon({ status }: { status: ToolCallUI["status"] }) {
 }
 
 function label(call: ToolCallUI): string {
+  // Show the query/URL/title as soon as it streams (from partial or input),
+  // then the running/done status via the icon. Raw page content stays
+  // collapsed behind the row toggle (ToolResult, closed by default).
+  const detail = peekLiveInput(call.input, call.partial);
+  if (call.status === "pending") {
+    if (detail) {
+      if (call.name === "web_search") return `Searching: ${detail}`;
+      if (call.name.startsWith("web_")) return `Reading: ${detail}`;
+      if (call.name === "show_widget") return `Writing widget: ${detail}`;
+    }
+    // Fall back to the streamed description, never JSON.parse the partial.
+    if (call.description) return call.description;
+    return "Preparing…";
+  }
+  if (detail) {
+    const verb = presentTool(call.name).verb || humanizeToolName(call.name);
+    // e.g. "Searched the web: query", "Read a page: https://…"
+    return `${verb}: ${detail}`;
+  }
   if (call.description) return call.description;
-  if (call.status === "pending") return "Preparing…";
   return presentTool(call.name).verb || humanizeToolName(call.name);
 }
 

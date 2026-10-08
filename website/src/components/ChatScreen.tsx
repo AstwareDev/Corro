@@ -17,10 +17,12 @@ import {
   fetchSuggestions,
   fetchTools,
   fetchWorkspace,
+  type SessionDetail,
   type WorkspaceFile,
 } from "@/lib/api";
 import { useAppearance, useMotionPreference } from "@/lib/appearance";
 import { enabledToolNames, useCustomization } from "@/lib/customize";
+import { defaultPrefs, resolveSessionPrefs } from "@/lib/session-prefs";
 import { collectSources } from "@/lib/sources";
 import type { Effort, MessageAttachment, ModelDescription } from "@/lib/types";
 import { onWidgetPrompt } from "@/lib/widget-prompt";
@@ -28,7 +30,11 @@ import { onWorkspaceChanged } from "@/lib/workspace-events";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-export function ChatScreen({ sessionId: initialSessionId }: { sessionId?: string }) {
+export function ChatScreen({
+  sessionId: initialSessionId,
+}: {
+  sessionId?: string;
+}) {
   const motionOff = useMotionPreference();
   const reduce = useMotionPreference();
   const router = useRouter();
@@ -38,6 +44,14 @@ export function ChatScreen({ sessionId: initialSessionId }: { sessionId?: string
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [model, setModel] = useState<string>("");
   const [effort, setEffort] = useState<Effort>("max");
+  const [loadedSession, setLoadedSession] = useState<SessionDetail | null>(
+    null,
+  );
+  // Set when restoring session prefs so the model-change auto-reset (which
+  // resets effort to the new model's default) skips exactly once and does
+  // not overwrite the restored effort. Selector changes alone never write;
+  // only submitting via /chat persist saves.
+  const skipResetRef = useRef(false);
   const [files, setFiles] = useState<WorkspaceFile[]>([]);
   const [filesError, setFilesError] = useState<string | null>(null);
   const [filesLoading, setFilesLoading] = useState(false);
@@ -94,13 +108,20 @@ export function ChatScreen({ sessionId: initialSessionId }: { sessionId?: string
   }, [isStreaming, refreshFiles]);
 
   useEffect(() => {
-    if (!initialSessionId) return;
+    if (!initialSessionId) {
+      setLoadedSession(null);
+      return;
+    }
     let cancelled = false;
     fetchSession(initialSessionId)
       .then((session) => {
-        if (!cancelled) load(session);
+        if (cancelled) return;
+        setLoadedSession(session);
+        load(session);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setLoadedSession(null);
+      });
     return () => {
       cancelled = true;
     };
@@ -161,8 +182,20 @@ export function ChatScreen({ sessionId: initialSessionId }: { sessionId?: string
         if (cancelled) return;
         setModels(data);
         setModelsError(null);
-        const def = data.find((m) => m.isDefault) ?? data[0];
-        if (def) setModel(def.key);
+        // Avoid the hydration race: when a session is expected, do not set
+        // the app default yet — wait for the session detail so the default
+        // never overwrites (or flashes before) the loaded value. The restore
+        // effect below initializes from session data once both have loaded,
+        // rendering a stable skeleton placeholder until then (ModelMenu shows
+        // skeleton when loading and no active model).
+        if (initialSessionId) return;
+        const def = defaultPrefs(data);
+        if (def) {
+          setModel(def.model);
+          // Only set effort if it differs to avoid extra renders; the
+          // auto-reset below will also align it once model is set.
+          setEffort((prev) => (prev === def.effort ? prev : def.effort));
+        }
       })
       .catch((error) => {
         if (!cancelled) {
@@ -175,11 +208,37 @@ export function ChatScreen({ sessionId: initialSessionId }: { sessionId?: string
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialSessionId]);
 
   const lastModelRef = useRef("");
+  // Restore last saved model+effort for this session once both models and
+  // session detail have loaded. Validates against current options; falls back
+  // to the app default when missing/invalid. Runs per session (remount on id
+  // change via key), so different sessions show their own selection.
+  useEffect(() => {
+    if (!models.length || !loadedSession) return;
+    // Only restore for the session we loaded (matches the route id or the
+    // active session after creation). Avoids applying stale prefs.
+    const prefs = resolveSessionPrefs(loadedSession, models);
+    if (!prefs) return;
+    // Model starts empty when a session is expected (default deferred), so
+    // this always changes model and would trigger the auto-reset below —
+    // skip it once to keep the restored effort.
+    skipResetRef.current = true;
+    setModel(prefs.model);
+    setEffort(prefs.effort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [models, loadedSession]);
+
   useEffect(() => {
     if (!model || lastModelRef.current === model) return;
+    if (skipResetRef.current) {
+      // Restored prefs already set the correct effort; do not overwrite with
+      // the model default.
+      skipResetRef.current = false;
+      lastModelRef.current = model;
+      return;
+    }
     lastModelRef.current = model;
     const active = models.find((m) => m.key === model);
     const fallback = active?.reasoningEfforts?.[0];
@@ -188,7 +247,11 @@ export function ChatScreen({ sessionId: initialSessionId }: { sessionId?: string
   }, [model, models]);
 
   function handleSend(text: string, attachments?: MessageAttachment[]) {
-    send(text, { model, reasoningEffort: effort, tools: chatTools }, attachments);
+    send(
+      text,
+      { model, reasoningEffort: effort, tools: chatTools },
+      attachments,
+    );
   }
 
   const handleSendRef = useRef(handleSend);

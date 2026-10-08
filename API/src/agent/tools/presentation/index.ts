@@ -30,8 +30,9 @@ export function createPresentationTools(workspace: string) {
       path: z.string().min(1).describe('Workspace-relative .pptx path to save to, e.g. "reports/q3-review.pptx"'),
       title: z.string().max(200).describe('Presentation title, used on the title slide.'),
       subtitle: z.string().max(300).optional(),
-      slides: z.array(slideSchema).min(1).max(MAX_SLIDES).describe('Content slides, after the title slide.'),
       expectedRevision: z.string().nullable().optional().describe('Revision from a prior create_presentation/fs_read call, when replacing an existing deck; null requires a new file.'),
+      // Large slides array last so the path/title header streams first.
+      slides: z.array(slideSchema).min(1).max(MAX_SLIDES).describe('Content slides, after the title slide.'),
     }),
     execute: async ({ path: rel, title, subtitle, slides, expectedRevision }) => {
       try {

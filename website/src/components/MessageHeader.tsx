@@ -17,12 +17,16 @@ export function MessageHeader({
   hasTrace,
   open,
   onToggle,
+  liveLabel,
+  liveStep,
 }: {
   message: ChatMessageUI;
   parts: string[];
   hasTrace: boolean;
   open: boolean;
   onToggle: () => void;
+  liveLabel?: string;
+  liveStep?: number;
 }) {
   const motionOff = useMotionPreference();
   const running = Boolean(message.streaming);
@@ -36,7 +40,16 @@ export function MessageHeader({
     : elapsed >= 1000
       ? `Worked for ${formatDuration(elapsed)}`
       : null;
-  const label = [timing, ...parts].filter(Boolean).join(" · ");
+  // While streaming, prefer the live current step ("Searching: <query>") and
+  // live step counter over the settled summary. Collapses back on done.
+  const liveParts =
+    running && (liveLabel || liveStep)
+      ? [
+          ...(liveStep ? [`Step ${liveStep}`] : []),
+          ...(liveLabel ? [liveLabel] : []),
+        ]
+      : [];
+  const label = [timing, ...liveParts, ...parts].filter(Boolean).join(" · ");
 
   const content = (
     <>

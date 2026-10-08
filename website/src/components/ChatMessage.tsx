@@ -15,6 +15,7 @@ import { useMotionPreference } from "@/lib/appearance";
 import { formatBytes } from "@/lib/format";
 import {
   type ChatMessageUI,
+  liveStepLabel,
   type MessageAttachment,
   type MessageBlock,
   peekWidgetTitle,
@@ -57,9 +58,7 @@ function splitLeadingSkills(
 ): { names: string[]; rest: string } | null {
   const match = LEADING_SKILLS.exec(text.trimStart());
   if (!match) return null;
-  const names = [...match[1].matchAll(/\/([A-Za-z0-9-_]+)/g)].map(
-    (m) => m[1],
-  );
+  const names = [...match[1].matchAll(/\/([A-Za-z0-9-_]+)/g)].map((m) => m[1]);
   if (!names.length) return null;
   return { names, rest: (match[2] ?? "").trimStart() };
 }
@@ -114,6 +113,8 @@ function toSegments(blocks: MessageBlock[]): Segment[] {
 }
 
 function widgetTitle(call: ToolCallUI): string {
+  // Every field can be undefined while input streams — use optional chaining,
+  // never JSON.parse the partial object (only single-string regex peeks).
   const input = call.input as
     | { title?: unknown; widget_code?: unknown }
     | undefined;
@@ -124,6 +125,12 @@ function widgetTitle(call: ToolCallUI): string {
 function widgetCode(call: ToolCallUI): string | undefined {
   const input = call.input as { widget_code?: unknown } | undefined;
   return typeof input?.widget_code === "string" ? input.widget_code : undefined;
+}
+
+function widgetError(call: ToolCallUI): string | undefined {
+  if (call.status !== "error") return undefined;
+  const out = call.output as { error?: unknown } | undefined;
+  return typeof out?.error === "string" ? out.error : "The visual failed";
 }
 
 export function ChatMessage({
@@ -161,8 +168,19 @@ function AssistantMessage({
   motionOff: boolean;
   sessionId?: string | null;
 }) {
-  const [traceOpen, setTraceOpen] = useState(false);
-  const [typeOut] = useState(() => Boolean(message.streaming));
+  const streaming = Boolean(message.streaming);
+  // While a run is in progress the trace stays open (or the header shows the
+  // live step) so tool inputs stream visibly instead of filling a collapsed
+  // "Thought for…" at the end. Collapses to the summary when the run ends;
+  // the user can still expand it afterward.
+  const [traceOpen, setTraceOpen] = useState(() => streaming);
+  const [typeOut] = useState(() => streaming);
+
+  useEffect(() => {
+    // Auto-expand while streaming, collapse to the summary when the run ends.
+    // Runs only on streaming transitions, so a manual toggle mid-run is kept.
+    setTraceOpen(streaming);
+  }, [streaming]);
 
   const segments = toSegments(message.blocks);
   const traceBlocks = segments.flatMap((s) =>
@@ -170,8 +188,19 @@ function AssistantMessage({
   );
   const lastText = [...segments].reverse().find((s) => s.kind === "text");
 
-  const settled = !message.streaming;
+  const settled = !streaming;
   const artifacts = settled ? artifactsOf(message.blocks) : [];
+
+  // Live current step for the header while streaming: last pending/running
+  // call, keyed by toolCallId so parallel calls never overwrite each other.
+  const liveCall = streaming
+    ? [...traceBlocks]
+        .reverse()
+        .flatMap((b) => (b.kind === "tools" ? b.calls : []))
+        .reverse()
+        .find((c) => c.status === "pending" || c.status === "running")
+    : undefined;
+  const liveLabel = liveCall ? liveStepLabel(liveCall) : undefined;
 
   return (
     <motion.div
@@ -190,6 +219,8 @@ function AssistantMessage({
         hasTrace={traceBlocks.length > 0}
         open={traceOpen}
         onToggle={() => setTraceOpen((o) => !o)}
+        liveLabel={liveLabel}
+        liveStep={streaming ? message.liveStep : undefined}
       />
 
       <div className="flex flex-1 flex-col gap-2">
@@ -203,11 +234,29 @@ function AssistantMessage({
               sessionId={sessionId}
             />
           ) : segment.kind === "widget" ? (
-            <Widget
-              key={segment.id}
-              code={widgetCode(segment.call)}
-              title={widgetTitle(segment.call)}
-            />
+            // Render by state: input-streaming shows partial markup (no
+            // scripts), input-available shows running, output-available shows
+            // the result, output-error shows the error. Widgets live in the
+            // body (toSegments), never inside the collapsed trace, so they
+            // stay visible. Keyed by toolCallId (localId) so parallel calls
+            // never overwrite each other, including across steps.
+            segment.call.status === "error" && !widgetCode(segment.call) ? (
+              <div
+                key={segment.id}
+                role="alert"
+                className="rounded-lg bg-contradicted/5 px-2.5 py-2 text-caption text-contradicted"
+              >
+                {widgetTitle(segment.call)} — {widgetError(segment.call)}
+              </div>
+            ) : (
+              <Widget
+                key={segment.id}
+                code={widgetCode(segment.call)}
+                title={widgetTitle(segment.call)}
+                partial={segment.call.partial}
+                status={segment.call.status}
+              />
+            )
           ) : (
             <div
               key={segment.id}
@@ -393,8 +442,7 @@ function UserMessage({
               <div className="skill-body">
                 {skills.names.map((name) => (
                   <span key={name} className="corro-skill-chip">
-                    <SkillIcon size={11} />
-                    /{name}
+                    <SkillIcon size={11} />/{name}
                   </span>
                 ))}
                 {skills.rest ? (
